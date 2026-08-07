@@ -9,6 +9,7 @@ public sealed record TimetableEntryDto(
     TimeOnly EndTime,
     Guid SubjectId,
     string SubjectName,
+    Guid? TeacherId,
     string? TeacherName,
     bool IsPublished);
 
@@ -19,6 +20,7 @@ public sealed record TimetableEntryInput(
     TimeOnly StartTime,
     TimeOnly EndTime,
     Guid SubjectId,
+    Guid? TeacherId,
     string? TeacherName);
 
 /// <summary>Define payload (mirrors DefineTimetableCommand).</summary>

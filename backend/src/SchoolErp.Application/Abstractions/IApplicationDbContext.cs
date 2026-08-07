@@ -6,6 +6,7 @@ using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Homework;
 using SchoolErp.Domain.Outbox;
+using SchoolErp.Domain.Staff;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Domain.Timetable;
@@ -71,6 +72,8 @@ public interface IApplicationDbContext
     DbSet<TripLocation> TripLocations { get; }
 
     DbSet<TripStudentEvent> TripStudentEvents { get; }
+
+    DbSet<Teacher> Teachers { get; }
 
     DbSet<TimetableEntry> TimetableEntries { get; }
 

@@ -75,6 +75,12 @@ public static class Permissions
         public const string Manage = "homework.manage";
     }
 
+    public static class Staff
+    {
+        public const string View = "staff.view";
+        public const string Manage = "staff.manage";
+    }
+
     public static class Timetable
     {
         public const string View = "timetable.view";

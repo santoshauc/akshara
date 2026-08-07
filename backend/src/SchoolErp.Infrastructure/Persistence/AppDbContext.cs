@@ -12,6 +12,7 @@ using SchoolErp.Domain.Homework;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Outbox;
+using SchoolErp.Domain.Staff;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Domain.Timetable;
@@ -117,6 +118,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     /// <summary>Per-student trip events (tenant-scoped).</summary>
     public DbSet<TripStudentEvent> TripStudentEvents => Set<TripStudentEvent>();
+
+    /// <summary>Teaching staff (tenant-scoped).</summary>
+    public DbSet<Teacher> Teachers => Set<Teacher>();
 
     /// <summary>Timetable entries (tenant-scoped).</summary>
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();

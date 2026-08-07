@@ -7,7 +7,8 @@ using SchoolErp.Domain.Timetable;
 
 namespace SchoolErp.Application.Timetable;
 
-/// <summary>One period slot as shown in grids.</summary>
+/// <summary>One period slot as shown in grids. TeacherName resolves from the
+/// linked staff record when present, else the free-text fallback.</summary>
 public sealed record TimetableEntryDto(
     Guid Id,
     int DayOfWeek,
@@ -16,16 +17,19 @@ public sealed record TimetableEntryDto(
     TimeOnly EndTime,
     Guid SubjectId,
     string SubjectName,
+    Guid? TeacherId,
     string? TeacherName,
     bool IsPublished);
 
-/// <summary>Input slot when defining a timetable.</summary>
+/// <summary>Input slot when defining a timetable. TeacherId links a staff
+/// record; TeacherName is the free-text fallback for guest teachers.</summary>
 public sealed record TimetableEntryInput(
     int DayOfWeek,
     int Period,
     TimeOnly StartTime,
     TimeOnly EndTime,
     Guid SubjectId,
+    Guid? TeacherId,
     string? TeacherName);
 
 /// <summary>
@@ -97,6 +101,8 @@ public sealed class DefineTimetableCommandHandler : IRequestHandler<DefineTimeta
             throw new NotFoundException("Subject", missing[0]);
         }
 
+        await EnsureTeachersFreeAsync(request, cancellationToken).ConfigureAwait(false);
+
         var existing = await _db.TimetableEntries
             .Where(t => t.SchoolClassId == request.SchoolClassId && t.SectionId == request.SectionId)
             .ToListAsync(cancellationToken)
@@ -114,11 +120,106 @@ public sealed class DefineTimetableCommandHandler : IRequestHandler<DefineTimeta
                 StartTime = entry.StartTime,
                 EndTime = entry.EndTime,
                 SubjectId = entry.SubjectId,
+                TeacherId = entry.TeacherId,
                 TeacherName = entry.TeacherName?.Trim(),
             });
         }
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// Rejects the define when any linked teacher is unknown/inactive or would
+    /// be double-booked: two slots for the same teacher on the same day with
+    /// overlapping times — within this submission or against another class
+    /// scope's existing entries (this scope is being replaced, so it's excluded).
+    /// </summary>
+    private async Task EnsureTeachersFreeAsync(
+        DefineTimetableCommand request, CancellationToken cancellationToken)
+    {
+        var teacherIds = request.Entries
+            .Where(e => e.TeacherId is not null)
+            .Select(e => e.TeacherId!.Value)
+            .Distinct()
+            .ToList();
+        if (teacherIds.Count == 0)
+        {
+            return;
+        }
+
+        var teachers = await _db.Teachers
+            .Where(t => teacherIds.Contains(t.Id))
+            .Select(t => new { t.Id, t.FullName, t.IsActive })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var missingTeacher = teacherIds.Except(teachers.Select(t => t.Id)).ToList();
+        if (missingTeacher.Count > 0)
+        {
+            throw new NotFoundException("Teacher", missingTeacher[0]);
+        }
+
+        var inactive = teachers.FirstOrDefault(t => !t.IsActive);
+        if (inactive is not null)
+        {
+            throw new ConflictException(
+                $"{inactive.FullName} is inactive and cannot be scheduled.");
+        }
+
+        var names = teachers.ToDictionary(t => t.Id, t => t.FullName);
+
+        // Clashes inside the submitted batch itself. Sorted by start time,
+        // any overlap implies an adjacent overlap, so one pass suffices.
+        foreach (var group in request.Entries
+                     .Where(e => e.TeacherId is not null)
+                     .GroupBy(e => (e.TeacherId, e.DayOfWeek)))
+        {
+            var sorted = group.OrderBy(e => e.StartTime).ToList();
+            for (var i = 1; i < sorted.Count; i++)
+            {
+                if (sorted[i].StartTime < sorted[i - 1].EndTime)
+                {
+                    throw new ConflictException(
+                        $"{names[group.Key.TeacherId!.Value]} is scheduled twice at " +
+                        $"overlapping times (day {group.Key.DayOfWeek}, periods " +
+                        $"{sorted[i - 1].Period} and {sorted[i].Period}) in this timetable.");
+                }
+            }
+        }
+
+        // Clashes against other class scopes' existing entries.
+        var days = request.Entries.Select(e => e.DayOfWeek).Distinct().ToList();
+        var others = await _db.TimetableEntries.AsNoTracking()
+            .Where(t => t.TeacherId != null &&
+                        teacherIds.Contains(t.TeacherId.Value) &&
+                        days.Contains(t.DayOfWeek) &&
+                        !(t.SchoolClassId == request.SchoolClassId && t.SectionId == request.SectionId))
+            .Select(t => new
+            {
+                t.TeacherId,
+                t.DayOfWeek,
+                t.StartTime,
+                t.EndTime,
+                ClassName = _db.SchoolClasses
+                    .Where(c => c.Id == t.SchoolClassId).Select(c => c.Name).First(),
+            })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        foreach (var entry in request.Entries.Where(e => e.TeacherId is not null))
+        {
+            var clash = others.FirstOrDefault(o =>
+                o.TeacherId == entry.TeacherId &&
+                o.DayOfWeek == entry.DayOfWeek &&
+                entry.StartTime < o.EndTime &&
+                o.StartTime < entry.EndTime);
+            if (clash is not null)
+            {
+                throw new ConflictException(
+                    $"{names[entry.TeacherId!.Value]} already teaches {clash.ClassName} on " +
+                    $"day {clash.DayOfWeek} at {clash.StartTime:HH\\:mm}–{clash.EndTime:HH\\:mm}; " +
+                    $"period {entry.Period} overlaps.");
+            }
+        }
     }
 }
 
@@ -171,7 +272,10 @@ public sealed class GetTimetableQueryHandler
             .OrderBy(t => t.DayOfWeek).ThenBy(t => t.Period)
             .Select(t => new TimetableEntryDto(
                 t.Id, t.DayOfWeek, t.Period, t.StartTime, t.EndTime,
-                t.SubjectId, t.Subject!.Name, t.TeacherName, t.IsPublished))
+                t.SubjectId, t.Subject!.Name,
+                t.TeacherId,
+                t.Teacher != null ? t.Teacher.FullName : t.TeacherName,
+                t.IsPublished))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 }
@@ -211,7 +315,10 @@ public sealed class GetStudentTimetableQueryHandler
             .OrderBy(t => t.DayOfWeek).ThenBy(t => t.Period)
             .Select(t => new TimetableEntryDto(
                 t.Id, t.DayOfWeek, t.Period, t.StartTime, t.EndTime,
-                t.SubjectId, t.Subject!.Name, t.TeacherName, t.IsPublished))
+                t.SubjectId, t.Subject!.Name,
+                t.TeacherId,
+                t.Teacher != null ? t.Teacher.FullName : t.TeacherName,
+                t.IsPublished))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
     }

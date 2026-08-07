@@ -1,5 +1,6 @@
 using SchoolErp.Domain.Academics;
 using SchoolErp.Domain.Common;
+using SchoolErp.Domain.Staff;
 
 namespace SchoolErp.Domain.Timetable;
 
@@ -29,6 +30,12 @@ public class TimetableEntry : TenantEntity
 
     public Subject? Subject { get; set; }
 
+    /// <summary>Linked staff member; null for unassigned or guest slots.</summary>
+    public Guid? TeacherId { get; set; }
+
+    public Teacher? Teacher { get; set; }
+
+    /// <summary>Free-text fallback when no staff record is linked (guest teachers).</summary>
     public string? TeacherName { get; set; }
 
     /// <summary>Set by the publish command; drafts are staff-only.</summary>

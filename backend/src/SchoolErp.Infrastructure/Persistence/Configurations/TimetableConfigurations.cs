@@ -18,5 +18,8 @@ public sealed class TimetableEntryConfiguration : IEntityTypeConfiguration<Timet
 
         builder.HasOne(t => t.Subject).WithMany()
             .HasForeignKey(t => t.SubjectId).OnDelete(DeleteBehavior.Restrict);
+
+        builder.HasOne(t => t.Teacher).WithMany()
+            .HasForeignKey(t => t.TeacherId).OnDelete(DeleteBehavior.Restrict);
     }
 }

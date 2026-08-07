@@ -1,0 +1,254 @@
+@page "/teachers"
+@attribute [Authorize]
+@inject StaffClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Teachers — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4">Teachers</MudText>
+    <MudSpacer />
+    <MudTextField @bind-Value="_search" Label="Search name / code / phone" Clearable="true"
+                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                  OnAdornmentClick="LoadAsync" Immediate="false"
+                  OnKeyUp="@(e => e.Key == "Enter" ? LoadAsync() : Task.CompletedTask)"
+                  Style="min-width: 260px;" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="@(() => OpenEditor(null))">
+        Add teacher
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudTable Items="_teachers" Dense="true" Hover="true" Loading="_loading">
+        <HeaderContent>
+            <MudTh>Code</MudTh>
+            <MudTh>Name</MudTh>
+            <MudTh>Phone</MudTh>
+            <MudTh>Specialization</MudTh>
+            <MudTh>Qualification</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh />
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>@context.EmployeeCode</MudTd>
+            <MudTd>@context.FullName</MudTd>
+            <MudTd>@context.Phone</MudTd>
+            <MudTd>@(context.Specialization ?? "—")</MudTd>
+            <MudTd>@(context.Qualification ?? "—")</MudTd>
+            <MudTd>
+                <MudChip Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                    @(context.IsActive ? "Active" : "Inactive")
+                </MudChip>
+            </MudTd>
+            <MudTd>
+                <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                               OnClick="@(() => OpenEditor(context))" />
+                <MudIconButton Icon="@Icons.Material.Filled.CalendarViewWeek" Size="Size.Small"
+                               Color="@(_scheduleTeacher?.Id == context.Id ? Color.Primary : Color.Default)"
+                               OnClick="@(() => ShowScheduleAsync(context))" />
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary pa-4">No teachers yet — add the first one.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@if (_editorOpen)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            @(_editing is null ? "Add teacher" : $"Edit {_editing.FullName}")
+        </MudText>
+        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_form.EmployeeCode" Label="Employee code" Required="true"
+                          Disabled="@(_editing is not null)" Style="width: 150px;" />
+            <MudTextField @bind-Value="_form.FullName" Label="Full name" Required="true"
+                          Style="min-width: 220px;" />
+            <MudTextField @bind-Value="_form.Phone" Label="Phone (+91…)" Required="true"
+                          Style="width: 170px;" />
+            <MudTextField @bind-Value="_form.Email" Label="Email" Style="min-width: 220px;" />
+            <MudTextField @bind-Value="_form.Qualification" Label="Qualification"
+                          Style="min-width: 180px;" />
+            <MudTextField @bind-Value="_form.Specialization" Label="Specialization (subjects)"
+                          Style="min-width: 180px;" />
+            <MudDatePicker @bind-Date="_form.JoinedOn" Label="Joined on" Style="width: 170px;" />
+            @if (_editing is not null)
+            {
+                <MudSwitch @bind-Value="_form.IsActive" Color="Color.Success" Label="Active" />
+            }
+        </MudStack>
+        <MudStack Row="true" Class="mt-4">
+            <MudSpacer />
+            <MudButton OnClick="@(() => _editorOpen = false)">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="SaveAsync">
+                @(_editing is null ? "Add teacher" : "Save changes")
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_scheduleTeacher is not null)
+{
+    <MudPaper Elevation="2" Class="pa-6">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudText Typo="Typo.h6">@_scheduleTeacher.FullName — weekly schedule</MudText>
+            <MudSpacer />
+            <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                           OnClick="@(() => _scheduleTeacher = null)" />
+        </MudStack>
+        @if (_schedule.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">No periods assigned yet.</MudText>
+        }
+        else
+        {
+            <div style="overflow-x: auto;">
+                <MudSimpleTable Dense="true" Bordered="true" Style="min-width: 700px;">
+                    <thead>
+                        <tr>
+                            <th>Day</th>
+                            <th>Time</th>
+                            <th>Period</th>
+                            <th>Subject</th>
+                            <th>Class</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var slot in _schedule)
+                        {
+                            <tr>
+                                <td>@DayNames[slot.DayOfWeek]</td>
+                                <td>@slot.StartTime.ToString("HH\\:mm")–@slot.EndTime.ToString("HH\\:mm")</td>
+                                <td>@slot.Period</td>
+                                <td>@slot.SubjectName</td>
+                                <td>@slot.ClassName@(slot.SectionName is null ? "" : $" {slot.SectionName}")</td>
+                                <td>
+                                    <MudChip Size="Size.Small"
+                                             Color="@(slot.IsPublished ? Color.Success : Color.Warning)">
+                                        @(slot.IsPublished ? "Published" : "Draft")
+                                    </MudChip>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            </div>
+        }
+    </MudPaper>
+}
+
+@code {
+    private static readonly string[] DayNames =
+        ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    private sealed class TeacherForm
+    {
+        public string EmployeeCode { get; set; } = "";
+        public string FullName { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public string? Email { get; set; }
+        public string? Qualification { get; set; }
+        public string? Specialization { get; set; }
+        public DateTime? JoinedOn { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    private List<TeacherDto> _teachers = [];
+    private List<TeacherScheduleItemDto> _schedule = [];
+    private TeacherDto? _editing;
+    private TeacherDto? _scheduleTeacher;
+    private TeacherForm _form = new();
+    private string? _search;
+    private bool _editorOpen;
+    private bool _loading = true;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _teachers = await Client.GetTeachersAsync(_search);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OpenEditor(TeacherDto? teacher)
+    {
+        _editing = teacher;
+        _form = teacher is null
+            ? new TeacherForm()
+            : new TeacherForm
+            {
+                EmployeeCode = teacher.EmployeeCode,
+                FullName = teacher.FullName,
+                Phone = teacher.Phone,
+                Email = teacher.Email,
+                Qualification = teacher.Qualification,
+                Specialization = teacher.Specialization,
+                JoinedOn = teacher.JoinedOn?.ToDateTime(TimeOnly.MinValue),
+                IsActive = teacher.IsActive,
+            };
+        _editorOpen = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_form.FullName) || string.IsNullOrWhiteSpace(_form.Phone) ||
+            (_editing is null && string.IsNullOrWhiteSpace(_form.EmployeeCode)))
+        {
+            Snackbar.Add("Employee code, name and phone are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var joined = _form.JoinedOn is { } j ? DateOnly.FromDateTime(j) : (DateOnly?)null;
+            var error = _editing is null
+                ? await Client.CreateAsync(new CreateTeacherRequest(
+                    _form.EmployeeCode.Trim(), _form.FullName.Trim(), _form.Phone.Trim(),
+                    NullIfBlank(_form.Email), NullIfBlank(_form.Qualification),
+                    NullIfBlank(_form.Specialization), joined))
+                : await Client.UpdateAsync(new UpdateTeacherRequest(
+                    _editing.Id, _form.FullName.Trim(), _form.Phone.Trim(),
+                    NullIfBlank(_form.Email), NullIfBlank(_form.Qualification),
+                    NullIfBlank(_form.Specialization), joined, _form.IsActive));
+            if (error is null)
+            {
+                Snackbar.Add(_editing is null ? "Teacher added." : "Teacher updated.", Severity.Success);
+                _editorOpen = false;
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ShowScheduleAsync(TeacherDto teacher)
+    {
+        _scheduleTeacher = teacher;
+        _schedule = await Client.GetScheduleAsync(teacher.Id);
+    }
+
+    private static string? NullIfBlank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

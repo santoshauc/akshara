@@ -30,9 +30,10 @@ Monorepo layout is described in `README.md`.
 | Transport: routes/stops/vehicles/assignments | ✅ | ✅ | ✅ | — |
 | Trips: inspection-gated start, GPS pings, board/drop SMS, live bus query | ✅ | ✅ | — | ✅ live-bus card |
 | Timetable: define→publish, calendar views | ✅ | ✅ | ✅ week grid | ✅ day tabs |
+| Teachers: directory CRUD, timetable linkage, clash detection, schedules | ✅ | ✅ | ✅ | ✅ (names resolve) |
 | Driver app (Expo): OTP login, manifest, checklist gate, trip loop | — | ✅ | — | ✅ driver-app |
 
-Test suite: 33 unit + 55 integration = **88 green** (`dotnet test` from `school-erp/`).
+Test suite: 33 unit + 59 integration = **92 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -45,6 +46,12 @@ Integration tests use Testcontainers (needs Docker running).
    last GPS fix + Maps link) and idle state both verified in the browser.
 2. ~~Timetable module~~ DONE (bfeef3c): define→publish workflow, portal
    editor, parent schedule card, 4 integration tests, E2E-verified.
+   ~~Teachers module~~ DONE: Teacher entity (RLS) + staff.view/staff.manage
+   (claims backfilled), CRUD API, TeacherId on timetable entries (free-text
+   TeacherName kept for guest slots), define-time clash detection (in-batch
+   + cross-class time overlap; inactive teachers rejected), per-teacher
+   schedule query, portal Teachers page + timetable teacher picker,
+   4 integration tests, E2E-verified (demo teacher: Anita Rao EMP-001).
 3. Auth hardening (task list #7): device registration, MFA, persistent
    audit-log trail, dev-seeder claim backfill (see Gotchas).
 4. Hangfire hosting for jobs (outbox dispatcher currently a BackgroundService).

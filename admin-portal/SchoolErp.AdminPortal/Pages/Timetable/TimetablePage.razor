@@ -3,6 +3,7 @@
 @inject TimetableClient Client
 @inject AcademicsClient AcademicsApi
 @inject ExamsClient ExamsApi
+@inject StaffClient StaffApi
 @inject ISnackbar Snackbar
 
 <PageTitle>Timetable — SchoolErp</PageTitle>
@@ -71,7 +72,18 @@ else
                         <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
                     }
                 </MudSelect>
-                <MudTextField @bind-Value="row.Teacher" Label="Teacher" Style="min-width: 140px;" />
+                <MudSelect T="Guid?" @bind-Value="row.TeacherId" Label="Teacher" Clearable="true"
+                           Dense="true" Style="min-width: 170px;">
+                    @foreach (var teacher in _teachers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@teacher.Id">@teacher.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+                @if (row.TeacherId is null)
+                {
+                    <MudTextField @bind-Value="row.Teacher" Label="Guest teacher (optional)"
+                                  Style="min-width: 140px;" />
+                }
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                OnClick="@(() => _rows.RemoveAt(index))" />
             </MudStack>
@@ -120,7 +132,7 @@ else
                                             </MudText>
                                             <MudText Typo="Typo.caption" Class="mud-text-secondary">
                                                 @slot.Start–@slot.End
-                                                @(string.IsNullOrWhiteSpace(slot.Teacher) ? "" : $" · {slot.Teacher}")
+                                                @(TeacherLabel(slot) is { } t ? $" · {t}" : "")
                                             </MudText>
                                         }
                                     </td>
@@ -145,11 +157,13 @@ else
         public string Start { get; set; } = "08:00";
         public string End { get; set; } = "08:45";
         public Guid? SubjectId { get; set; }
+        public Guid? TeacherId { get; set; }
         public string? Teacher { get; set; }
     }
 
     private List<SchoolClassDto> _classes = [];
     private List<SubjectDto> _subjects = [];
+    private List<TeacherDto> _teachers = [];
     private List<SlotRow> _rows = [];
     private Guid? _classId;
     private Guid? _sectionId;
@@ -172,6 +186,7 @@ else
         {
             _classes = await AcademicsApi.GetClassesAsync();
             _subjects = await ExamsApi.GetSubjectsAsync();
+            _teachers = (await StaffApi.GetTeachersAsync()).Where(t => t.IsActive).ToList();
         }
         catch (HttpRequestException)
         {
@@ -195,7 +210,8 @@ else
             Start = e.StartTime.ToString("HH\\:mm"),
             End = e.EndTime.ToString("HH\\:mm"),
             SubjectId = e.SubjectId,
-            Teacher = e.TeacherName,
+            TeacherId = e.TeacherId,
+            Teacher = e.TeacherId is null ? e.TeacherName : null,
         }).ToList();
         if (_rows.Count == 0)
         {
@@ -218,7 +234,10 @@ else
 
             entries.Add(new TimetableEntryInput(
                 row.Day, row.Period, start, end, row.SubjectId.Value,
-                string.IsNullOrWhiteSpace(row.Teacher) ? null : row.Teacher.Trim()));
+                row.TeacherId,
+                row.TeacherId is not null || string.IsNullOrWhiteSpace(row.Teacher)
+                    ? null
+                    : row.Teacher.Trim()));
         }
 
         return entries;
@@ -279,4 +298,9 @@ else
             _busy = false;
         }
     }
+
+    private string? TeacherLabel(SlotRow slot) =>
+        slot.TeacherId is { } id
+            ? _teachers.FirstOrDefault(t => t.Id == id)?.FullName
+            : (string.IsNullOrWhiteSpace(slot.Teacher) ? null : slot.Teacher);
 }

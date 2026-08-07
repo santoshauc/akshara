@@ -134,8 +134,8 @@ public sealed class TimetableModuleTests : IClassFixture<TimetableModuleFixture>
         // Define a class-wide Monday: Math then English (drafts).
         await sender.Send(new DefineTimetableCommand(_fixture.ClassId, null,
         [
-            new TimetableEntryInput(1, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, "Mrs. Rao"),
-            new TimetableEntryInput(1, 2, new TimeOnly(8, 45), new TimeOnly(9, 30), _fixture.EnglishId, "Mr. Das"),
+            new TimetableEntryInput(1, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null, "Mrs. Rao"),
+            new TimetableEntryInput(1, 2, new TimeOnly(8, 45), new TimeOnly(9, 30), _fixture.EnglishId, null, "Mr. Das"),
         ]));
 
         (await sender.Send(new GetStudentTimetableQuery(_fixture.StudentId)))
@@ -162,7 +162,7 @@ public sealed class TimetableModuleTests : IClassFixture<TimetableModuleFixture>
 
         // Section B gets a Tuesday period; our student is in Section A.
         await sender.Send(new DefineTimetableCommand(_fixture.ClassId, _fixture.SectionBId,
-            [new TimetableEntryInput(2, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null)]));
+            [new TimetableEntryInput(2, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null, null)]));
         await sender.Send(new PublishTimetableCommand(_fixture.ClassId, _fixture.SectionBId));
 
         var visible = await sender.Send(new GetStudentTimetableQuery(_fixture.StudentId));
@@ -178,13 +178,13 @@ public sealed class TimetableModuleTests : IClassFixture<TimetableModuleFixture>
 
         var duplicate = () => sender.Send(new DefineTimetableCommand(_fixture.ClassId, _fixture.SectionAId,
         [
-            new TimetableEntryInput(3, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null),
-            new TimetableEntryInput(3, 1, new TimeOnly(9, 0), new TimeOnly(9, 45), _fixture.EnglishId, null),
+            new TimetableEntryInput(3, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null, null),
+            new TimetableEntryInput(3, 1, new TimeOnly(9, 0), new TimeOnly(9, 45), _fixture.EnglishId, null, null),
         ]));
         await duplicate.Should().ThrowAsync<FluentValidation.ValidationException>();
 
         var inverted = () => sender.Send(new DefineTimetableCommand(_fixture.ClassId, _fixture.SectionAId,
-            [new TimetableEntryInput(3, 1, new TimeOnly(9, 0), new TimeOnly(8, 0), _fixture.MathId, null)]));
+            [new TimetableEntryInput(3, 1, new TimeOnly(9, 0), new TimeOnly(8, 0), _fixture.MathId, null, null)]));
         await inverted.Should().ThrowAsync<FluentValidation.ValidationException>();
     }
 
@@ -195,12 +195,12 @@ public sealed class TimetableModuleTests : IClassFixture<TimetableModuleFixture>
         var sender = scope.ServiceProvider.GetRequiredService<ISender>();
 
         await sender.Send(new DefineTimetableCommand(_fixture.ClassId, _fixture.SectionAId,
-            [new TimetableEntryInput(4, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null)]));
+            [new TimetableEntryInput(4, 1, new TimeOnly(8, 0), new TimeOnly(8, 45), _fixture.MathId, null, null)]));
         await sender.Send(new PublishTimetableCommand(_fixture.ClassId, _fixture.SectionAId));
 
         // Staff redrafts the section timetable — parents must not see the draft.
         await sender.Send(new DefineTimetableCommand(_fixture.ClassId, _fixture.SectionAId,
-            [new TimetableEntryInput(4, 1, new TimeOnly(8, 30), new TimeOnly(9, 15), _fixture.EnglishId, null)]));
+            [new TimetableEntryInput(4, 1, new TimeOnly(8, 30), new TimeOnly(9, 15), _fixture.EnglishId, null, null)]));
 
         var visible = await sender.Send(new GetStudentTimetableQuery(_fixture.StudentId));
         visible.Should().NotContain(e => e.DayOfWeek == 4, "redefined entries return to draft");
