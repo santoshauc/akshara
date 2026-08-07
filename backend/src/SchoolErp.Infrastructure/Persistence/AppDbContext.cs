@@ -108,6 +108,15 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<StudentTransportAssignment> StudentTransportAssignments =>
         Set<StudentTransportAssignment>();
 
+    /// <summary>Bus trips (tenant-scoped).</summary>
+    public DbSet<Trip> Trips => Set<Trip>();
+
+    /// <summary>Trip GPS pings (tenant-scoped).</summary>
+    public DbSet<TripLocation> TripLocations => Set<TripLocation>();
+
+    /// <summary>Per-student trip events (tenant-scoped).</summary>
+    public DbSet<TripStudentEvent> TripStudentEvents => Set<TripStudentEvent>();
+
     /// <summary>Transactional outbox (platform-scoped, dispatcher-read).</summary>
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
 

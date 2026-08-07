@@ -139,6 +139,17 @@ public sealed class ParentController : ControllerBase
         return Ok(await _sender.Send(new GetStudentHomeworkQuery(studentId), ct));
     }
 
+    /// <summary>Live bus location for a child's route (204 when no active trip).</summary>
+    [HttpGet("children/{studentId:guid}/bus")]
+    [ProducesResponseType(typeof(BusLocationDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> GetChildBusLocation(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        var location = await _sender.Send(new GetBusLocationQuery(studentId), ct);
+        return location is null ? NoContent() : Ok(location);
+    }
+
     /// <summary>A child's transport allocation (204 when none).</summary>
     [HttpGet("children/{studentId:guid}/transport")]
     [ProducesResponseType(typeof(ChildTransportDto), StatusCodes.Status200OK)]

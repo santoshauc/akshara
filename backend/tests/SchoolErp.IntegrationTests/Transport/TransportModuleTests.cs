@@ -108,7 +108,7 @@ public sealed class TransportModuleTests : IClassFixture<TransportModuleFixture>
 
     public TransportModuleTests(TransportModuleFixture fixture) => _fixture = fixture;
 
-    private async Task<(Guid RouteId, Guid Stop1, Guid Stop2)> CreateRouteAsync(
+    private static async Task<(Guid RouteId, Guid Stop1, Guid Stop2)> CreateRouteAsync(
         ISender sender, string name, Guid? vehicleId = null)
     {
         var routeId = await sender.Send(new CreateRouteCommand(

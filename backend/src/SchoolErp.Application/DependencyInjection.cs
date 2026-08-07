@@ -22,6 +22,7 @@ public static class DependencyInjection
         services.AddAutoMapper(assembly);
 
         services.AddScoped<Parent.ParentAccess>();
+        services.AddScoped<Transport.DriverAccess>();
 
         return services;
     }

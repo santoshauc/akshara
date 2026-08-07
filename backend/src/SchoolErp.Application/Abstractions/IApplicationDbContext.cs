@@ -65,6 +65,12 @@ public interface IApplicationDbContext
 
     DbSet<StudentTransportAssignment> StudentTransportAssignments { get; }
 
+    DbSet<Trip> Trips { get; }
+
+    DbSet<TripLocation> TripLocations { get; }
+
+    DbSet<TripStudentEvent> TripStudentEvents { get; }
+
     DbSet<OutboxMessage> OutboxMessages { get; }
 
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
