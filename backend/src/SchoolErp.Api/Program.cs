@@ -158,8 +158,15 @@ try
     }
 
     // The outbox delivery loop: every 15 seconds, one batch per run.
-    RecurringJob.AddOrUpdate<SchoolErp.Infrastructure.Notifications.OutboxDispatchJob>(
-        "outbox-dispatch", job => job.RunAsync(CancellationToken.None), "*/15 * * * * *");
+    // DI-based manager, NOT the static RecurringJob API — the static storage
+    // is only initialized as a dashboard side effect and crashes in
+    // production where the dashboard isn't mapped.
+    using (var jobScope = app.Services.CreateScope())
+    {
+        jobScope.ServiceProvider.GetRequiredService<IRecurringJobManager>()
+            .AddOrUpdate<SchoolErp.Infrastructure.Notifications.OutboxDispatchJob>(
+                "outbox-dispatch", job => job.RunAsync(CancellationToken.None), "*/15 * * * * *");
+    }
 
     app.UseHttpsRedirection();
     app.UseRateLimiter();

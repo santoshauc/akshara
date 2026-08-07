@@ -1,0 +1,30 @@
+# SchoolErp API — multi-stage build.
+# Build from the repository root:  docker build -f deployment/Dockerfile.api .
+
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+# Restore first so dependency layers cache across code-only changes.
+COPY Directory.Build.props ./
+COPY backend/src/SchoolErp.Domain/SchoolErp.Domain.csproj backend/src/SchoolErp.Domain/
+COPY backend/src/SchoolErp.Shared/SchoolErp.Shared.csproj backend/src/SchoolErp.Shared/
+COPY backend/src/SchoolErp.Application/SchoolErp.Application.csproj backend/src/SchoolErp.Application/
+COPY backend/src/SchoolErp.Infrastructure/SchoolErp.Infrastructure.csproj backend/src/SchoolErp.Infrastructure/
+COPY backend/src/SchoolErp.Api/SchoolErp.Api.csproj backend/src/SchoolErp.Api/
+RUN dotnet restore backend/src/SchoolErp.Api/SchoolErp.Api.csproj
+
+COPY backend/ backend/
+RUN dotnet publish backend/src/SchoolErp.Api/SchoolErp.Api.csproj \
+    -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app .
+
+# The aspnet image ships a non-root "app" user; never run as root.
+USER app
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+
+# Liveness/readiness are HTTP: /health/live and /health/ready.
+ENTRYPOINT ["dotnet", "SchoolErp.Api.dll"]

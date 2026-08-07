@@ -1,0 +1,90 @@
+# SchoolErp continuous integration.
+#
+# backend  — build the whole solution (API + portal) and run every test;
+#            integration tests use Testcontainers, which works out of the box
+#            on ubuntu runners (Docker is preinstalled).
+# vulnscan — fail on High/Critical package advisories that are not in the
+#            accepted list (docs/security-notes.md).
+# mobile   — type-check the two Expo apps.
+# docker   — prove the API image builds.
+
+name: CI
+
+on:
+  push:
+    branches: [master, main]
+  pull_request:
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore SchoolErp.sln
+
+      - name: Build
+        run: dotnet build SchoolErp.sln --no-restore --configuration Release
+
+      - name: Test (unit + integration via Testcontainers)
+        run: dotnet test SchoolErp.sln --no-build --configuration Release --logger "trx"
+
+  vulnscan:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Restore
+        run: dotnet restore SchoolErp.sln
+
+      - name: Fail on unaccepted High/Critical advisories
+        run: |
+          dotnet list SchoolErp.sln package --vulnerable --include-transitive > vulns.txt || true
+          cat vulns.txt
+          # Accepted advisories are documented in docs/security-notes.md.
+          ACCEPTED='GHSA-rvv3-g6hj-g44x'
+          BAD=$(grep -E 'High|Critical' vulns.txt | grep -vE "$ACCEPTED" || true)
+          if [ -n "$BAD" ]; then
+            echo "::error::New High/Critical advisories found (not in docs/security-notes.md):"
+            echo "$BAD"
+            exit 1
+          fi
+
+  mobile:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app: [parent-app, driver-app]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: mobile/${{ matrix.app }}/package-lock.json
+
+      - name: Install
+        working-directory: mobile/${{ matrix.app }}
+        run: npm ci
+
+      - name: Type-check
+        working-directory: mobile/${{ matrix.app }}
+        run: npx tsc --noEmit
+
+  docker:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build API image
+        run: docker build -f deployment/Dockerfile.api -t schoolerp-api:ci .

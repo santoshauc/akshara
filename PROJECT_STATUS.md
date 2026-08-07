@@ -90,8 +90,14 @@ Integration tests use Testcontainers (needs Docker running).
    `Razorpay:KeyId` is configured; otherwise the dev HMAC gateway stays.
    4 unit tests over a fake HTTP handler; production keys go in
    appsettings/environment (Razorpay:KeyId/KeySecret/WebhookSecret).
-6. CI/CD (GitHub Actions), Dockerfile for API, docs pack (architecture, API
-   guide, user manuals), localization resources (en/te), report-card PDFs.
+6. ~~CI/CD + Dockerfile~~ DONE — .github/workflows/ci.yml (backend build +
+   full test run with Testcontainers on ubuntu, vulnerability scan failing
+   on unaccepted High/Critical advisories, mobile type-checks for both
+   Expo apps, Docker image build) and deployment/Dockerfile.api
+   (multi-stage, non-root, port 8080; verified by a real local build).
+   NOTE: no git remote is configured yet — push to GitHub to activate CI.
+   Still remaining: docs pack (architecture, API guide, user manuals),
+   localization resources (en/te), report-card PDFs.
 
 ## How to run (Windows dev box)
 

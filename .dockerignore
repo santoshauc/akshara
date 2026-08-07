@@ -1,0 +1,11 @@
+**/bin/
+**/obj/
+**/node_modules/
+**/.expo/
+.git/
+.github/
+docs/
+mobile/
+admin-portal/
+scripts/
+**/*.md
