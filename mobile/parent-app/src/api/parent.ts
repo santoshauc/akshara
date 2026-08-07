@@ -1,5 +1,5 @@
 import { API_BASE_URL } from '../config';
-import { ApiError, request, tokenStore } from './client';
+import { ApiError, request, requestBytes, tokenStore } from './client';
 import {
   AuthTokens,
   BusLocation,
@@ -99,4 +99,8 @@ export const parentApi = {
     request<BusLocation | undefined>(`/api/v1/parent/children/${studentId}/bus`).then(
       (b) => b ?? null,
     ),
+
+  /** The published report card as PDF bytes. 404 until the exam is published. */
+  getReportCard: (studentId: string, examId: string) =>
+    requestBytes(`/api/v1/parent/children/${studentId}/exams/${examId}/report-card`),
 };

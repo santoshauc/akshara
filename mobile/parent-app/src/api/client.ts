@@ -93,6 +93,30 @@ async function tryRefresh(): Promise<boolean> {
 }
 
 /**
+ * Authenticated binary request (PDFs etc.) with the same transparent
+ * refresh-on-401 as {@link request}.
+ */
+export async function requestBytes(path: string): Promise<ArrayBuffer> {
+  const send = async (): Promise<Response> => {
+    const access = await tokenStore.getAccess();
+    return fetch(`${API_BASE_URL}${path}`, {
+      headers: access ? { Authorization: `Bearer ${access}` } : {},
+    });
+  };
+
+  let response = await send();
+  if (response.status === 401 && (await tryRefresh())) {
+    response = await send();
+  }
+
+  if (!response.ok) {
+    throw new ApiError(response.status, await readProblemTitle(response));
+  }
+
+  return response.arrayBuffer();
+}
+
+/**
  * Authenticated JSON request with a single transparent token refresh on 401 —
  * the same session discipline the web portal uses.
  */

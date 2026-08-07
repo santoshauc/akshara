@@ -114,9 +114,11 @@ Integration tests use Testcontainers (needs Docker running).
    Integration test covers draft-hiding + valid PDF output; E2E-verified
    with a real 39KB PDF for Ananya's Mid-Term 1.
 
-ALL originally-scoped roadmap items are now complete. Remaining backlog is
-polish only: task #4 local-infra extras, portal/SMS localization, mobile
-report-card download buttons, AutoMapper→Mapster swap pre-GA.
+ALL originally-scoped roadmap items are now complete. Parent app also has a
+report-card download button on the result card (web: blob open; device:
+expo-file-system File + expo-sharing share sheet; localized en/te).
+Remaining backlog is polish only: task #4 local-infra extras, portal/SMS
+localization, AutoMapper→Mapster swap pre-GA.
 
 ## How to run (Windows dev box)
 

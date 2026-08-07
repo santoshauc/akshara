@@ -88,6 +88,8 @@ export const en = {
   total: 'Total',
   grade: 'Grade',
   rankOf: 'Rank {rank} of {size}',
+  downloadReportCard: '📄 Download report card',
+  reportCardFailed: 'Could not download the report card.',
 
   // Fees
   feesTitle: 'Fees',
@@ -191,6 +193,8 @@ export const te: Record<TranslationKey, string> = {
   total: 'మొత్తం',
   grade: 'గ్రేడ్',
   rankOf: 'ర్యాంక్ {rank} / {size}',
+  downloadReportCard: '📄 రిపోర్ట్ కార్డ్ డౌన్‌లోడ్ చేయండి',
+  reportCardFailed: 'రిపోర్ట్ కార్డ్ డౌన్‌లోడ్ కాలేదు.',
 
   // Fees
   feesTitle: 'ఫీజులు',

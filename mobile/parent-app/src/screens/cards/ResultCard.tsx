@@ -1,5 +1,8 @@
-import React from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { File, Paths } from 'expo-file-system';
+import * as Sharing from 'expo-sharing';
+import React, { useState } from 'react';
+import { ActivityIndicator, Platform, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import { parentApi } from '../../api/parent';
 import { StudentResult } from '../../api/types';
 import { useI18n } from '../../i18n';
 
@@ -12,6 +15,35 @@ export default function ResultCard({
   examCount: number;
 }) {
   const { t } = useI18n();
+  const [downloading, setDownloading] = useState(false);
+  const [downloadError, setDownloadError] = useState<string | null>(null);
+
+  const downloadReportCard = async () => {
+    if (!result) {
+      return;
+    }
+    setDownloading(true);
+    setDownloadError(null);
+    try {
+      const bytes = await parentApi.getReportCard(result.studentId, result.examId);
+      if (Platform.OS === 'web') {
+        // Browser: open the PDF via a blob URL (viewer or download per settings).
+        const blob = new Blob([bytes], { type: 'application/pdf' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        // Device: write to cache and hand off to the system share sheet.
+        const file = new File(Paths.cache, 'report-card.pdf');
+        file.write(new Uint8Array(bytes));
+        await Sharing.shareAsync(file.uri, { mimeType: 'application/pdf' });
+      }
+    } catch {
+      setDownloadError(t('reportCardFailed'));
+    } finally {
+      setDownloading(false);
+    }
+  };
   return (
     <View style={styles.card}>
       <Text style={styles.title}>{t('resultTitle')}</Text>
@@ -42,6 +74,18 @@ export default function ResultCard({
               </Text>
             )}
           </View>
+          {downloadError && <Text style={styles.downloadError}>{downloadError}</Text>}
+          <TouchableOpacity
+            style={styles.downloadButton}
+            onPress={downloadReportCard}
+            disabled={downloading}
+          >
+            {downloading ? (
+              <ActivityIndicator color="#1565C0" size="small" />
+            ) : (
+              <Text style={styles.downloadText}>{t('downloadReportCard')}</Text>
+            )}
+          </TouchableOpacity>
         </>
       )}
     </View>
@@ -75,4 +119,13 @@ const styles = StyleSheet.create({
   summary: { marginTop: 10, gap: 2 },
   summaryText: { fontWeight: '700', fontSize: 14 },
   rank: { color: '#667', fontSize: 13 },
+  downloadButton: {
+    marginTop: 12,
+    backgroundColor: '#E8F0FB',
+    borderRadius: 10,
+    padding: 12,
+    alignItems: 'center',
+  },
+  downloadText: { color: '#1565C0', fontWeight: '600', fontSize: 14 },
+  downloadError: { color: '#C62828', marginTop: 8, fontSize: 13 },
 });
