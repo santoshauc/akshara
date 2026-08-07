@@ -1,6 +1,8 @@
 using System.Globalization;
 using System.Text;
 using Asp.Versioning;
+using Hangfire;
+using Hangfire.PostgreSql;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -35,8 +37,21 @@ try
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();
 
-    // Transactional-outbox delivery loop (SMS/push/email side effects).
-    builder.Services.AddHostedService<SchoolErp.Infrastructure.Notifications.OutboxDispatcherService>();
+    // --- Background jobs (Hangfire) -----------------------------------------
+    // Storage uses the OWNER connection: Hangfire creates its own "hangfire"
+    // schema, which the restricted runtime role may not. Jobs themselves still
+    // resolve AppDbContext on the normal app connection (RLS intact).
+    builder.Services.AddHangfire(config => config
+        .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
+        .UseSimpleAssemblyNameTypeSerializer()
+        .UseRecommendedSerializerSettings()
+        .UsePostgreSqlStorage(options => options.UseNpgsqlConnection(
+            builder.Configuration.GetConnectionString("PostgresMigrations"))));
+    builder.Services.AddHangfireServer(options =>
+    {
+        options.SchedulePollingInterval = TimeSpan.FromSeconds(5);
+        options.WorkerCount = 4;
+    });
 
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUser, CurrentUser>();
@@ -137,8 +152,14 @@ try
     {
         app.UseSwagger();
         app.UseSwaggerUI();
+        // Local-only by default (Hangfire's built-in dashboard authorization).
+        app.UseHangfireDashboard("/jobs");
         await SchoolErp.Infrastructure.Persistence.Seeding.DevSeeder.SeedAsync(app.Services);
     }
+
+    // The outbox delivery loop: every 15 seconds, one batch per run.
+    RecurringJob.AddOrUpdate<SchoolErp.Infrastructure.Notifications.OutboxDispatchJob>(
+        "outbox-dispatch", job => job.RunAsync(CancellationToken.None), "*/15 * * * * *");
 
     app.UseHttpsRedirection();
     app.UseRateLimiter();

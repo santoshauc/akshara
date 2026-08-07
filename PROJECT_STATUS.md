@@ -76,7 +76,13 @@ Integration tests use Testcontainers (needs Docker running).
    permission claims onto SchoolAdmin roles at every startup (no more
    manual SQL when adding permission constants; re-login still required).
    Task #7 auth hardening is COMPLETE.
-4. Hangfire hosting for jobs (outbox dispatcher currently a BackgroundService).
+4. ~~Hangfire hosting for jobs~~ DONE — Hangfire 1.8 + PostgreSQL storage
+   (schema "hangfire", created via the OWNER connection string because the
+   restricted runtime role can't CREATE SCHEMA; jobs still use the normal
+   app connection so RLS is intact). Outbox dispatch is the recurring job
+   "outbox-dispatch" (*/15s cron); the old BackgroundService is deleted.
+   Dev dashboard at :5199/jobs (local-only). Hangfire is LGPL-3.0 — noted
+   in docs/security-notes.md (fine for SaaS).
 5. Real Razorpay adapter for `IPaymentGateway` (dev HMAC gateway in place).
 6. CI/CD (GitHub Actions), Dockerfile for API, docs pack (architecture, API
    guide, user manuals), localization resources (en/te), report-card PDFs.
@@ -122,7 +128,8 @@ Integration tests use Testcontainers (needs Docker running).
   requires a claims backfill for existing roles (bit us with `homework.*`).
 - Side effects (SMS/push) go through the transactional outbox
   (`OutboxMessage` + `SmsPayload`), written in the same SaveChanges as the
-  business change. Dispatcher: `OutboxDispatcherService` (API host).
+  business change. Dispatcher: Hangfire recurring job `outbox-dispatch`
+  (OutboxDispatchJob → OutboxProcessor) every 15s; dashboard at /jobs (dev).
 - Package pins are deliberate (OSS licensing): MediatR 12.x, AutoMapper 13.x,
   FluentAssertions 6.x. AutoMapper 13.0.1 has a known advisory — accepted and
   documented in `docs/security-notes.md`; plan is to swap to Mapster pre-GA.

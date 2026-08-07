@@ -20,6 +20,15 @@
 - **Exposure assessment:** The OTLP exporter only sends telemetry to a
   collector endpoint we configure; it does not process untrusted input.
 
+## Licensing notes
+
+### Hangfire 1.8.x (LGPL-3.0) + Hangfire.PostgreSql (MIT)
+
+- Hangfire core is LGPL v3. SchoolErp is a hosted SaaS — the LGPL's
+  distribution-triggered obligations do not apply to server-side use, and we
+  do not modify Hangfire itself. Acceptable; revisit only if the product is
+  ever shipped on-premises.
+
 ## Review cadence
 
 Run `dotnet list package --vulnerable --include-transitive` in CI on every

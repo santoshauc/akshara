@@ -89,6 +89,7 @@ public static class DependencyInjection
         // Outbox delivery core; the polling BackgroundService is registered by
         // the API host so tests can drive the processor synchronously.
         services.AddScoped<Notifications.OutboxProcessor>();
+        services.AddScoped<Notifications.OutboxDispatchJob>();
 
         // --- Payments ------------------------------------------------------
         services.AddScoped<IPaymentGateway, Payments.DevPaymentGateway>();
