@@ -4,13 +4,14 @@
 > zero conversation history. Keep this file updated at the end of every
 > working session.
 
-Last updated: 2026-08-06.
+Last updated: 2026-08-07.
 
 ## What this is
 
 Multi-tenant School Management SaaS for Indian schools.
 Stack: .NET 8 Clean Architecture + CQRS (MediatR) + EF Core 8 + PostgreSQL 16,
-Blazor WASM admin portal (MudBlazor), React Native (Expo + TypeScript) parent app.
+Blazor WASM admin portal (MudBlazor), React Native (Expo + TypeScript) parent
+and driver apps.
 Monorepo layout is described in `README.md`.
 
 ## Completed (all with tests + browser-verified where UI exists)
@@ -26,16 +27,19 @@ Monorepo layout is described in `README.md`.
 | Fees: heads, plans, receipts + SMS, gateway abstraction + HMAC webhook | ✅ | ✅ | ✅ | ✅ card |
 | Parent API (family-scoped guard, 404-not-403) | ✅ | ✅ | — | ✅ |
 | Notices + Homework (class/section visibility) | ✅ | ✅ | ✅ | ✅ cards |
+| Transport: routes/stops/vehicles/assignments | ✅ | ✅ | ✅ | — |
+| Trips: inspection-gated start, GPS pings, board/drop SMS, live bus query | ✅ | ✅ | — | (bus card pending) |
+| Timetable: define→publish, calendar views | ✅ | ✅ | ✅ week grid | ✅ day tabs |
+| Driver app (Expo): OTP login, manifest, checklist gate, trip loop | — | ✅ | — | ✅ driver-app |
 
-Test suite: 33 unit + 44 integration = **77 green** (`dotnet test` from `school-erp/`).
+Test suite: 33 unit + 55 integration = **88 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
 
-1. React Native driver app (Expo, like parent-app) over the DONE driver
-   API: OTP login with driver phone, manifest, inspection checklist →
-   start trip, GPS ping loop, board/drop buttons, end trip. Backend fully
-   done + tested (commits 59c43d9, 013af23, 3c11045; 84 tests green).
+1. ~~React Native driver app~~ DONE + E2E-verified (OTP login → manifest →
+   inspection gate blocks Start trip until all 4 checks → pickup trip with
+   GPS ping loop → Board fires guardian SMS via outbox → End trip resets).
    Parent app: add live-bus card using /parent/children/{id}/bus.
 2. ~~Timetable module~~ DONE (bfeef3c): define→publish workflow, portal
    editor, parent schedule card, 4 integration tests, E2E-verified.
@@ -57,8 +61,9 @@ Integration tests use Testcontainers (needs Docker running).
   `dotnet-ef database update --project backend/src/SchoolErp.Infrastructure --startup-project backend/src/SchoolErp.Api --connection "Host=localhost;Port=5432;Database=schoolerp;Username=schoolerp;Password=schoolerp_dev_only"`
 - Dev servers are defined in `<workspace>/.claude/launch.json`:
   `api` (http://localhost:5199), `portal` (http://localhost:5050),
-  `parent` (Expo web, http://localhost:8081).
-- Parent app type-check: `npx tsc --noEmit` in `mobile/parent-app`.
+  `parent` (Expo web, http://localhost:8081), `driver` (Expo web,
+  http://localhost:8082).
+- App type-check: `npx tsc --noEmit` in `mobile/parent-app` / `mobile/driver-app`.
 
 ## Dev credentials (Development seeder + manual rows)
 
@@ -67,6 +72,8 @@ Integration tests use Testcontainers (needs Docker running).
 - Parent (OTP): school `DEMO01`, phone `+919876501234` (Priya Reddy — guardian
   of demo student Ananya Reddy, Grade 5 A). OTP code appears in API log as
   `[DEV SMS]`.
+- Driver (OTP): school `DEMO01`, phone `+919888877766` (Ramesh Kumar, assigned
+  to Route 1 — West; Ananya rides from stop "Jubilee Hills").
 
 ## Conventions (follow these when adding modules)
 
@@ -102,8 +109,8 @@ Integration tests use Testcontainers (needs Docker running).
 - Razor: never name a loop variable `section` (collides with `@section`).
 - EF can't translate ordering by projected record properties — order before
   `.Select`. `jsonb` columns have no LIKE operator.
-- Expo web is the fast way to browser-verify the parent app; API CORS must
-  include `http://localhost:8081`.
+- Expo web is the fast way to browser-verify the parent/driver apps; API CORS
+  must include `http://localhost:8081` and `http://localhost:8082`.
 - The portal is a PWA: after rebuilding it, the service worker can serve a
   STALE cached bundle (new routes 404 / odd auth behavior). Fix in the browser:
   unregister service workers + clear CacheStorage, then reload.
