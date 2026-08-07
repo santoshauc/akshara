@@ -246,7 +246,15 @@
     private async Task ShowScheduleAsync(TeacherDto teacher)
     {
         _scheduleTeacher = teacher;
-        _schedule = await Client.GetScheduleAsync(teacher.Id);
+        try
+        {
+            _schedule = await Client.GetScheduleAsync(teacher.Id);
+        }
+        catch (HttpRequestException)
+        {
+            _schedule = [];
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
     }
 
     private static string? NullIfBlank(string? value) =>

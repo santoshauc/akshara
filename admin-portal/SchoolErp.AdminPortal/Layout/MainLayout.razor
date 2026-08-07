@@ -1,4 +1,5 @@
 @inherits LayoutComponentBase
+@implements IDisposable
 @inject AuthApiClient AuthApi
 @inject NavigationManager Navigation
 
@@ -6,80 +7,93 @@
 <MudDialogProvider />
 <MudSnackbarProvider />
 
+@* App chrome lives directly under MudLayout — nesting it inside AuthorizeView
+   breaks MudBlazor's appbar/drawer/content coordination (drawer offsets,
+   toggle glitches). The login page uses EmptyLayout, and [Authorize] pages
+   redirect before content renders, so the chrome is safe to render always. *@
 <MudLayout>
-    <AuthorizeView>
-        <Authorized>
-            <MudAppBar Elevation="1">
-                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                               OnClick="@(() => _drawerOpen = !_drawerOpen)" />
-                <MudText Typo="Typo.h6" Class="ml-2">SchoolErp Admin</MudText>
-                <MudSpacer />
-                <MudTooltip Text="Toggle dark mode">
-                    <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                                   Color="Color.Inherit" OnClick="@(() => _isDarkMode = !_isDarkMode)" />
-                </MudTooltip>
-                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight">
+    <MudAppBar Elevation="1">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                       OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+        <MudText Typo="Typo.h6" Class="ml-2">SchoolErp Admin</MudText>
+        <MudSpacer />
+        <MudTooltip Text="Toggle dark mode">
+            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                           Color="Color.Inherit" OnClick="@(() => _isDarkMode = !_isDarkMode)" />
+        </MudTooltip>
+        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight">
+            <AuthorizeView>
+                <Authorized>
                     <MudMenuItem Disabled="true">@context.User.Identity?.Name</MudMenuItem>
-                    <MudDivider />
-                    <MudMenuItem OnClick="LogoutAsync">Sign out</MudMenuItem>
-                </MudMenu>
-            </MudAppBar>
-            <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
-                <MudNavMenu>
-                    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
-                        Dashboard
-                    </MudNavLink>
-                    <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
-                        Schools
-                    </MudNavLink>
-                    <MudDivider Class="my-2" />
-                    <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
-                        Academics
-                    </MudNavLink>
-                    <MudNavLink Href="students" Icon="@Icons.Material.Filled.Groups">
-                        Students
-                    </MudNavLink>
-                    <MudNavLink Href="attendance" Icon="@Icons.Material.Filled.EventAvailable">
-                        Attendance
-                    </MudNavLink>
-                    <MudNavLink Href="exams" Icon="@Icons.Material.Filled.Quiz">
-                        Exams
-                    </MudNavLink>
-                    <MudNavLink Href="fees" Icon="@Icons.Material.Filled.Payments">
-                        Fees
-                    </MudNavLink>
-                    <MudNavLink Href="homework" Icon="@Icons.Material.Filled.MenuBook">
-                        Homework
-                    </MudNavLink>
-                    <MudNavLink Href="notices" Icon="@Icons.Material.Filled.Campaign">
-                        Notices
-                    </MudNavLink>
-                    <MudNavLink Href="transport" Icon="@Icons.Material.Filled.DirectionsBus">
-                        Transport
-                    </MudNavLink>
-                    <MudNavLink Href="timetable" Icon="@Icons.Material.Filled.CalendarViewWeek">
-                        Timetable
-                    </MudNavLink>
-                    <MudNavLink Href="teachers" Icon="@Icons.Material.Filled.Badge">
-                        Teachers
-                    </MudNavLink>
-                </MudNavMenu>
-            </MudDrawer>
-            <MudMainContent Class="pa-6" Style="padding-top: 88px !important;">
+                </Authorized>
+            </AuthorizeView>
+            <MudDivider />
+            <MudMenuItem OnClick="LogoutAsync">Sign out</MudMenuItem>
+        </MudMenu>
+    </MudAppBar>
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
+        <MudNavMenu>
+            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+                Dashboard
+            </MudNavLink>
+            <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
+                Schools
+            </MudNavLink>
+            <MudDivider Class="my-2" />
+            <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
+                Academics
+            </MudNavLink>
+            <MudNavLink Href="students" Icon="@Icons.Material.Filled.Groups">
+                Students
+            </MudNavLink>
+            <MudNavLink Href="attendance" Icon="@Icons.Material.Filled.EventAvailable">
+                Attendance
+            </MudNavLink>
+            <MudNavLink Href="exams" Icon="@Icons.Material.Filled.Quiz">
+                Exams
+            </MudNavLink>
+            <MudNavLink Href="fees" Icon="@Icons.Material.Filled.Payments">
+                Fees
+            </MudNavLink>
+            <MudNavLink Href="homework" Icon="@Icons.Material.Filled.MenuBook">
+                Homework
+            </MudNavLink>
+            <MudNavLink Href="notices" Icon="@Icons.Material.Filled.Campaign">
+                Notices
+            </MudNavLink>
+            <MudNavLink Href="transport" Icon="@Icons.Material.Filled.DirectionsBus">
+                Transport
+            </MudNavLink>
+            <MudNavLink Href="timetable" Icon="@Icons.Material.Filled.CalendarViewWeek">
+                Timetable
+            </MudNavLink>
+            <MudNavLink Href="teachers" Icon="@Icons.Material.Filled.Badge">
+                Teachers
+            </MudNavLink>
+        </MudNavMenu>
+    </MudDrawer>
+    <MudMainContent Class="pa-6">
+        <ErrorBoundary @ref="_errorBoundary">
+            <ChildContent>
                 @Body
-            </MudMainContent>
-        </Authorized>
-        <NotAuthorized>
-            <MudMainContent>
-                @Body
-            </MudMainContent>
-        </NotAuthorized>
-    </AuthorizeView>
+            </ChildContent>
+            <ErrorContent>
+                <MudAlert Severity="Severity.Error" Class="ma-4">
+                    Something went wrong on this page.
+                    <MudButton Variant="Variant.Text" Color="Color.Error"
+                               OnClick="@(() => _errorBoundary?.Recover())">
+                        Try again
+                    </MudButton>
+                </MudAlert>
+            </ErrorContent>
+        </ErrorBoundary>
+    </MudMainContent>
 </MudLayout>
 
 @code {
     private bool _drawerOpen = true;
     private bool _isDarkMode;
+    private ErrorBoundary? _errorBoundary;
 
     private readonly MudTheme _theme = new()
     {
@@ -89,6 +103,16 @@
             AppbarBackground = "#1565C0",
         },
     };
+
+    protected override void OnInitialized() =>
+        Navigation.LocationChanged += OnLocationChanged;
+
+    /// <summary>A crash on one page must not follow the user to the next.</summary>
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+        _errorBoundary?.Recover();
+
+    public void Dispose() =>
+        Navigation.LocationChanged -= OnLocationChanged;
 
     private async Task LogoutAsync()
     {

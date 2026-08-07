@@ -152,6 +152,18 @@ try
     app.MapHealthChecks("/health/live");
     app.MapHealthChecks("/health/ready");
 
+    // The API serves no UI at "/" — send humans to the docs (dev) or identify
+    // the service instead of showing a blank 404.
+    app.MapGet("/", (IWebHostEnvironment env) =>
+        env.IsDevelopment()
+            ? Results.Redirect("/swagger")
+            : Results.Json(new
+            {
+                service = "SchoolErp API",
+                health = "/health/live",
+                api = "/api/v1",
+            }));
+
     app.Run();
 }
 catch (Exception ex) when (ex is not HostAbortedException)

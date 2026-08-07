@@ -201,7 +201,17 @@ else
             return;
         }
 
-        var entries = await Client.GetAsync(_classId.Value, _sectionId);
+        List<TimetableEntryDto> entries;
+        try
+        {
+            entries = await Client.GetAsync(_classId.Value, _sectionId);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            return;
+        }
+
         _allPublished = entries.Count > 0 && entries.All(e => e.IsPublished);
         _rows = entries.Select(e => new SlotRow
         {

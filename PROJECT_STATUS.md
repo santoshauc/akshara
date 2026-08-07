@@ -123,5 +123,12 @@ Integration tests use Testcontainers (needs Docker running).
 - The portal is a PWA: after rebuilding it, the service worker can serve a
   STALE cached bundle (new routes 404 / odd auth behavior). Fix in the browser:
   unregister service workers + clear CacheStorage, then reload.
+- MudBlazor chrome (MudAppBar/MudDrawer/MudMainContent) must be DIRECT
+  children of MudLayout — nesting them inside AuthorizeView breaks drawer
+  offsets/toggling (was the cause of the old 88px padding hack). Login uses
+  EmptyLayout; MainLayout renders chrome unconditionally and wraps @Body in
+  an ErrorBoundary that auto-recovers on navigation.
+- API root (:5199) redirects to /swagger in Development (JSON service info
+  otherwise) — it's an API host, there is no UI there.
 - In Blazor login flows, never hard-navigate right after submitting — it can
   kill the async token write to localStorage; let the SPA navigate itself.
