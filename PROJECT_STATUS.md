@@ -96,8 +96,9 @@ Integration tests use Testcontainers (needs Docker running).
    Expo apps, Docker image build) and deployment/Dockerfile.api
    (multi-stage, non-root, port 8080; verified by a real local build).
    NOTE: no git remote is configured yet — push to GitHub to activate CI.
-   Still remaining: docs pack (architecture, API guide, user manuals),
-   localization resources (en/te), report-card PDFs.
+   ~~Docs pack~~ DONE — docs/architecture.md, docs/api-guide.md,
+   docs/user-manual-admin.md, docs/user-manual-apps.md (+ README index).
+   Still remaining: localization resources (en/te), report-card PDFs.
 
 ## How to run (Windows dev box)
 

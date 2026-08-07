@@ -71,3 +71,13 @@ dotnet test
 - Dependency advisories are tracked in `docs/security-notes.md`.
 - Local compose credentials are development-only; production secrets are
   injected via environment/secret manager and never committed.
+
+## Documentation
+
+| Document | Audience |
+|---|---|
+| [docs/architecture.md](docs/architecture.md) | Engineers — system design, tenancy, auth, jobs, payments |
+| [docs/api-guide.md](docs/api-guide.md) | Integrators — auth flows, conventions, endpoint catalog |
+| [docs/user-manual-admin.md](docs/user-manual-admin.md) | School administrators — portal walkthrough |
+| [docs/user-manual-apps.md](docs/user-manual-apps.md) | Parents & drivers — mobile app guides |
+| [docs/security-notes.md](docs/security-notes.md) | Engineers — accepted advisories, licensing notes |
