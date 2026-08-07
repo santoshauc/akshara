@@ -27,6 +27,7 @@
                     <MudMenuItem Disabled="true">@context.User.Identity?.Name</MudMenuItem>
                 </Authorized>
             </AuthorizeView>
+            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("devices"))">My devices</MudMenuItem>
             <MudDivider />
             <MudMenuItem OnClick="LogoutAsync">Sign out</MudMenuItem>
         </MudMenu>

@@ -1,4 +1,5 @@
 using System.ComponentModel.DataAnnotations;
+using System.Security.Claims;
 using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -26,7 +27,7 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> Login([FromBody] PasswordLoginRequest request, CancellationToken ct)
     {
         var result = await _authService.LoginWithPasswordAsync(
-            request.SchoolCode, request.Login, request.Password, ClientIp, ct);
+            request.SchoolCode, request.Login, request.Password, ClientIp, DeviceLabel, ct);
         return ToActionResult(result);
     }
 
@@ -49,7 +50,7 @@ public sealed class AuthController : ControllerBase
     public async Task<IActionResult> VerifyOtp([FromBody] OtpVerifyRequest request, CancellationToken ct)
     {
         var result = await _authService.LoginWithOtpAsync(
-            request.SchoolCode, request.Phone, request.Code, ClientIp, ct);
+            request.SchoolCode, request.Phone, request.Code, ClientIp, DeviceLabel, ct);
         return ToActionResult(result);
     }
 
@@ -74,7 +75,79 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>The caller's active sessions ("My devices").</summary>
+    [HttpGet("sessions")]
+    [Authorize]
+    [ProducesResponseType(typeof(IReadOnlyList<SessionDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSessions(CancellationToken ct) =>
+        CurrentUserId is { } userId
+            ? Ok(await _authService.GetSessionsAsync(userId, ct))
+            : Unauthorized();
+
+    /// <summary>Signs out one of the caller's own sessions.</summary>
+    [HttpDelete("sessions/{sessionId:guid}")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RevokeSession(Guid sessionId, CancellationToken ct)
+    {
+        if (CurrentUserId is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        return await _authService.RevokeSessionAsync(userId, sessionId, ClientIp, ct)
+            ? NoContent()
+            : NotFound();
+    }
+
     private string? ClientIp => HttpContext.Connection.RemoteIpAddress?.ToString();
+
+    private Guid? CurrentUserId =>
+        Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var id) ? id : null;
+
+    /// <summary>"Chrome · Windows"-style label derived from the User-Agent.</summary>
+    private string? DeviceLabel
+    {
+        get
+        {
+            var ua = Request.Headers.UserAgent.ToString();
+            if (string.IsNullOrWhiteSpace(ua))
+            {
+                return null;
+            }
+
+            var browser = ua switch
+            {
+                _ when ua.Contains("Edg/", StringComparison.Ordinal) => "Edge",
+                _ when ua.Contains("OPR/", StringComparison.Ordinal) => "Opera",
+                _ when ua.Contains("Chrome/", StringComparison.Ordinal) => "Chrome",
+                _ when ua.Contains("Firefox/", StringComparison.Ordinal) => "Firefox",
+                _ when ua.Contains("Safari/", StringComparison.Ordinal) => "Safari",
+                _ when ua.Contains("okhttp", StringComparison.OrdinalIgnoreCase) => "Mobile app",
+                _ => null,
+            };
+            var platform = ua switch
+            {
+                _ when ua.Contains("Android", StringComparison.Ordinal) => "Android",
+                _ when ua.Contains("iPhone", StringComparison.Ordinal) ||
+                       ua.Contains("iPad", StringComparison.Ordinal) => "iOS",
+                _ when ua.Contains("Windows", StringComparison.Ordinal) => "Windows",
+                _ when ua.Contains("Mac OS", StringComparison.Ordinal) => "macOS",
+                _ when ua.Contains("Linux", StringComparison.Ordinal) => "Linux",
+                _ => null,
+            };
+
+            var label = (browser, platform) switch
+            {
+                (null, null) => ua,
+                (null, _) => platform!,
+                (_, null) => browser!,
+                _ => $"{browser} · {platform}",
+            };
+            return label.Length <= 128 ? label : label[..128];
+        }
+    }
 
     private IActionResult ToActionResult(AuthResult result)
     {

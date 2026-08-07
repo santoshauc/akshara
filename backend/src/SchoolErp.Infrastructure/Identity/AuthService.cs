@@ -49,7 +49,8 @@ public sealed partial class AuthService : IAuthService
     // ----- Password login --------------------------------------------------
 
     public async Task<AuthResult> LoginWithPasswordAsync(
-        string schoolCode, string login, string password, string? ipAddress, CancellationToken ct = default)
+        string schoolCode, string login, string password, string? ipAddress,
+        string? deviceName = null, CancellationToken ct = default)
     {
         Guid? tenantId = null;
 
@@ -94,7 +95,8 @@ public sealed partial class AuthService : IAuthService
         }
 
         await _userManager.ResetAccessFailedCountAsync(user).ConfigureAwait(false);
-        return AuthResult.Success(await IssueTokensAsync(user, ipAddress, ct).ConfigureAwait(false));
+        return AuthResult.Success(
+            await IssueTokensAsync(user, ipAddress, deviceName, ct).ConfigureAwait(false));
     }
 
     // ----- OTP login -------------------------------------------------------
@@ -146,7 +148,8 @@ public sealed partial class AuthService : IAuthService
     }
 
     public async Task<AuthResult> LoginWithOtpAsync(
-        string schoolCode, string phone, string code, string? ipAddress, CancellationToken ct = default)
+        string schoolCode, string phone, string code, string? ipAddress,
+        string? deviceName = null, CancellationToken ct = default)
     {
         var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
         if (tenant is null || !tenant.IsActive)
@@ -186,7 +189,8 @@ public sealed partial class AuthService : IAuthService
         }
 
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
-        return AuthResult.Success(await IssueTokensAsync(user, ipAddress, ct).ConfigureAwait(false));
+        return AuthResult.Success(
+            await IssueTokensAsync(user, ipAddress, deviceName, ct).ConfigureAwait(false));
     }
 
     // ----- Refresh rotation ------------------------------------------------
@@ -240,6 +244,8 @@ public sealed partial class AuthService : IAuthService
             TokenHash = stored.ReplacedByTokenHash,
             ExpiresAt = now.Add(_tokenService.RefreshTokenLifetime),
             CreatedByIp = ipAddress,
+            DeviceName = stored.DeviceName,
+            SessionStartedAt = stored.SessionStartedAt ?? stored.CreatedAt,
         });
 
         var accessToken = await CreateAccessTokenAsync(user).ConfigureAwait(false);
@@ -267,10 +273,47 @@ public sealed partial class AuthService : IAuthService
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    // ----- Sessions (devices) ----------------------------------------------
+
+    public async Task<IReadOnlyList<SessionDto>> GetSessionsAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow();
+        return await _db.Set<RefreshToken>().AsNoTracking()
+            .Where(t => t.UserId == userId && t.RevokedAt == null && t.ExpiresAt > now)
+            .OrderByDescending(t => t.SessionStartedAt ?? t.CreatedAt)
+            .Select(t => new SessionDto(
+                t.Id, t.DeviceName, t.CreatedByIp,
+                t.SessionStartedAt ?? t.CreatedAt, t.CreatedAt, t.ExpiresAt))
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    public async Task<bool> RevokeSessionAsync(
+        Guid userId, Guid sessionId, string? ipAddress, CancellationToken ct = default)
+    {
+        // The user filter is the ownership check — nobody can kill another
+        // user's session, and probing returns the same "false" as a miss.
+        var stored = await _db.Set<RefreshToken>()
+            .FirstOrDefaultAsync(
+                t => t.Id == sessionId && t.UserId == userId && t.RevokedAt == null, ct)
+            .ConfigureAwait(false);
+        if (stored is null)
+        {
+            return false;
+        }
+
+        stored.RevokedAt = _clock.GetUtcNow();
+        stored.RevokedByIp = ipAddress;
+        stored.RevocationReason = "session-revoked";
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return true;
+    }
+
     // ----- Helpers ---------------------------------------------------------
 
     private async Task<AuthTokens> IssueTokensAsync(
-        ApplicationUser user, string? ipAddress, CancellationToken ct)
+        ApplicationUser user, string? ipAddress, string? deviceName, CancellationToken ct)
     {
         var now = _clock.GetUtcNow();
         var rawToken = JwtTokenService.GenerateRefreshToken();
@@ -281,6 +324,8 @@ public sealed partial class AuthService : IAuthService
             TokenHash = JwtTokenService.Hash(rawToken),
             ExpiresAt = now.Add(_tokenService.RefreshTokenLifetime),
             CreatedByIp = ipAddress,
+            DeviceName = deviceName,
+            SessionStartedAt = now,
         });
 
         var accessToken = await CreateAccessTokenAsync(user).ConfigureAwait(false);

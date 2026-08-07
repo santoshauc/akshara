@@ -30,5 +30,13 @@ public class RefreshToken : AuditableEntity
     /// <summary>Why the token was revoked (rotated, logout, reuse-detected…).</summary>
     public string? RevocationReason { get; set; }
 
+    /// <summary>Human label for the signing-in device (from User-Agent or client).
+    /// Carried across rotations so "My devices" shows one row per sign-in.</summary>
+    public string? DeviceName { get; set; }
+
+    /// <summary>When this sign-in chain began; copied on rotation. Null on
+    /// legacy rows — fall back to <see cref="AuditableEntity.CreatedAt"/>.</summary>
+    public DateTimeOffset? SessionStartedAt { get; set; }
+
     public bool IsActive(DateTimeOffset now) => RevokedAt is null && now < ExpiresAt;
 }

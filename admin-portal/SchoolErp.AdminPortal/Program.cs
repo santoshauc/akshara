@@ -52,5 +52,6 @@ builder.Services.AddScoped<TransportClient>();
 builder.Services.AddScoped<TimetableClient>();
 builder.Services.AddScoped<StaffClient>();
 builder.Services.AddScoped<AuditClient>();
+builder.Services.AddScoped<SessionsClient>();
 
 await builder.Build().RunAsync();

@@ -1,0 +1,90 @@
+@page "/devices"
+@attribute [Authorize]
+@inject SessionsClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>My devices — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-1">My devices</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    Everywhere you're currently signed in. Sign out any device you don't recognise.
+</MudText>
+
+<MudPaper Elevation="2" Class="pa-4">
+    <MudTable Items="_sessions" Dense="true" Hover="true" Loading="_loading">
+        <HeaderContent>
+            <MudTh>Device</MudTh>
+            <MudTh>IP</MudTh>
+            <MudTh>Signed in</MudTh>
+            <MudTh>Last active</MudTh>
+            <MudTh />
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                    <MudIcon Icon="@DeviceIcon(context.DeviceName)" Size="Size.Small" />
+                    <MudText Typo="Typo.body2">@(context.DeviceName ?? "Unknown device")</MudText>
+                </MudStack>
+            </MudTd>
+            <MudTd class="mud-text-secondary">@(context.IpAddress ?? "—")</MudTd>
+            <MudTd>@context.SignedInAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+            <MudTd>@context.LastRefreshedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+            <MudTd>
+                <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Logout"
+                           OnClick="@(() => RevokeAsync(context))">
+                    Sign out
+                </MudButton>
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary pa-4">No active sessions.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+@code {
+    private List<SessionDto> _sessions = [];
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _sessions = await Client.GetSessionsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task RevokeAsync(SessionDto session)
+    {
+        if (await Client.RevokeAsync(session.Id))
+        {
+            Snackbar.Add($"Signed out {session.DeviceName ?? "device"}.", Severity.Success);
+        }
+        else
+        {
+            Snackbar.Add("That session was already gone.", Severity.Info);
+        }
+
+        await LoadAsync();
+    }
+
+    private static string DeviceIcon(string? deviceName) => deviceName switch
+    {
+        null => Icons.Material.Filled.DeviceUnknown,
+        _ when deviceName.Contains("Android") || deviceName.Contains("iOS") ||
+               deviceName.Contains("Mobile") => Icons.Material.Filled.Smartphone,
+        _ => Icons.Material.Filled.Computer,
+    };
+}

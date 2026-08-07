@@ -33,8 +33,9 @@ Monorepo layout is described in `README.md`.
 | Teachers: directory CRUD, timetable linkage, clash detection, schedules | ✅ | ✅ | ✅ | ✅ (names resolve) |
 | Driver app (Expo): OTP login, manifest, checklist gate, trip loop | — | ✅ | — | ✅ driver-app |
 | Audit trail: every command logged (user, tenant, IP), portal viewer | ✅ | ✅ | ✅ | — |
+| Device sessions: UA-labelled sign-ins, "My devices" list + revoke | ✅ | ✅ | ✅ | — |
 
-Test suite: 33 unit + 62 integration = **95 green** (`dotnet test` from `school-erp/`).
+Test suite: 33 unit + 64 integration = **97 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -60,7 +61,11 @@ Integration tests use Testcontainers (needs Docker running).
    in the handler), audit.view permission (backfilled), portal "Audit log"
    page, 3 integration tests. NOTE: permission claims live in the JWT —
    after a claims backfill users must sign out/in to see the new page.
-   Still remaining: device registration, MFA, dev-seeder claim backfill.
+   ~~Device registration~~ DONE — refresh tokens carry DeviceName (derived
+   server-side from User-Agent) + SessionStartedAt across rotations;
+   GET/DELETE /api/v1/auth/sessions (self-service, ownership-checked);
+   portal "My devices" page under the account menu; 2 integration tests.
+   Still remaining: MFA, dev-seeder claim backfill.
 4. Hangfire hosting for jobs (outbox dispatcher currently a BackgroundService).
 5. Real Razorpay adapter for `IPaymentGateway` (dev HMAC gateway in place).
 6. CI/CD (GitHub Actions), Dockerfile for API, docs pack (architecture, API

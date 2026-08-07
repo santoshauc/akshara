@@ -132,4 +132,68 @@ public sealed class AuthFlowTests : IClassFixture<AuthTestFixture>
         _fixture.SmsSender.Sent.Should().HaveCount(sentBefore,
             "unknown phones must not receive SMS nor produce a different response");
     }
+
+    [Fact]
+    public async Task Sessions_ListDevices_SurviveRotation_AndRevokeSignsOutThatDevice()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var login = await auth.LoginWithPasswordAsync(
+            AuthTestFixture.SchoolCode, AuthTestFixture.AdminEmail, AuthTestFixture.AdminPassword,
+            "10.0.0.9", deviceName: "Chrome · Windows");
+        login.Succeeded.Should().BeTrue();
+        var userId = UserIdOf(login);
+
+        var sessions = await auth.GetSessionsAsync(userId);
+        var session = sessions.Should()
+            .Contain(s => s.DeviceName == "Chrome · Windows" && s.IpAddress == "10.0.0.9")
+            .Subject;
+
+        // Rotation keeps the device identity and the original sign-in time.
+        var rotated = await auth.RefreshAsync(login.Tokens!.RefreshToken, "10.0.0.9");
+        rotated.Succeeded.Should().BeTrue();
+        var afterRotation = await auth.GetSessionsAsync(userId);
+        var carried = afterRotation.Should()
+            .ContainSingle(s => s.DeviceName == "Chrome · Windows")
+            .Subject;
+        carried.SignedInAt.Should().Be(session.SignedInAt);
+        carried.Id.Should().NotBe(session.Id, "rotation replaces the token row");
+
+        // Revoking the session kills that device's refresh chain…
+        (await auth.RevokeSessionAsync(userId, carried.Id, "10.0.0.1")).Should().BeTrue();
+        var refreshAfterRevoke = await auth.RefreshAsync(rotated.Tokens!.RefreshToken, "10.0.0.9");
+        refreshAfterRevoke.Succeeded.Should().BeFalse();
+
+        // …and it no longer appears in the list.
+        (await auth.GetSessionsAsync(userId))
+            .Should().NotContain(s => s.DeviceName == "Chrome · Windows");
+    }
+
+    [Fact]
+    public async Task Sessions_CannotBeRevokedByAnotherUser()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var login = await auth.LoginWithPasswordAsync(
+            AuthTestFixture.SchoolCode, AuthTestFixture.AdminEmail, AuthTestFixture.AdminPassword,
+            null, deviceName: "Victim device");
+        var userId = UserIdOf(login);
+        var session = (await auth.GetSessionsAsync(userId))
+            .Single(s => s.DeviceName == "Victim device");
+
+        // A different user id (attacker) gets the same "false" as a miss.
+        (await auth.RevokeSessionAsync(Guid.NewGuid(), session.Id, null)).Should().BeFalse();
+
+        // The victim's session is untouched.
+        (await auth.GetSessionsAsync(userId))
+            .Should().Contain(s => s.Id == session.Id);
+    }
+
+    private static Guid UserIdOf(AuthResult result)
+    {
+        var jwt = new JwtSecurityTokenHandler().ReadJwtToken(result.Tokens!.AccessToken);
+        return Guid.Parse(jwt.Claims.First(c => c.Type is "sub" or "nameid").Value);
+    }
 }
