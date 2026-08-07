@@ -36,7 +36,7 @@ Monorepo layout is described in `README.md`.
 | Device sessions: UA-labelled sign-ins, "My devices" list + revoke | ✅ | ✅ | ✅ | — |
 | MFA: TOTP enrollment, login gate, recovery codes, Security page | ✅ | ✅ | ✅ | — |
 
-Test suite: 37 unit + 65 integration = **102 green** (`dotnet test` from `school-erp/`).
+Test suite: 37 unit + 66 integration = **103 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -104,7 +104,19 @@ Integration tests use Testcontainers (needs Docker running).
    SecureStore/localStorage, and every UI string translated. School-entered
    data (names, subjects) intentionally stays as entered. Portal/SMS remain
    English (SMS localization would need per-guardian language preference —
-   future work). Still remaining: report-card PDFs.
+   future work).
+   ~~Report-card PDFs~~ DONE — QuestPDF (Community, see security-notes)
+   renderer behind IReportCardRenderer; GetReportCardPdfQuery composes the
+   result + student + school header. Staff endpoint
+   GET exams/{examId}/results/{studentId}/report-card (drafts allowed for
+   proofing) and parent endpoint
+   GET parent/children/{id}/exams/{examId}/report-card (published only).
+   Integration test covers draft-hiding + valid PDF output; E2E-verified
+   with a real 39KB PDF for Ananya's Mid-Term 1.
+
+ALL originally-scoped roadmap items are now complete. Remaining backlog is
+polish only: task #4 local-infra extras, portal/SMS localization, mobile
+report-card download buttons, AutoMapper→Mapster swap pre-GA.
 
 ## How to run (Windows dev box)
 

@@ -199,6 +199,35 @@ public sealed class ExamModuleTests : IClassFixture<ExamModuleFixture>
     }
 
     [Fact]
+    public async Task Report_card_renders_a_pdf_and_hides_drafts_from_parents()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var (examId, mathPaper, sciencePaper) = await SetUpExamAsync(sender, "Report Card Exam");
+
+        await sender.Send(new EnterMarksCommand(mathPaper,
+            [new MarkInput(_fixture.EnrollmentTop, 88, false)]));
+        await sender.Send(new EnterMarksCommand(sciencePaper,
+            [new MarkInput(_fixture.EnrollmentTop, 40, false)]));
+
+        // Parent-facing rendering must refuse drafts…
+        var draft = () => sender.Send(
+            new GetReportCardPdfQuery(_fixture.StudentTop, examId, PublishedOnly: true));
+        await draft.Should().ThrowAsync<SchoolErp.Application.Common.Exceptions.NotFoundException>();
+
+        // …while staff can proof them.
+        var proof = await sender.Send(new GetReportCardPdfQuery(_fixture.StudentTop, examId));
+        System.Text.Encoding.ASCII.GetString(proof, 0, 5).Should().Be("%PDF-");
+        proof.Length.Should().BeGreaterThan(2000, "a rendered A4 report card is not a stub");
+
+        // After publication the parent-facing render succeeds too.
+        await sender.Send(new PublishExamCommand(examId));
+        var published = await sender.Send(
+            new GetReportCardPdfQuery(_fixture.StudentTop, examId, PublishedOnly: true));
+        System.Text.Encoding.ASCII.GetString(published, 0, 5).Should().Be("%PDF-");
+    }
+
+    [Fact]
     public async Task Marks_above_paper_maximum_are_rejected()
     {
         await using var scope = _fixture.CreateScope();

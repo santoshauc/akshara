@@ -22,6 +22,13 @@
 
 ## Licensing notes
 
+### QuestPDF (Community license)
+
+- Used for report-card PDF rendering. The Community tier is free for
+  organisations under USD 1M annual gross revenue; the license type is set
+  explicitly in `QuestPdfReportCardRenderer`. Revisit before the product's
+  revenue crosses the threshold (Professional license or a swap).
+
 ### Hangfire 1.8.x (LGPL-3.0) + Hangfire.PostgreSql (MIT)
 
 - Hangfire core is LGPL v3. SchoolErp is a hosted SaaS — the LGPL's

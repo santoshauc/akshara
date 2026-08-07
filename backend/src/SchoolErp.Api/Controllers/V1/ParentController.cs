@@ -149,6 +149,19 @@ public sealed class ParentController : ControllerBase
         return Ok(await _sender.Send(new GetStudentTimetableQuery(studentId), ct));
     }
 
+    /// <summary>A child's report card for a published exam, as a PDF.</summary>
+    [HttpGet("children/{studentId:guid}/exams/{examId:guid}/report-card")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChildReportCard(
+        Guid studentId, Guid examId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        var pdf = await _sender.Send(
+            new GetReportCardPdfQuery(studentId, examId, PublishedOnly: true), ct);
+        return File(pdf, "application/pdf", "report-card.pdf");
+    }
+
     /// <summary>Live bus location for a child's route (204 when no active trip).</summary>
     [HttpGet("children/{studentId:guid}/bus")]
     [ProducesResponseType(typeof(BusLocationDto), StatusCodes.Status200OK)]

@@ -113,6 +113,10 @@ public static class DependencyInjection
 
         services.AddScoped<Payments.GatewayWebhookProcessor>();
 
+        // --- Reports -------------------------------------------------------
+        services.AddSingleton<Application.Exams.Queries.IReportCardRenderer,
+            Reports.QuestPdfReportCardRenderer>();
+
         return services;
     }
 }

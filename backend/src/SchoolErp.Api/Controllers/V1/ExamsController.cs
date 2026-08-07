@@ -110,6 +110,17 @@ public sealed class ExamsController : ControllerBase
     public async Task<IActionResult> GetStudentResult(
         Guid examId, Guid studentId, CancellationToken ct) =>
         Ok(await _sender.Send(new GetStudentResultQuery(studentId, examId), ct));
+
+    /// <summary>The student's report card for an exam as a PDF (drafts allowed for proofing).</summary>
+    [HttpGet("{examId:guid}/results/{studentId:guid}/report-card")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReportCard(Guid examId, Guid studentId, CancellationToken ct)
+    {
+        var pdf = await _sender.Send(new GetReportCardPdfQuery(studentId, examId), ct);
+        return File(pdf, "application/pdf", $"report-card-{studentId:N}.pdf");
+    }
 }
 
 /// <summary>Paper-scheduling payload.</summary>
