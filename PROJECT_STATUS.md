@@ -30,9 +30,20 @@ Monorepo layout is described in `README.md`.
 Test suite: 33 unit + 44 integration = **77 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
+## Current blocker (needs the user)
+
+Windows **Smart App Control** (enforcement mode) began blocking the freshly
+compiled `SchoolErp.IntegrationTests.dll` (0x800711C7) on 2026-08-07. Unit
+tests and the apps still run. Until the user allows the file (Windows
+Security → Protection history) or disables SAC (permanent, their decision),
+the integration suite cannot execute. Transport tests are written and
+compile; run `dotnet test` after the policy is resolved.
+
 ## Remaining scope (in rough priority order)
 
-1. Transport module + React Native driver app (routes/vehicles/GPS/inspection).
+1. Transport: portal UI + parent-app card + trips/GPS + driver app
+   (backend base — vehicles/routes/stops/allocation + parent endpoint —
+   is DONE, committed 59c43d9; integration tests pending SAC fix).
 2. Timetable module.
 3. Auth hardening (task list #7): device registration, MFA, persistent
    audit-log trail, dev-seeder claim backfill (see Gotchas).
