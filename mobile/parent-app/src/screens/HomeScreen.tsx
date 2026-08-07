@@ -18,6 +18,7 @@ import {
   MonthAttendance,
   Notice,
   StudentResult,
+  TimetableEntry,
 } from '../api/types';
 import { BRAND } from '../config';
 import AttendanceCard from './cards/AttendanceCard';
@@ -25,6 +26,7 @@ import FeesCard from './cards/FeesCard';
 import HomeworkCard from './cards/HomeworkCard';
 import NoticesCard from './cards/NoticesCard';
 import ResultCard from './cards/ResultCard';
+import TimetableCard from './cards/TimetableCard';
 import TransportCard from './cards/TransportCard';
 
 interface Props {
@@ -45,6 +47,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [homework, setHomework] = useState<Homework[]>([]);
   const [transport, setTransport] = useState<ChildTransport | null>(null);
+  const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -62,7 +65,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
   const loadChildData = useCallback(async (child: Child) => {
     const now = new Date();
-    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData] =
+    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData] =
       await Promise.all([
         parentApi
           .getAttendance(child.studentId, now.getFullYear(), now.getMonth() + 1)
@@ -72,6 +75,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
         parentApi.getNotices(child.studentId).catch(() => [] as Notice[]),
         parentApi.getHomework(child.studentId).catch(() => [] as Homework[]),
         parentApi.getTransport(child.studentId).catch(() => null),
+        parentApi.getTimetable(child.studentId).catch(() => [] as TimetableEntry[]),
       ]);
     setAttendance(attendanceData);
     setFees(feesData);
@@ -79,6 +83,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
     setNotices(noticeList);
     setHomework(homeworkList);
     setTransport(transportData);
+    setTimetable(timetableData);
     const latest = examList[examList.length - 1];
     setResult(
       latest
@@ -164,6 +169,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
         <View style={styles.cards}>
           <AttendanceCard attendance={attendance} />
           <TransportCard transport={transport} />
+          <TimetableCard entries={timetable} />
           <HomeworkCard homework={homework} />
           <ResultCard result={result} examCount={exams.length} />
           <FeesCard fees={fees} />

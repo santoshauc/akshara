@@ -1,0 +1,231 @@
+@page "/timetable"
+@attribute [Authorize]
+@inject TimetableClient Client
+@inject AcademicsClient AcademicsApi
+@inject ExamsClient ExamsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Timetable — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4">Timetable</MudText>
+    <MudSpacer />
+    <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Dense="true" Style="min-width: 150px;"
+               SelectedValuesChanged="@(_ => OnScopeChangedAsync())">
+        @foreach (var schoolClass in _classes)
+        {
+            <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+        }
+    </MudSelect>
+    <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Clearable="true" Dense="true"
+               HelperText="Empty = all sections" Style="min-width: 150px;"
+               Disabled="@(_classId is null)" SelectedValuesChanged="@(_ => OnScopeChangedAsync())">
+        @foreach (var sec in SectionsOfSelectedClass)
+        {
+            <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+        }
+    </MudSelect>
+</MudStack>
+
+@if (_classId is null)
+{
+    <MudAlert Severity="Severity.Info">Pick a class to edit its weekly timetable.</MudAlert>
+}
+else
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudText Typo="Typo.h6">Slots</MudText>
+            @if (_rows.Count > 0)
+            {
+                <MudChip Size="Size.Small" Class="ml-2"
+                         Color="@(_allPublished ? Color.Success : Color.Warning)">
+                    @(_allPublished ? "Published" : "Draft — parents can't see this yet")
+                </MudChip>
+            }
+            <MudSpacer />
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => _rows.Add(new SlotRow()))">
+                Add slot
+            </MudButton>
+        </MudStack>
+
+        @foreach (var (row, index) in _rows.Select((r, i) => (r, i)))
+        {
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-2">
+                <MudSelect T="int" @bind-Value="row.Day" Label="Day" Dense="true" Style="width: 130px;">
+                    @for (var d = 1; d <= 6; d++)
+                    {
+                        var day = d;
+                        <MudSelectItem T="int" Value="@day">@DayNames[day]</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudNumericField @bind-Value="row.Period" Label="Period" Min="1" Max="12"
+                                 Style="width: 90px;" />
+                <MudTextField @bind-Value="row.Start" Label="Start (HH:mm)" Style="width: 110px;" />
+                <MudTextField @bind-Value="row.End" Label="End (HH:mm)" Style="width: 110px;" />
+                <MudSelect T="Guid?" @bind-Value="row.SubjectId" Label="Subject" Dense="true"
+                           Style="min-width: 160px;">
+                    @foreach (var subject in _subjects)
+                    {
+                        <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="row.Teacher" Label="Teacher" Style="min-width: 140px;" />
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
+                               OnClick="@(() => _rows.RemoveAt(index))" />
+            </MudStack>
+        }
+
+        <MudStack Row="true" Spacing="2" Class="mt-4">
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy" OnClick="SaveAsync">
+                Save draft
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Success" Disabled="@(_busy || _rows.Count == 0)"
+                       StartIcon="@Icons.Material.Filled.Publish" OnClick="PublishAsync">
+                Publish to parents
+            </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@code {
+    private static readonly string[] DayNames =
+        ["", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];
+
+    private sealed class SlotRow
+    {
+        public int Day { get; set; } = 1;
+        public int Period { get; set; } = 1;
+        public string Start { get; set; } = "08:00";
+        public string End { get; set; } = "08:45";
+        public Guid? SubjectId { get; set; }
+        public string? Teacher { get; set; }
+    }
+
+    private List<SchoolClassDto> _classes = [];
+    private List<SubjectDto> _subjects = [];
+    private List<SlotRow> _rows = [];
+    private Guid? _classId;
+    private Guid? _sectionId;
+    private bool _busy;
+    private bool _allPublished;
+
+    private IEnumerable<SectionDto> SectionsOfSelectedClass =>
+        _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _classes = await AcademicsApi.GetClassesAsync();
+            _subjects = await ExamsApi.GetSubjectsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task OnScopeChangedAsync()
+    {
+        if (_classId is null)
+        {
+            return;
+        }
+
+        var entries = await Client.GetAsync(_classId.Value, _sectionId);
+        _allPublished = entries.Count > 0 && entries.All(e => e.IsPublished);
+        _rows = entries.Select(e => new SlotRow
+        {
+            Day = e.DayOfWeek,
+            Period = e.Period,
+            Start = e.StartTime.ToString("HH\\:mm"),
+            End = e.EndTime.ToString("HH\\:mm"),
+            SubjectId = e.SubjectId,
+            Teacher = e.TeacherName,
+        }).ToList();
+        if (_rows.Count == 0)
+        {
+            _rows.Add(new SlotRow());
+        }
+    }
+
+    private List<TimetableEntryInput>? BuildEntries()
+    {
+        var entries = new List<TimetableEntryInput>();
+        foreach (var row in _rows)
+        {
+            if (row.SubjectId is null ||
+                !TimeOnly.TryParse(row.Start, out var start) ||
+                !TimeOnly.TryParse(row.End, out var end))
+            {
+                Snackbar.Add("Every slot needs a subject and valid HH:mm times.", Severity.Warning);
+                return null;
+            }
+
+            entries.Add(new TimetableEntryInput(
+                row.Day, row.Period, start, end, row.SubjectId.Value,
+                string.IsNullOrWhiteSpace(row.Teacher) ? null : row.Teacher.Trim()));
+        }
+
+        return entries;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_classId is null || BuildEntries() is not { } entries)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.DefineAsync(
+                new DefineTimetableRequest(_classId.Value, _sectionId, entries));
+            if (error is null)
+            {
+                Snackbar.Add("Draft saved. Publish when ready.", Severity.Success);
+                await OnScopeChangedAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task PublishAsync()
+    {
+        if (_classId is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.PublishAsync(
+                new PublishTimetableRequest(_classId.Value, _sectionId));
+            if (error is null)
+            {
+                Snackbar.Add("Timetable published. Parents can now see it.", Severity.Success);
+                await OnScopeChangedAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

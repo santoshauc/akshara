@@ -112,6 +112,16 @@ export interface Homework {
   dueDate: string;
 }
 
+export interface TimetableEntry {
+  id: string;
+  dayOfWeek: number; // 1 = Monday … 7 = Sunday
+  period: number;
+  startTime: string; // HH:mm:ss
+  endTime: string;
+  subjectName: string;
+  teacherName: string | null;
+}
+
 export interface ChildTransport {
   routeName: string;
   stopName: string;

@@ -8,6 +8,7 @@ using SchoolErp.Domain.Homework;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
+using SchoolErp.Domain.Timetable;
 using SchoolErp.Domain.Transport;
 
 namespace SchoolErp.Application.Abstractions;
@@ -70,6 +71,8 @@ public interface IApplicationDbContext
     DbSet<TripLocation> TripLocations { get; }
 
     DbSet<TripStudentEvent> TripStudentEvents { get; }
+
+    DbSet<TimetableEntry> TimetableEntries { get; }
 
     DbSet<OutboxMessage> OutboxMessages { get; }
 

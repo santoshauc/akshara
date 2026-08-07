@@ -49,5 +49,6 @@ builder.Services.AddScoped<ExamsClient>();
 builder.Services.AddScoped<FeesClient>();
 builder.Services.AddScoped<CommsClient>();
 builder.Services.AddScoped<TransportClient>();
+builder.Services.AddScoped<TimetableClient>();
 
 await builder.Build().RunAsync();

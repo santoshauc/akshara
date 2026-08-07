@@ -10,6 +10,7 @@ import {
   MonthAttendance,
   Notice,
   StudentResult,
+  TimetableEntry,
 } from './types';
 
 /** Requests an SMS OTP. Always succeeds from the caller's perspective. */
@@ -82,6 +83,9 @@ export const parentApi = {
 
   getHomework: (studentId: string) =>
     request<Homework[]>(`/api/v1/parent/children/${studentId}/homework`),
+
+  getTimetable: (studentId: string) =>
+    request<TimetableEntry[]>(`/api/v1/parent/children/${studentId}/timetable`),
 
   /** Returns null when the child has no transport allocation (204). */
   getTransport: (studentId: string) =>

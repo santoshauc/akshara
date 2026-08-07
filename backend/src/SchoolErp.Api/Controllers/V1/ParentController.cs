@@ -16,6 +16,7 @@ using SchoolErp.Application.Fees;
 using SchoolErp.Application.Fees.Queries;
 using SchoolErp.Application.Homework;
 using SchoolErp.Application.Parent;
+using SchoolErp.Application.Timetable;
 using SchoolErp.Application.Transport;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Infrastructure.Identity;
@@ -137,6 +138,15 @@ public sealed class ParentController : ControllerBase
     {
         await EnsureChildAsync(studentId, ct);
         return Ok(await _sender.Send(new GetStudentHomeworkQuery(studentId), ct));
+    }
+
+    /// <summary>A child's published weekly timetable.</summary>
+    [HttpGet("children/{studentId:guid}/timetable")]
+    [ProducesResponseType(typeof(IReadOnlyList<TimetableEntryDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildTimetable(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(new GetStudentTimetableQuery(studentId), ct));
     }
 
     /// <summary>Live bus location for a child's route (204 when no active trip).</summary>

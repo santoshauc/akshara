@@ -14,6 +14,7 @@ using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
+using SchoolErp.Domain.Timetable;
 using SchoolErp.Domain.Transport;
 using SchoolErp.Infrastructure.Identity;
 
@@ -116,6 +117,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     /// <summary>Per-student trip events (tenant-scoped).</summary>
     public DbSet<TripStudentEvent> TripStudentEvents => Set<TripStudentEvent>();
+
+    /// <summary>Timetable entries (tenant-scoped).</summary>
+    public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
 
     /// <summary>Transactional outbox (platform-scoped, dispatcher-read).</summary>
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
