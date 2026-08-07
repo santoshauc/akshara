@@ -128,6 +128,13 @@ Integration tests use Testcontainers (needs Docker running).
   offsets/toggling (was the cause of the old 88px padding hack). Login uses
   EmptyLayout; MainLayout renders chrome unconditionally and wraps @Body in
   an ErrorBoundary that auto-recovers on navigation.
+- NEVER put a padding class (pa-*) directly on MudMainContent — it overrides
+  the component's own padding-top (the fixed-appbar offset), shifting content
+  under the app bar and misaligning drawer click targets (clicking one menu
+  item hit another). Pad an inner div instead.
+- The PWA service worker now activates new versions immediately
+  (skipWaiting + clients.claim + one-time reload on controllerchange) so
+  users stop getting stuck on stale bundles.
 - API root (:5199) redirects to /swagger in Development (JSON service info
   otherwise) — it's an API host, there is no UI there.
 - In Blazor login flows, never hard-navigate right after submitting — it can

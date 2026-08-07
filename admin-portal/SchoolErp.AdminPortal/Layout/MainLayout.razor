@@ -72,7 +72,10 @@
             </MudNavLink>
         </MudNavMenu>
     </MudDrawer>
-    <MudMainContent Class="pa-6">
+    @* No padding class directly on MudMainContent — it would override the
+       component's own padding-top (the fixed appbar offset). Pad inside. *@
+    <MudMainContent>
+        <div class="pa-6">
         <ErrorBoundary @ref="_errorBoundary">
             <ChildContent>
                 @Body
@@ -87,6 +90,7 @@
                 </MudAlert>
             </ErrorContent>
         </ErrorBoundary>
+        </div>
     </MudMainContent>
 </MudLayout>
 

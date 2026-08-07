@@ -19,6 +19,10 @@ const manifestUrlList = self.assetsManifest.assets.map(asset => new URL(asset.ur
 async function onInstall(event) {
     console.info('Service worker: Install');
 
+    // Activate the new version immediately instead of waiting for every tab
+    // to close — stale bundles have caused hard-to-diagnose UI bugs.
+    self.skipWaiting();
+
     // Fetch and cache all matching items from the assets manifest
     const assetsRequests = self.assetsManifest.assets
         .filter(asset => offlineAssetsInclude.some(pattern => pattern.test(asset.url)))
@@ -35,6 +39,9 @@ async function onActivate(event) {
     await Promise.all(cacheKeys
         .filter(key => key.startsWith(cacheNamePrefix) && key !== cacheName)
         .map(key => caches.delete(key)));
+
+    // Take over open tabs now; index.html reloads them once on controllerchange.
+    await self.clients.claim();
 }
 
 async function onFetch(event) {

@@ -10,7 +10,6 @@
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
     <link rel="stylesheet" href="css/app.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
-    <link href="SchoolErp.AdminPortal.styles.css" rel="stylesheet" />
     <link href="manifest.webmanifest" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
     <link rel="apple-touch-icon" sizes="192x192" href="icon-192.png" />
@@ -32,7 +31,19 @@
     </div>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
-    <script>navigator.serviceWorker.register('service-worker.js');</script>
+    <script>
+        // updateViaCache 'none' + the reload below make new deployments take
+        // effect on the next load. Without this, the PWA can keep serving a
+        // stale bundle for days (which once caused phantom side-menu clicks).
+        navigator.serviceWorker.register('service-worker.js', { updateViaCache: 'none' });
+        let swReloaded = false;
+        navigator.serviceWorker.addEventListener('controllerchange', () => {
+            if (!swReloaded) {
+                swReloaded = true;
+                window.location.reload();
+            }
+        });
+    </script>
 </body>
 
 </html>
