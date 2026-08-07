@@ -37,7 +37,8 @@ Integration tests use Testcontainers (needs Docker running).
    start trip, GPS ping loop, board/drop buttons, end trip. Backend fully
    done + tested (commits 59c43d9, 013af23, 3c11045; 84 tests green).
    Parent app: add live-bus card using /parent/children/{id}/bus.
-2. Timetable module.
+2. ~~Timetable module~~ DONE (bfeef3c): define→publish workflow, portal
+   editor, parent schedule card, 4 integration tests, E2E-verified.
 3. Auth hardening (task list #7): device registration, MFA, persistent
    audit-log trail, dev-seeder claim backfill (see Gotchas).
 4. Hangfire hosting for jobs (outbox dispatcher currently a BackgroundService).
