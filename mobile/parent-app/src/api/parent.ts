@@ -3,6 +3,7 @@ import { ApiError, request, tokenStore } from './client';
 import {
   AuthTokens,
   Child,
+  ChildTransport,
   Exam,
   FeeSummary,
   Homework,
@@ -81,4 +82,10 @@ export const parentApi = {
 
   getHomework: (studentId: string) =>
     request<Homework[]>(`/api/v1/parent/children/${studentId}/homework`),
+
+  /** Returns null when the child has no transport allocation (204). */
+  getTransport: (studentId: string) =>
+    request<ChildTransport | undefined>(
+      `/api/v1/parent/children/${studentId}/transport`,
+    ).then((t) => t ?? null),
 };

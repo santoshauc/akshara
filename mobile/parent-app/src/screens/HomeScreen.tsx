@@ -11,6 +11,7 @@ import {
 import { logout, parentApi } from '../api/parent';
 import {
   Child,
+  ChildTransport,
   Exam,
   FeeSummary,
   Homework,
@@ -24,6 +25,7 @@ import FeesCard from './cards/FeesCard';
 import HomeworkCard from './cards/HomeworkCard';
 import NoticesCard from './cards/NoticesCard';
 import ResultCard from './cards/ResultCard';
+import TransportCard from './cards/TransportCard';
 
 interface Props {
   onSignedOut: () => void;
@@ -42,6 +44,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [result, setResult] = useState<StudentResult | null>(null);
   const [notices, setNotices] = useState<Notice[]>([]);
   const [homework, setHomework] = useState<Homework[]>([]);
+  const [transport, setTransport] = useState<ChildTransport | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,20 +62,23 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
   const loadChildData = useCallback(async (child: Child) => {
     const now = new Date();
-    const [attendanceData, feesData, examList, noticeList, homeworkList] = await Promise.all([
-      parentApi
-        .getAttendance(child.studentId, now.getFullYear(), now.getMonth() + 1)
-        .catch(() => null),
-      parentApi.getFees(child.studentId).catch(() => null),
-      parentApi.getExams(child.studentId).catch(() => [] as Exam[]),
-      parentApi.getNotices(child.studentId).catch(() => [] as Notice[]),
-      parentApi.getHomework(child.studentId).catch(() => [] as Homework[]),
-    ]);
+    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData] =
+      await Promise.all([
+        parentApi
+          .getAttendance(child.studentId, now.getFullYear(), now.getMonth() + 1)
+          .catch(() => null),
+        parentApi.getFees(child.studentId).catch(() => null),
+        parentApi.getExams(child.studentId).catch(() => [] as Exam[]),
+        parentApi.getNotices(child.studentId).catch(() => [] as Notice[]),
+        parentApi.getHomework(child.studentId).catch(() => [] as Homework[]),
+        parentApi.getTransport(child.studentId).catch(() => null),
+      ]);
     setAttendance(attendanceData);
     setFees(feesData);
     setExams(examList);
     setNotices(noticeList);
     setHomework(homeworkList);
+    setTransport(transportData);
     const latest = examList[examList.length - 1];
     setResult(
       latest
@@ -157,6 +163,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
       {selected && (
         <View style={styles.cards}>
           <AttendanceCard attendance={attendance} />
+          <TransportCard transport={transport} />
           <HomeworkCard homework={homework} />
           <ResultCard result={result} examCount={exams.length} />
           <FeesCard fees={fees} />

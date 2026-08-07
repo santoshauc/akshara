@@ -1,0 +1,240 @@
+@page "/transport"
+@attribute [Authorize]
+@inject TransportClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Transport — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Transport</MudText>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="5">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6">Vehicles</MudText>
+                <MudSpacer />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => _showVehicleForm = !_showVehicleForm)">
+                    Add vehicle
+                </MudButton>
+            </MudStack>
+
+            @if (_showVehicleForm)
+            {
+                <MudPaper Outlined="true" Class="pa-4 mb-3">
+                    <MudStack Spacing="2">
+                        <MudTextField @bind-Value="_vehicleReg" Label="Registration (TS09AB1234)" />
+                        <MudStack Row="true" Spacing="2">
+                            <MudTextField @bind-Value="_vehicleModel" Label="Model" />
+                            <MudNumericField @bind-Value="_vehicleCapacity" Label="Seats" Min="1" Max="100"
+                                             Style="width: 100px;" />
+                        </MudStack>
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                                   OnClick="CreateVehicleAsync">Save vehicle</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_vehicles.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">No vehicles yet.</MudText>
+            }
+            else
+            {
+                @foreach (var vehicle in _vehicles)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.DirectionsBus" Color="Color.Primary" />
+                        <div>
+                            <MudText Typo="Typo.body1">@vehicle.RegistrationNumber</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @(vehicle.Model ?? "—") · @vehicle.Capacity seats
+                            </MudText>
+                        </div>
+                        <MudSpacer />
+                        <MudChip Size="Size.Small"
+                                 Color="@(vehicle.Status == VehicleStatus.Active ? Color.Success : Color.Warning)">
+                            @vehicle.Status
+                        </MudChip>
+                    </MudStack>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="7">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6">Routes</MudText>
+                <MudSpacer />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.AddRoad"
+                           OnClick="@(() => _showRouteForm = !_showRouteForm)">
+                    Add route
+                </MudButton>
+            </MudStack>
+
+            @if (_showRouteForm)
+            {
+                <MudPaper Outlined="true" Class="pa-4 mb-3">
+                    <MudStack Spacing="2">
+                        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                            <MudTextField @bind-Value="_routeName" Label="Route name" Style="min-width: 180px;" />
+                            <MudSelect T="Guid?" @bind-Value="_routeVehicleId" Label="Vehicle" Clearable="true"
+                                       Style="min-width: 160px;">
+                                @foreach (var vehicle in _vehicles)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@vehicle.Id">@vehicle.RegistrationNumber</MudSelectItem>
+                                }
+                            </MudSelect>
+                        </MudStack>
+                        <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                            <MudTextField @bind-Value="_driverName" Label="Driver name" Style="min-width: 180px;" />
+                            <MudTextField @bind-Value="_driverPhone" Label="Driver phone (+91…)"
+                                          Style="min-width: 180px;" />
+                        </MudStack>
+                        <MudTextField @bind-Value="_stopsCsv" Label="Stops in order (comma-separated)"
+                                      HelperText="e.g. Jubilee Hills, Banjara Hills, School" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                                   OnClick="CreateRouteAsync">Save route</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_routes.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">No routes yet.</MudText>
+            }
+            else
+            {
+                @foreach (var route in _routes)
+                {
+                    <MudPaper Outlined="true" Class="pa-3 mb-2">
+                        <MudStack Row="true" AlignItems="AlignItems.Center">
+                            <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@route.Name</MudText>
+                            <MudSpacer />
+                            <MudChip Size="Size.Small" Variant="Variant.Outlined">
+                                @route.StudentCount riders
+                            </MudChip>
+                            @if (route.VehicleRegistration is not null)
+                            {
+                                <MudChip Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary">
+                                    @route.VehicleRegistration
+                                </MudChip>
+                            }
+                        </MudStack>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            @(route.DriverName ?? "No driver") @(route.DriverPhone is not null ? $"· {route.DriverPhone}" : "")
+                        </MudText>
+                        <MudStack Row="true" Wrap="Wrap.Wrap" Class="mt-1">
+                            @foreach (var stop in route.Stops)
+                            {
+                                <MudChip Size="Size.Small">@stop.SortOrder. @stop.Name</MudChip>
+                            }
+                        </MudStack>
+                    </MudPaper>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<VehicleDto> _vehicles = [];
+    private List<TransportRouteDto> _routes = [];
+    private bool _busy;
+
+    private bool _showVehicleForm;
+    private string _vehicleReg = string.Empty;
+    private string? _vehicleModel;
+    private int _vehicleCapacity = 40;
+
+    private bool _showRouteForm;
+    private string _routeName = string.Empty;
+    private Guid? _routeVehicleId;
+    private string? _driverName;
+    private string? _driverPhone;
+    private string _stopsCsv = string.Empty;
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _vehicles = await Client.GetVehiclesAsync();
+            _routes = await Client.GetRoutesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task CreateVehicleAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_vehicleReg))
+        {
+            Snackbar.Add("Registration number is required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateVehicleAsync(new CreateVehicleRequest(
+                _vehicleReg.Trim().ToUpperInvariant(), _vehicleModel, _vehicleCapacity, null, null));
+            if (error is null)
+            {
+                Snackbar.Add("Vehicle added.", Severity.Success);
+                _showVehicleForm = false;
+                _vehicleReg = string.Empty;
+                await ReloadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CreateRouteAsync()
+    {
+        var stops = _stopsCsv
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(name => new RouteStopInput(name, null, null, null))
+            .ToList();
+        if (string.IsNullOrWhiteSpace(_routeName) || stops.Count == 0)
+        {
+            Snackbar.Add("Route name and at least one stop are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateRouteAsync(new CreateRouteRequest(
+                _routeName.Trim(), _routeVehicleId, _driverName, _driverPhone, stops));
+            if (error is null)
+            {
+                Snackbar.Add("Route created.", Severity.Success);
+                _showRouteForm = false;
+                _routeName = _stopsCsv = string.Empty;
+                await ReloadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

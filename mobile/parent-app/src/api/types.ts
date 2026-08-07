@@ -112,6 +112,15 @@ export interface Homework {
   dueDate: string;
 }
 
+export interface ChildTransport {
+  routeName: string;
+  stopName: string;
+  pickupTime: string | null;
+  driverName: string | null;
+  driverPhone: string | null;
+  vehicleRegistration: string | null;
+}
+
 export interface FeeSummary {
   studentId: string;
   dueLines: FeeDueLine[];

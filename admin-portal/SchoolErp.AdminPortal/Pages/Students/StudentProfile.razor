@@ -5,6 +5,7 @@
 @inject ExamsClient ExamsApi
 @inject AcademicsClient AcademicsApi
 @inject FeesClient FeesApi
+@inject TransportClient TransportApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
@@ -225,6 +226,30 @@ else if (_student is { } student)
                 </MudPaper>
             }
 
+            <MudPaper Elevation="2" Class="pa-6 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-3">Transport</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <MudSelect T="Guid?" @bind-Value="_transportRouteId" Label="Route" Dense="true"
+                               Style="min-width: 180px;" SelectedValuesChanged="@(_ => _transportStopId = null)">
+                        @foreach (var route in _routes)
+                        {
+                            <MudSelectItem T="Guid?" Value="@route.Id">@route.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="Guid?" @bind-Value="_transportStopId" Label="Stop" Dense="true"
+                               Style="min-width: 170px;" Disabled="@(_transportRouteId is null)">
+                        @foreach (var stop in StopsOfSelectedRoute)
+                        {
+                            <MudSelectItem T="Guid?" Value="@stop.Id">@stop.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_transportBusy"
+                               OnClick="AssignTransportAsync">
+                        @(_transportBusy ? "Saving…" : "Assign")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+
             <MudPaper Elevation="2" Class="pa-6">
                 <MudText Typo="Typo.h6" Class="mb-4">Guardians</MudText>
                 @foreach (var guardian in student.Guardians)
@@ -264,7 +289,14 @@ else if (_student is { } student)
     private Guid? _selectedExamId;
     private StudentResultDto? _result;
     private StudentFeeSummaryDto? _fees;
+    private List<TransportRouteDto> _routes = [];
+    private Guid? _transportRouteId;
+    private Guid? _transportStopId;
+    private bool _transportBusy;
     private Guid? _currentYearId;
+
+    private IEnumerable<RouteStopDto> StopsOfSelectedRoute =>
+        _routes.FirstOrDefault(r => r.Id == _transportRouteId)?.Stops ?? [];
     private decimal _payAmount = 1000;
     private PaymentMode _payMode = PaymentMode.Cash;
     private string? _payReference;
@@ -290,6 +322,8 @@ else if (_student is { } student)
                 await LoadResultAsync();
                 _fees = await FeesApi.GetStudentSummaryAsync(Id, currentYear.Id);
             }
+
+            _routes = await TransportApi.GetRoutesAsync();
         }
         catch (HttpRequestException)
         {
@@ -341,6 +375,33 @@ else if (_student is { } student)
         finally
         {
             _payBusy = false;
+        }
+    }
+
+    private async Task AssignTransportAsync()
+    {
+        if (_transportRouteId is null || _transportStopId is null)
+        {
+            Snackbar.Add("Pick a route and stop.", Severity.Warning);
+            return;
+        }
+
+        _transportBusy = true;
+        try
+        {
+            var error = await TransportApi.AssignStudentAsync(new AssignTransportRequest(
+                Id, _transportRouteId.Value, _transportStopId.Value));
+            Snackbar.Add(
+                error ?? "Transport assigned. Parents see it in the app.",
+                error is null ? Severity.Success : Severity.Error);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _transportBusy = false;
         }
     }
 
