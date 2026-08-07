@@ -32,9 +32,9 @@ Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
 
-1. Transport: portal UI + parent-app card + trips/GPS + driver app
-   (backend base — vehicles/routes/stops/allocation + parent endpoint —
-   is DONE, committed 59c43d9; integration tests pending SAC fix).
+1. Transport trips/GPS + React Native driver app (base transport —
+   vehicles/routes/stops/allocation, portal UI, parent card — is DONE and
+   E2E-verified, commits 59c43d9 + 013af23; 81 tests green).
 2. Timetable module.
 3. Auth hardening (task list #7): device registration, MFA, persistent
    audit-log trail, dev-seeder claim backfill (see Gotchas).
