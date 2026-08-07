@@ -39,6 +39,11 @@ public static partial class DevSeeder
             return;
         }
 
+        // Always runs: seeded SchoolAdmin roles hold every permission, so any
+        // constants added since the original seed are backfilled here. (Users
+        // still need to sign out/in — permission claims live in the JWT.)
+        await BackfillSchoolAdminClaimsAsync(db, logger).ConfigureAwait(false);
+
         if (await db.Users.AnyAsync().ConfigureAwait(false))
         {
             return; // already seeded
@@ -131,6 +136,41 @@ public static partial class DevSeeder
         LogSeeded(logger, SuperAdminEmail, DemoAdminEmail, DemoSchoolCode);
     }
 
+    /// <summary>Adds any missing permission claims to seeded SchoolAdmin roles.</summary>
+    private static async Task BackfillSchoolAdminClaimsAsync(AppDbContext db, ILogger logger)
+    {
+        var adminRoleIds = await db.Roles
+            .Where(r => r.Name == WellKnownRoles.SchoolAdmin)
+            .Select(r => r.Id)
+            .ToListAsync()
+            .ConfigureAwait(false);
+
+        var added = 0;
+        foreach (var roleId in adminRoleIds)
+        {
+            var existing = await db.RoleClaims
+                .Where(c => c.RoleId == roleId && c.ClaimType == Permissions.ClaimType)
+                .Select(c => c.ClaimValue!)
+                .ToListAsync()
+                .ConfigureAwait(false);
+
+            var missing = Permissions.All.Except(existing, StringComparer.Ordinal).ToList();
+            db.RoleClaims.AddRange(missing.Select(p => new IdentityRoleClaim<Guid>
+            {
+                RoleId = roleId,
+                ClaimType = Permissions.ClaimType,
+                ClaimValue = p,
+            }));
+            added += missing.Count;
+        }
+
+        if (added > 0)
+        {
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            LogClaimsBackfilled(logger, added);
+        }
+    }
+
     private static async Task CreateUserAsync(
         UserManager<ApplicationUser> userManager, ApplicationUser user)
     {
@@ -150,4 +190,8 @@ public static partial class DevSeeder
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Dev data seeded. Platform: {SuperAdmin} | School admin: {SchoolAdmin} (code {SchoolCode})")]
     private static partial void LogSeeded(ILogger logger, string superAdmin, string schoolAdmin, string schoolCode);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Backfilled {Count} missing permission claims onto SchoolAdmin roles; users must re-login to receive them")]
+    private static partial void LogClaimsBackfilled(ILogger logger, int count);
 }

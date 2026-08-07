@@ -20,17 +20,46 @@ public sealed class AuthApiClient
         _authState = authState;
     }
 
-    /// <summary>Password login. Returns null on invalid credentials/lockout.</summary>
-    public async Task<string?> LoginAsync(string schoolCode, string login, string password)
+    /// <summary>
+    /// Password login. Success stores the session; an MFA-enabled account
+    /// instead returns the challenge for <see cref="VerifyMfaAsync"/>.
+    /// </summary>
+    public async Task<LoginOutcome> LoginAsync(string schoolCode, string login, string password)
     {
         var response = await _http.PostAsJsonAsync(
             "api/v1/auth/login", new LoginRequest(schoolCode, login, password));
 
         if (!response.IsSuccessStatusCode)
         {
+            return new LoginOutcome(
+                response.StatusCode == System.Net.HttpStatusCode.Locked
+                    ? "Account is temporarily locked. Try again in 15 minutes."
+                    : "Invalid school code, login or password.",
+                null);
+        }
+
+        var body = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
+        if (body?.MfaRequired == true)
+        {
+            return new LoginOutcome(null, body.MfaToken);
+        }
+
+        await _tokens.SetAsync(body!.AccessToken!, body.RefreshToken!);
+        _authState.NotifyStateChanged();
+        return new LoginOutcome(null, null);
+    }
+
+    /// <summary>Second step of an MFA login. Returns null and stores the
+    /// session on success; an error message otherwise.</summary>
+    public async Task<string?> VerifyMfaAsync(string mfaToken, string code)
+    {
+        var response = await _http.PostAsJsonAsync(
+            "api/v1/auth/mfa/verify", new { mfaToken, code });
+        if (!response.IsSuccessStatusCode)
+        {
             return response.StatusCode == System.Net.HttpStatusCode.Locked
                 ? "Account is temporarily locked. Try again in 15 minutes."
-                : "Invalid school code, login or password.";
+                : "That code didn't match. Try the current code from your app.";
         }
 
         var tokens = await response.Content.ReadFromJsonAsync<AuthTokensDto>();

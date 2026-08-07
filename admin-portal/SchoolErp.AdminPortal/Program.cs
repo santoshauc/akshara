@@ -53,5 +53,6 @@ builder.Services.AddScoped<TimetableClient>();
 builder.Services.AddScoped<StaffClient>();
 builder.Services.AddScoped<AuditClient>();
 builder.Services.AddScoped<SessionsClient>();
+builder.Services.AddScoped<MfaClient>();
 
 await builder.Build().RunAsync();

@@ -34,8 +34,9 @@ Monorepo layout is described in `README.md`.
 | Driver app (Expo): OTP login, manifest, checklist gate, trip loop | — | ✅ | — | ✅ driver-app |
 | Audit trail: every command logged (user, tenant, IP), portal viewer | ✅ | ✅ | ✅ | — |
 | Device sessions: UA-labelled sign-ins, "My devices" list + revoke | ✅ | ✅ | ✅ | — |
+| MFA: TOTP enrollment, login gate, recovery codes, Security page | ✅ | ✅ | ✅ | — |
 
-Test suite: 33 unit + 64 integration = **97 green** (`dotnet test` from `school-erp/`).
+Test suite: 33 unit + 65 integration = **98 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -65,7 +66,16 @@ Integration tests use Testcontainers (needs Docker running).
    server-side from User-Agent) + SessionStartedAt across rotations;
    GET/DELETE /api/v1/auth/sessions (self-service, ownership-checked);
    portal "My devices" page under the account menu; 2 integration tests.
-   Still remaining: MFA, dev-seeder claim backfill.
+   ~~MFA~~ DONE — TOTP via Identity's authenticator provider (enroll →
+   shared key + otpauth URI, enable verifies a code and issues 8 one-time
+   recovery codes); password login returns a 5-min MFA challenge JWT
+   instead of tokens, completed at /auth/mfa/verify with TOTP or recovery
+   code (wrong codes count toward lockout); portal Security page +
+   two-step login; disable requires a current code and resets the key.
+   ~~Dev-seeder claim backfill~~ DONE — DevSeeder backfills missing
+   permission claims onto SchoolAdmin roles at every startup (no more
+   manual SQL when adding permission constants; re-login still required).
+   Task #7 auth hardening is COMPLETE.
 4. Hangfire hosting for jobs (outbox dispatcher currently a BackgroundService).
 5. Real Razorpay adapter for `IPaymentGateway` (dev HMAC gateway in place).
 6. CI/CD (GitHub Actions), Dockerfile for API, docs pack (architecture, API

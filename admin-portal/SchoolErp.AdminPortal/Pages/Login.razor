@@ -12,33 +12,60 @@
                 <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
                 <MudText Typo="Typo.h5">SchoolErp Admin</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
-                    Sign in to manage your platform
+                    @(_mfaToken is null ? "Sign in to manage your platform" : "Two-factor verification")
                 </MudText>
             </MudStack>
 
-            <MudTextField @bind-Value="_schoolCode" Label="School code"
-                          HelperText="Leave empty for platform (Super Admin) sign-in"
-                          Variant="Variant.Outlined" Immediate="true" />
-            <MudTextField @bind-Value="_login" Label="Email or phone"
-                          Variant="Variant.Outlined" Immediate="true" />
-            <MudTextField @bind-Value="_password" Label="Password"
-                          Variant="Variant.Outlined"
-                          InputType="@(_showPassword ? InputType.Text : InputType.Password)"
-                          Adornment="Adornment.End"
-                          AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
-                          OnAdornmentClick="@(() => _showPassword = !_showPassword)"
-                          Immediate="true"
-                          OnKeyDown="@(async e => { if (e.Key == "Enter") await SignInAsync(); })" />
+            @if (_mfaToken is null)
+            {
+                <MudTextField @bind-Value="_schoolCode" Label="School code"
+                              HelperText="Leave empty for platform (Super Admin) sign-in"
+                              Variant="Variant.Outlined" Immediate="true" />
+                <MudTextField @bind-Value="_login" Label="Email or phone"
+                              Variant="Variant.Outlined" Immediate="true" />
+                <MudTextField @bind-Value="_password" Label="Password"
+                              Variant="Variant.Outlined"
+                              InputType="@(_showPassword ? InputType.Text : InputType.Password)"
+                              Adornment="Adornment.End"
+                              AdornmentIcon="@(_showPassword ? Icons.Material.Filled.VisibilityOff : Icons.Material.Filled.Visibility)"
+                              OnAdornmentClick="@(() => _showPassword = !_showPassword)"
+                              Immediate="true"
+                              OnKeyDown="@(async e => { if (e.Key == "Enter") await SignInAsync(); })" />
+            }
+            else
+            {
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    Enter the 6-digit code from your authenticator app, or one of
+                    your recovery codes.
+                </MudText>
+                <MudTextField @bind-Value="_mfaCode" Label="Verification code"
+                              Variant="Variant.Outlined" Immediate="true" AutoFocus="true"
+                              OnKeyDown="@(async e => { if (e.Key == "Enter") await VerifyMfaAsync(); })" />
+            }
 
             @if (_error is not null)
             {
                 <MudAlert Severity="Severity.Error" Dense="true">@_error</MudAlert>
             }
 
-            <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
-                       FullWidth="true" Disabled="@_busy" OnClick="SignInAsync">
-                @(_busy ? "Signing in…" : "Sign in")
-            </MudButton>
+            @if (_mfaToken is null)
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                           FullWidth="true" Disabled="@_busy" OnClick="SignInAsync">
+                    @(_busy ? "Signing in…" : "Sign in")
+                </MudButton>
+            }
+            else
+            {
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
+                           FullWidth="true" Disabled="@_busy" OnClick="VerifyMfaAsync">
+                    @(_busy ? "Verifying…" : "Verify")
+                </MudButton>
+                <MudButton Variant="Variant.Text" FullWidth="true"
+                           OnClick="@(() => { _mfaToken = null; _mfaCode = string.Empty; _error = null; })">
+                    Back to password
+                </MudButton>
+            }
         </MudStack>
     </MudPaper>
 </MudContainer>
@@ -47,6 +74,8 @@
     private string _schoolCode = string.Empty;
     private string _login = string.Empty;
     private string _password = string.Empty;
+    private string _mfaCode = string.Empty;
+    private string? _mfaToken;
     private string? _error;
     private bool _busy;
     private bool _showPassword;
@@ -66,7 +95,43 @@
         _error = null;
         try
         {
-            _error = await AuthApi.LoginAsync(_schoolCode.Trim(), _login.Trim(), _password);
+            var outcome = await AuthApi.LoginAsync(_schoolCode.Trim(), _login.Trim(), _password);
+            if (outcome.NeedsMfa)
+            {
+                _mfaToken = outcome.MfaToken;
+            }
+            else if (outcome.Succeeded)
+            {
+                Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
+            }
+            else
+            {
+                _error = outcome.Error;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the server. Is the API running?";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task VerifyMfaAsync()
+    {
+        if (_mfaToken is null || string.IsNullOrWhiteSpace(_mfaCode))
+        {
+            _error = "Enter the code from your authenticator app.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            _error = await AuthApi.VerifyMfaAsync(_mfaToken, _mfaCode.Trim());
             if (_error is null)
             {
                 Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);

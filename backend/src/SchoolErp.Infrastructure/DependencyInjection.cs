@@ -71,7 +71,10 @@ public static class DependencyInjection
                 options.User.RequireUniqueEmail = false; // uniqueness is per tenant
             })
             .AddRoles<ApplicationRole>()
-            .AddEntityFrameworkStores<AppDbContext>();
+            .AddEntityFrameworkStores<AppDbContext>()
+            // TOTP authenticator for MFA (AddIdentityCore registers no providers).
+            .AddTokenProvider<AuthenticatorTokenProvider<ApplicationUser>>(
+                TokenOptions.DefaultAuthenticatorProvider);
 
         services.AddOptions<JwtOptions>()
             .Bind(configuration.GetSection(JwtOptions.SectionName))

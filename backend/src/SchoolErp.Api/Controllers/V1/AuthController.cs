@@ -75,6 +75,79 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Finishes an MFA-gated login with a TOTP or recovery code.</summary>
+    [HttpPost("mfa/verify")]
+    [AllowAnonymous]
+    [ProducesResponseType(typeof(AuthTokens), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status401Unauthorized)]
+    public async Task<IActionResult> VerifyMfa([FromBody] MfaVerifyRequest request, CancellationToken ct)
+    {
+        var result = await _authService.CompleteMfaLoginAsync(
+            request.MfaToken, request.Code, ClientIp, DeviceLabel, ct);
+        return ToActionResult(result);
+    }
+
+    /// <summary>Whether the caller has MFA turned on.</summary>
+    [HttpGet("mfa")]
+    [Authorize]
+    [ProducesResponseType(typeof(MfaStatusResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetMfaStatus(CancellationToken ct) =>
+        CurrentUserId is { } userId
+            ? Ok(new MfaStatusResponse(await _authService.IsMfaEnabledAsync(userId, ct)))
+            : Unauthorized();
+
+    /// <summary>Starts authenticator enrollment: shared key + otpauth URI.</summary>
+    [HttpPost("mfa/enroll")]
+    [Authorize]
+    [ProducesResponseType(typeof(MfaEnrollment), StatusCodes.Status200OK)]
+    public async Task<IActionResult> EnrollMfa(CancellationToken ct)
+    {
+        if (CurrentUserId is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        var enrollment = await _authService.StartMfaEnrollmentAsync(userId, ct);
+        return enrollment is null ? Unauthorized() : Ok(enrollment);
+    }
+
+    /// <summary>Turns MFA on once the authenticator produces a valid code.</summary>
+    [HttpPost("mfa/enable")]
+    [Authorize]
+    [ProducesResponseType(typeof(MfaEnableResult), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> EnableMfa([FromBody] MfaCodeRequest request, CancellationToken ct)
+    {
+        if (CurrentUserId is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        var result = await _authService.EnableMfaAsync(userId, request.Code, ct);
+        return result is null
+            ? Problem(title: "That code didn't match. Check your authenticator app.",
+                statusCode: StatusCodes.Status400BadRequest)
+            : Ok(result);
+    }
+
+    /// <summary>Turns MFA off (requires a current code).</summary>
+    [HttpPost("mfa/disable")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> DisableMfa([FromBody] MfaCodeRequest request, CancellationToken ct)
+    {
+        if (CurrentUserId is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        return await _authService.DisableMfaAsync(userId, request.Code, ct)
+            ? NoContent()
+            : Problem(title: "That code didn't match. Check your authenticator app.",
+                statusCode: StatusCodes.Status400BadRequest);
+    }
+
     /// <summary>The caller's active sessions ("My devices").</summary>
     [HttpGet("sessions")]
     [Authorize]
@@ -156,6 +229,12 @@ public sealed class AuthController : ControllerBase
             return Ok(result.Tokens);
         }
 
+        if (result.Error == AuthError.MfaRequired)
+        {
+            // 200 with a challenge, not an error: the password was correct.
+            return Ok(new MfaChallengeResponse(true, result.MfaChallenge!));
+        }
+
         return result.Error switch
         {
             AuthError.LockedOut => Problem(
@@ -190,3 +269,17 @@ public sealed record OtpVerifyRequest(
 
 /// <summary>Refresh/logout payload.</summary>
 public sealed record RefreshRequest([Required] string RefreshToken);
+
+/// <summary>Returned by login when a second factor must follow.</summary>
+public sealed record MfaChallengeResponse(bool MfaRequired, string MfaToken);
+
+/// <summary>Second step of an MFA login.</summary>
+public sealed record MfaVerifyRequest(
+    [Required] string MfaToken,
+    [Required][StringLength(32)] string Code);
+
+/// <summary>A TOTP code on its own (enable/disable).</summary>
+public sealed record MfaCodeRequest([Required][StringLength(32)] string Code);
+
+/// <summary>Caller's MFA state.</summary>
+public sealed record MfaStatusResponse(bool Enabled);

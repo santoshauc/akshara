@@ -73,6 +73,58 @@ public sealed class JwtTokenService
         return new JwtSecurityTokenHandler().WriteToken(token);
     }
 
+    /// <summary>
+    /// Short-lived proof that the password step of an MFA login succeeded.
+    /// Carries no roles or permissions — it can only be exchanged, together
+    /// with a valid TOTP/recovery code, for real tokens.
+    /// </summary>
+    public string CreateMfaChallengeToken(Guid userId)
+    {
+        var now = _clock.GetUtcNow();
+        var token = new JwtSecurityToken(
+            issuer: _options.Issuer,
+            audience: _options.Audience,
+            claims:
+            [
+                new Claim(JwtRegisteredClaimNames.Sub, userId.ToString()),
+                new Claim("purpose", "mfa"),
+            ],
+            notBefore: now.UtcDateTime,
+            expires: now.UtcDateTime.AddMinutes(5),
+            signingCredentials: _credentials);
+        return new JwtSecurityTokenHandler().WriteToken(token);
+    }
+
+    /// <summary>Returns the user id when the MFA challenge is genuine and fresh.</summary>
+    public Guid? ValidateMfaChallengeToken(string token)
+    {
+        var handler = new JwtSecurityTokenHandler { MapInboundClaims = false };
+        try
+        {
+            var principal = handler.ValidateToken(token, new TokenValidationParameters
+            {
+                ValidIssuer = _options.Issuer,
+                ValidAudience = _options.Audience,
+                IssuerSigningKey = _credentials.Key,
+                ClockSkew = TimeSpan.FromSeconds(30),
+            }, out _);
+
+            if (principal.FindFirst("purpose")?.Value != "mfa")
+            {
+                return null;
+            }
+
+            return Guid.TryParse(
+                principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value, out var id)
+                ? id
+                : null;
+        }
+        catch (Exception e) when (e is SecurityTokenException or ArgumentException)
+        {
+            return null;
+        }
+    }
+
     /// <summary>256 bits of cryptographic randomness, Base64url-encoded.</summary>
     public static string GenerateRefreshToken() =>
         Base64UrlEncoder.Encode(RandomNumberGenerator.GetBytes(32));

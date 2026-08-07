@@ -1,0 +1,195 @@
+@page "/security"
+@attribute [Authorize]
+@inject MfaClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Security — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-1">Security</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+    Two-factor authentication protects your account even if the password leaks.
+</MudText>
+
+<MudPaper Elevation="2" Class="pa-6" Style="max-width: 640px;">
+    @if (_loading)
+    {
+        <MudProgressCircular Indeterminate="true" Size="Size.Small" />
+    }
+    else if (_recoveryCodes is not null)
+    {
+        <MudAlert Severity="Severity.Success" Class="mb-3">
+            Two-factor authentication is on. Save these recovery codes somewhere
+            safe — each works once if you lose your authenticator, and they are
+            shown only now.
+        </MudAlert>
+        <MudPaper Outlined="true" Class="pa-4 mb-3" Style="font-family: monospace;">
+            @foreach (var recovery in _recoveryCodes)
+            {
+                <MudText Typo="Typo.body2">@recovery</MudText>
+            }
+        </MudPaper>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   OnClick="@(() => { _recoveryCodes = null; _enabled = true; })">
+            I've saved them
+        </MudButton>
+    }
+    else if (_enabled)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.VerifiedUser" Color="Color.Success" />
+            <MudText Typo="Typo.h6">Two-factor authentication is on</MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            To turn it off, enter the current code from your authenticator app.
+        </MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudTextField @bind-Value="_code" Label="Current code" Style="width: 160px;" />
+            <MudButton Variant="Variant.Outlined" Color="Color.Error" Disabled="_busy"
+                       OnClick="DisableAsync">
+                Turn off
+            </MudButton>
+        </MudStack>
+    }
+    else if (_enrollment is null)
+    {
+        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2" Class="mb-3">
+            <MudIcon Icon="@Icons.Material.Filled.Shield" Color="Color.Default" />
+            <MudText Typo="Typo.h6">Two-factor authentication is off</MudText>
+        </MudStack>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            You'll need an authenticator app (Google Authenticator, Microsoft
+            Authenticator, Aegis…). After setup, signing in asks for a 6-digit
+            code in addition to your password.
+        </MudText>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                   StartIcon="@Icons.Material.Filled.Security" OnClick="EnrollAsync">
+            Set up two-factor authentication
+        </MudButton>
+    }
+    else
+    {
+        <MudText Typo="Typo.h6" Class="mb-2">1 · Add SchoolErp to your authenticator</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+            In your authenticator app choose "enter a setup key" and type this key
+            (account name: your login, type: time-based):
+        </MudText>
+        <MudPaper Outlined="true" Class="pa-3 mb-3" Style="font-family: monospace; word-break: break-all;">
+            <MudText Typo="Typo.body1">@_enrollment.SharedKey</MudText>
+        </MudPaper>
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mb-4 d-block"
+                 Style="word-break: break-all;">
+            Or open this link on a device with an authenticator installed:
+            @_enrollment.AuthenticatorUri
+        </MudText>
+
+        <MudText Typo="Typo.h6" Class="mb-2">2 · Enter the code it shows</MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+            <MudTextField @bind-Value="_code" Label="6-digit code" Style="width: 160px;"
+                          OnKeyDown="@(async e => { if (e.Key == "Enter") await EnableAsync(); })" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                       OnClick="EnableAsync">
+                Turn on
+            </MudButton>
+            <MudButton Variant="Variant.Text" OnClick="@(() => _enrollment = null)">Cancel</MudButton>
+        </MudStack>
+    }
+</MudPaper>
+
+@code {
+    private bool _loading = true;
+    private bool _busy;
+    private bool _enabled;
+    private string _code = string.Empty;
+    private MfaEnrollmentDto? _enrollment;
+    private List<string>? _recoveryCodes;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _enabled = await Client.IsEnabledAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task EnrollAsync()
+    {
+        _busy = true;
+        try
+        {
+            _enrollment = await Client.EnrollAsync();
+            if (_enrollment is null)
+            {
+                Snackbar.Add("Could not start enrollment.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task EnableAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_code))
+        {
+            Snackbar.Add("Enter the code from your app first.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var result = await Client.EnableAsync(_code.Trim());
+            if (result is null)
+            {
+                Snackbar.Add("That code didn't match — try the current one.", Severity.Error);
+            }
+            else
+            {
+                _recoveryCodes = result.RecoveryCodes;
+                _enrollment = null;
+                _code = string.Empty;
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DisableAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_code))
+        {
+            Snackbar.Add("Enter the current code first.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            if (await Client.DisableAsync(_code.Trim()))
+            {
+                Snackbar.Add("Two-factor authentication turned off.", Severity.Success);
+                _enabled = false;
+                _code = string.Empty;
+            }
+            else
+            {
+                Snackbar.Add("That code didn't match — try the current one.", Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -95,9 +95,148 @@ public sealed partial class AuthService : IAuthService
         }
 
         await _userManager.ResetAccessFailedCountAsync(user).ConfigureAwait(false);
+
+        if (user.TwoFactorEnabled)
+        {
+            // Password verified, but tokens are withheld until a TOTP or
+            // recovery code arrives with this short-lived challenge.
+            return AuthResult.MfaRequired(_tokenService.CreateMfaChallengeToken(user.Id));
+        }
+
         return AuthResult.Success(
             await IssueTokensAsync(user, ipAddress, deviceName, ct).ConfigureAwait(false));
     }
+
+    // ----- MFA (TOTP) ------------------------------------------------------
+
+    public async Task<AuthResult> CompleteMfaLoginAsync(
+        string challengeToken, string code, string? ipAddress,
+        string? deviceName = null, CancellationToken ct = default)
+    {
+        if (_tokenService.ValidateMfaChallengeToken(challengeToken) is not { } userId)
+        {
+            return AuthResult.Fail(AuthError.InvalidToken);
+        }
+
+        var user = await _userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+        if (user is null || !user.IsActive)
+        {
+            return AuthResult.Fail(AuthError.UserInactive);
+        }
+
+        if (await _userManager.IsLockedOutAsync(user).ConfigureAwait(false))
+        {
+            return AuthResult.Fail(AuthError.LockedOut);
+        }
+
+        var normalized = code.Replace(" ", "", StringComparison.Ordinal)
+            .Replace("-", "", StringComparison.Ordinal);
+
+        var totpOk = await _userManager.VerifyTwoFactorTokenAsync(
+                user, TokenOptions.DefaultAuthenticatorProvider, normalized)
+            .ConfigureAwait(false);
+        if (!totpOk)
+        {
+            // 6-digit inputs are TOTP attempts; anything longer may be a recovery
+            // code. Codes are redeemed as generated, so try the raw input first.
+            var recovery = normalized.Length > 6 &&
+                ((await _userManager.RedeemTwoFactorRecoveryCodeAsync(user, code.Trim())
+                     .ConfigureAwait(false)).Succeeded ||
+                 (await _userManager.RedeemTwoFactorRecoveryCodeAsync(user, normalized)
+                     .ConfigureAwait(false)).Succeeded);
+            if (!recovery)
+            {
+                await _userManager.AccessFailedAsync(user).ConfigureAwait(false);
+                LogFailedLogin(_logger, user.Id);
+                return await _userManager.IsLockedOutAsync(user).ConfigureAwait(false)
+                    ? AuthResult.Fail(AuthError.LockedOut)
+                    : AuthResult.Fail(AuthError.InvalidMfaCode);
+            }
+        }
+
+        await _userManager.ResetAccessFailedCountAsync(user).ConfigureAwait(false);
+        return AuthResult.Success(
+            await IssueTokensAsync(user, ipAddress, deviceName, ct).ConfigureAwait(false));
+    }
+
+    public async Task<bool> IsMfaEnabledAsync(Guid userId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+        return user?.TwoFactorEnabled ?? false;
+    }
+
+    public async Task<MfaEnrollment?> StartMfaEnrollmentAsync(
+        Guid userId, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var key = await _userManager.GetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+        if (string.IsNullOrEmpty(key))
+        {
+            await _userManager.ResetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+            key = await _userManager.GetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+        }
+
+        var account = Uri.EscapeDataString(user.Email ?? user.PhoneNumber ?? user.FullName);
+        var uri = $"otpauth://totp/SchoolErp:{account}?secret={key}&issuer=SchoolErp&digits=6";
+        return new MfaEnrollment(FormatKey(key!), uri);
+    }
+
+    public async Task<MfaEnableResult?> EnableMfaAsync(
+        Guid userId, string code, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+        if (user is null)
+        {
+            return null;
+        }
+
+        var ok = await _userManager.VerifyTwoFactorTokenAsync(
+                user, TokenOptions.DefaultAuthenticatorProvider,
+                code.Replace(" ", "", StringComparison.Ordinal))
+            .ConfigureAwait(false);
+        if (!ok)
+        {
+            return null;
+        }
+
+        await _userManager.SetTwoFactorEnabledAsync(user, true).ConfigureAwait(false);
+        var codes = await _userManager
+            .GenerateNewTwoFactorRecoveryCodesAsync(user, 8)
+            .ConfigureAwait(false);
+        return new MfaEnableResult(codes!.ToList());
+    }
+
+    public async Task<bool> DisableMfaAsync(Guid userId, string code, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+        if (user is null || !user.TwoFactorEnabled)
+        {
+            return false;
+        }
+
+        var ok = await _userManager.VerifyTwoFactorTokenAsync(
+                user, TokenOptions.DefaultAuthenticatorProvider,
+                code.Replace(" ", "", StringComparison.Ordinal))
+            .ConfigureAwait(false);
+        if (!ok)
+        {
+            return false;
+        }
+
+        await _userManager.SetTwoFactorEnabledAsync(user, false).ConfigureAwait(false);
+        // A fresh key is generated on the next enrollment; the old one is dead.
+        await _userManager.ResetAuthenticatorKeyAsync(user).ConfigureAwait(false);
+        return true;
+    }
+
+    /// <summary>Groups the Base32 key ("abcd efgh …") for manual entry.</summary>
+    private static string FormatKey(string key) =>
+        string.Join(' ', key.ToUpperInvariant().Chunk(4).Select(c => new string(c)));
 
     // ----- OTP login -------------------------------------------------------
 
