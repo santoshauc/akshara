@@ -22,6 +22,7 @@ import {
 } from '../api/types';
 import { BRAND } from '../config';
 import AttendanceCard from './cards/AttendanceCard';
+import BusLiveCard from './cards/BusLiveCard';
 import FeesCard from './cards/FeesCard';
 import HomeworkCard from './cards/HomeworkCard';
 import NoticesCard from './cards/NoticesCard';
@@ -169,6 +170,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
         <View style={styles.cards}>
           <AttendanceCard attendance={attendance} />
           <TransportCard transport={transport} />
+          {transport && <BusLiveCard studentId={selected.studentId} />}
           <TimetableCard entries={timetable} />
           <HomeworkCard homework={homework} />
           <ResultCard result={result} examCount={exams.length} />

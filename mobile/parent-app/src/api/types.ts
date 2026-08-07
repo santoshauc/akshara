@@ -122,6 +122,15 @@ export interface TimetableEntry {
   teacherName: string | null;
 }
 
+/** Live bus state while a trip is running on the child's route. */
+export interface BusLocation {
+  tripType: 1 | 2; // 1 = Pickup, 2 = Drop
+  startedAt: string;
+  latitude: number | null;
+  longitude: number | null;
+  lastSeenAt: string | null;
+}
+
 export interface ChildTransport {
   routeName: string;
   stopName: string;

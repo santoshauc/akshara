@@ -2,6 +2,7 @@ import { API_BASE_URL } from '../config';
 import { ApiError, request, tokenStore } from './client';
 import {
   AuthTokens,
+  BusLocation,
   Child,
   ChildTransport,
   Exam,
@@ -92,4 +93,10 @@ export const parentApi = {
     request<ChildTransport | undefined>(
       `/api/v1/parent/children/${studentId}/transport`,
     ).then((t) => t ?? null),
+
+  /** Returns null when no trip is active on the child's route (204). */
+  getBus: (studentId: string) =>
+    request<BusLocation | undefined>(`/api/v1/parent/children/${studentId}/bus`).then(
+      (b) => b ?? null,
+    ),
 };

@@ -28,7 +28,7 @@ Monorepo layout is described in `README.md`.
 | Parent API (family-scoped guard, 404-not-403) | ✅ | ✅ | — | ✅ |
 | Notices + Homework (class/section visibility) | ✅ | ✅ | ✅ | ✅ cards |
 | Transport: routes/stops/vehicles/assignments | ✅ | ✅ | ✅ | — |
-| Trips: inspection-gated start, GPS pings, board/drop SMS, live bus query | ✅ | ✅ | — | (bus card pending) |
+| Trips: inspection-gated start, GPS pings, board/drop SMS, live bus query | ✅ | ✅ | — | ✅ live-bus card |
 | Timetable: define→publish, calendar views | ✅ | ✅ | ✅ week grid | ✅ day tabs |
 | Driver app (Expo): OTP login, manifest, checklist gate, trip loop | — | ✅ | — | ✅ driver-app |
 
@@ -40,7 +40,9 @@ Integration tests use Testcontainers (needs Docker running).
 1. ~~React Native driver app~~ DONE + E2E-verified (OTP login → manifest →
    inspection gate blocks Start trip until all 4 checks → pickup trip with
    GPS ping loop → Board fires guardian SMS via outbox → End trip resets).
-   Parent app: add live-bus card using /parent/children/{id}/bus.
+   ~~Parent live-bus card~~ DONE + E2E-verified: polls
+   /parent/children/{id}/bus every 20s; live state (trip type, started-at,
+   last GPS fix + Maps link) and idle state both verified in the browser.
 2. ~~Timetable module~~ DONE (bfeef3c): define→publish workflow, portal
    editor, parent schedule card, 4 integration tests, E2E-verified.
 3. Auth hardening (task list #7): device registration, MFA, persistent
