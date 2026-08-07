@@ -141,7 +141,7 @@ public sealed class NoticesHomeworkTests : IClassFixture<NoticesHomeworkFixture>
         visible.Select(n => n.Title).Should()
             .Contain(["Holiday on Friday", "Grade 2 picnic"])
             .And.NotContain(["Grade 4 trip", "Old notice"]);
-        visible.First().Title.Should().Be("Holiday on Friday", "pinned notices sort first");
+        visible[0].Title.Should().Be("Holiday on Friday", "pinned notices sort first");
     }
 
     [Fact]

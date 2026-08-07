@@ -16,6 +16,7 @@ using SchoolErp.Application.Fees;
 using SchoolErp.Application.Fees.Queries;
 using SchoolErp.Application.Homework;
 using SchoolErp.Application.Parent;
+using SchoolErp.Application.Transport;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Infrastructure.Identity;
 
@@ -136,6 +137,17 @@ public sealed class ParentController : ControllerBase
     {
         await EnsureChildAsync(studentId, ct);
         return Ok(await _sender.Send(new GetStudentHomeworkQuery(studentId), ct));
+    }
+
+    /// <summary>A child's transport allocation (204 when none).</summary>
+    [HttpGet("children/{studentId:guid}/transport")]
+    [ProducesResponseType(typeof(ChildTransportDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> GetChildTransport(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        var transport = await _sender.Send(new GetChildTransportQuery(studentId), ct);
+        return transport is null ? NoContent() : Ok(transport);
     }
 
     private async Task EnsureChildAsync(Guid studentId, CancellationToken ct) =>

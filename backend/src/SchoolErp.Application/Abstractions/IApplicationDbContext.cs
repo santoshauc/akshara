@@ -8,6 +8,7 @@ using SchoolErp.Domain.Homework;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
+using SchoolErp.Domain.Transport;
 
 namespace SchoolErp.Application.Abstractions;
 
@@ -55,6 +56,14 @@ public interface IApplicationDbContext
     DbSet<Notice> Notices { get; }
 
     DbSet<HomeworkAssignment> HomeworkAssignments { get; }
+
+    DbSet<Vehicle> Vehicles { get; }
+
+    DbSet<TransportRoute> TransportRoutes { get; }
+
+    DbSet<RouteStop> RouteStops { get; }
+
+    DbSet<StudentTransportAssignment> StudentTransportAssignments { get; }
 
     DbSet<OutboxMessage> OutboxMessages { get; }
 

@@ -14,6 +14,7 @@ using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
+using SchoolErp.Domain.Transport;
 using SchoolErp.Infrastructure.Identity;
 
 namespace SchoolErp.Infrastructure.Persistence;
@@ -93,6 +94,19 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     /// <summary>Homework assignments (tenant-scoped).</summary>
     public DbSet<HomeworkAssignment> HomeworkAssignments => Set<HomeworkAssignment>();
+
+    /// <summary>Vehicles (tenant-scoped).</summary>
+    public DbSet<Vehicle> Vehicles => Set<Vehicle>();
+
+    /// <summary>Transport routes (tenant-scoped).</summary>
+    public DbSet<TransportRoute> TransportRoutes => Set<TransportRoute>();
+
+    /// <summary>Route stops (tenant-scoped).</summary>
+    public DbSet<RouteStop> RouteStops => Set<RouteStop>();
+
+    /// <summary>Student transport allocations (tenant-scoped).</summary>
+    public DbSet<StudentTransportAssignment> StudentTransportAssignments =>
+        Set<StudentTransportAssignment>();
 
     /// <summary>Transactional outbox (platform-scoped, dispatcher-read).</summary>
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();
