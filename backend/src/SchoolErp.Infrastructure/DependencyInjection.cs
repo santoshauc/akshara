@@ -92,7 +92,25 @@ public static class DependencyInjection
         services.AddScoped<Notifications.OutboxDispatchJob>();
 
         // --- Payments ------------------------------------------------------
-        services.AddScoped<IPaymentGateway, Payments.DevPaymentGateway>();
+        // Razorpay goes live the moment credentials are configured; without
+        // them the deterministic dev gateway keeps local flows working.
+        services.AddOptions<Payments.RazorpayOptions>()
+            .Bind(configuration.GetSection(Payments.RazorpayOptions.SectionName));
+        services.AddHttpClient<Payments.RazorpayGateway>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.razorpay.com/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        if (!string.IsNullOrWhiteSpace(configuration["Razorpay:KeyId"]))
+        {
+            services.AddScoped<IPaymentGateway>(
+                sp => sp.GetRequiredService<Payments.RazorpayGateway>());
+        }
+        else
+        {
+            services.AddScoped<IPaymentGateway, Payments.DevPaymentGateway>();
+        }
+
         services.AddScoped<Payments.GatewayWebhookProcessor>();
 
         return services;

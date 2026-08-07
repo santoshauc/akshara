@@ -36,7 +36,7 @@ Monorepo layout is described in `README.md`.
 | Device sessions: UA-labelled sign-ins, "My devices" list + revoke | ✅ | ✅ | ✅ | — |
 | MFA: TOTP enrollment, login gate, recovery codes, Security page | ✅ | ✅ | ✅ | — |
 
-Test suite: 33 unit + 65 integration = **98 green** (`dotnet test` from `school-erp/`).
+Test suite: 37 unit + 65 integration = **102 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -83,7 +83,13 @@ Integration tests use Testcontainers (needs Docker running).
    "outbox-dispatch" (*/15s cron); the old BackgroundService is deleted.
    Dev dashboard at :5199/jobs (local-only). Hangfire is LGPL-3.0 — noted
    in docs/security-notes.md (fine for SaaS).
-5. Real Razorpay adapter for `IPaymentGateway` (dev HMAC gateway in place).
+5. ~~Real Razorpay adapter~~ DONE — RazorpayGateway (plain HttpClient, no
+   SDK): Orders API with basic auth + integer-paise amounts, webhook
+   verification per X-Razorpay-Signature (HMAC-SHA256 hex, fixed-time
+   compare), payment.captured/failed parsing. Activates automatically when
+   `Razorpay:KeyId` is configured; otherwise the dev HMAC gateway stays.
+   4 unit tests over a fake HTTP handler; production keys go in
+   appsettings/environment (Razorpay:KeyId/KeySecret/WebhookSecret).
 6. CI/CD (GitHub Actions), Dockerfile for API, docs pack (architecture, API
    guide, user manuals), localization resources (en/te), report-card PDFs.
 

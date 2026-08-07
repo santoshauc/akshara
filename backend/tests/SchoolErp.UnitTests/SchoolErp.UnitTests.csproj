@@ -26,6 +26,7 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\SchoolErp.Application\SchoolErp.Application.csproj" />
     <ProjectReference Include="..\..\src\SchoolErp.Domain\SchoolErp.Domain.csproj" />
+    <ProjectReference Include="..\..\src\SchoolErp.Infrastructure\SchoolErp.Infrastructure.csproj" />
   </ItemGroup>
 
 </Project>
