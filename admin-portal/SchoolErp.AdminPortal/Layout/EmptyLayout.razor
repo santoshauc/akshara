@@ -1,8 +1,19 @@
 @inherits LayoutComponentBase
 
 @* Bare layout for unauthenticated pages (login) — no app chrome. *@
-<MudThemeProvider />
+<MudThemeProvider Theme="_theme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
 
 @Body
+
+@code {
+    private readonly MudTheme _theme = new()
+    {
+        Palette = new PaletteLight
+        {
+            Primary = "#1565C0",
+            AppbarBackground = "#1565C0",
+        },
+    };
+}

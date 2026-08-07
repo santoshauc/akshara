@@ -32,8 +32,9 @@ Monorepo layout is described in `README.md`.
 | Timetable: define→publish, calendar views | ✅ | ✅ | ✅ week grid | ✅ day tabs |
 | Teachers: directory CRUD, timetable linkage, clash detection, schedules | ✅ | ✅ | ✅ | ✅ (names resolve) |
 | Driver app (Expo): OTP login, manifest, checklist gate, trip loop | — | ✅ | — | ✅ driver-app |
+| Audit trail: every command logged (user, tenant, IP), portal viewer | ✅ | ✅ | ✅ | — |
 
-Test suite: 33 unit + 59 integration = **92 green** (`dotnet test` from `school-erp/`).
+Test suite: 33 unit + 62 integration = **95 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -52,8 +53,14 @@ Integration tests use Testcontainers (needs Docker running).
    + cross-class time overlap; inactive teachers rejected), per-teacher
    schedule query, portal Teachers page + timetable teacher picker,
    4 integration tests, E2E-verified (demo teacher: Anita Rao EMP-001).
-3. Auth hardening (task list #7): device registration, MFA, persistent
-   audit-log trail, dev-seeder claim backfill (see Gotchas).
+3. Auth hardening (task list #7): ~~audit-log trail~~ DONE — AuditBehavior
+   (MediatR pipeline) appends an audit_events row for every successful
+   command (user, tenant, IP via IClientContext; queries never logged;
+   table is a documented no-RLS exception with nullable tenant_id filtered
+   in the handler), audit.view permission (backfilled), portal "Audit log"
+   page, 3 integration tests. NOTE: permission claims live in the JWT —
+   after a claims backfill users must sign out/in to see the new page.
+   Still remaining: device registration, MFA, dev-seeder claim backfill.
 4. Hangfire hosting for jobs (outbox dispatcher currently a BackgroundService).
 5. Real Razorpay adapter for `IPaymentGateway` (dev HMAC gateway in place).
 6. CI/CD (GitHub Actions), Dockerfile for API, docs pack (architecture, API

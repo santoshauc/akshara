@@ -1,0 +1,93 @@
+@page "/audit"
+@attribute [Authorize]
+@inject AuditClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Audit log — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4">Audit log</MudText>
+    <MudSpacer />
+    <MudTextField @bind-Value="_search" Label="Search action / user" Clearable="true"
+                  Adornment="Adornment.End" AdornmentIcon="@Icons.Material.Filled.Search"
+                  OnAdornmentClick="LoadAsync"
+                  OnKeyUp="@(e => e.Key == "Enter" ? LoadAsync() : Task.CompletedTask)"
+                  Style="min-width: 240px;" />
+    <MudDatePicker @bind-Date="_from" Label="From" Clearable="true" Style="width: 150px;" />
+    <MudDatePicker @bind-Date="_to" Label="To" Clearable="true" Style="width: 150px;" />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" OnClick="LoadAsync">Apply</MudButton>
+</MudStack>
+
+<MudPaper Elevation="2" Class="pa-4">
+    <MudTable Items="_entries" Dense="true" Hover="true" Loading="_loading">
+        <HeaderContent>
+            <MudTh>When</MudTh>
+            <MudTh>Action</MudTh>
+            <MudTh>User</MudTh>
+            <MudTh>IP</MudTh>
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                <MudText Typo="Typo.body2">@context.OccurredAt.ToLocalTime().ToString("dd MMM yyyy HH:mm:ss")</MudText>
+            </MudTd>
+            <MudTd>
+                <MudChip Size="Size.Small" Color="Color.Info" Variant="Variant.Text">
+                    @Friendly(context.Action)
+                </MudChip>
+            </MudTd>
+            <MudTd>@(context.UserName ?? context.UserId ?? "—")</MudTd>
+            <MudTd class="mud-text-secondary">@(context.IpAddress ?? "—")</MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary pa-4">
+                No audit entries match. Actions appear here as staff work.
+            </MudText>
+        </NoRecordsContent>
+    </MudTable>
+    @if (_entries.Count >= 200)
+    {
+        <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">
+            Showing the latest 200 entries — narrow the date range to see older ones.
+        </MudText>
+    }
+</MudPaper>
+
+@code {
+    private List<AuditEventDto> _entries = [];
+    private string? _search;
+    private DateTime? _from;
+    private DateTime? _to;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync() => await LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _entries = await Client.GetTrailAsync(
+                _search,
+                _from is { } f ? DateOnly.FromDateTime(f) : null,
+                _to is { } t ? DateOnly.FromDateTime(t) : null);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    /// <summary>"AdmitStudentCommand" → "Admit Student".</summary>
+    private static string Friendly(string action)
+    {
+        var name = action.EndsWith("Command", StringComparison.Ordinal)
+            ? action[..^"Command".Length]
+            : action;
+        return string.Concat(name.Select((c, i) =>
+            i > 0 && char.IsUpper(c) ? $" {c}" : c.ToString()));
+    }
+}

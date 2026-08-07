@@ -93,6 +93,11 @@ public static class Permissions
         public const string Manage = "academics.manage";
     }
 
+    public static class Audit
+    {
+        public const string View = "audit.view";
+    }
+
     /// <summary>Every permission constant, discovered once via reflection.</summary>
     public static IReadOnlyList<string> All { get; } = typeof(Permissions)
         .GetNestedTypes(BindingFlags.Public | BindingFlags.Static)

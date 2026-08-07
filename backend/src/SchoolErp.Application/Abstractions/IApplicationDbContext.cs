@@ -1,6 +1,7 @@
 using Microsoft.EntityFrameworkCore;
 using SchoolErp.Domain.Academics;
 using SchoolErp.Domain.Attendance;
+using SchoolErp.Domain.Audit;
 using SchoolErp.Domain.Communication;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Fees;
@@ -76,6 +77,8 @@ public interface IApplicationDbContext
     DbSet<Teacher> Teachers { get; }
 
     DbSet<TimetableEntry> TimetableEntries { get; }
+
+    DbSet<AuditEvent> AuditEvents { get; }
 
     DbSet<OutboxMessage> OutboxMessages { get; }
 

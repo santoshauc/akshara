@@ -16,6 +16,8 @@ public static class DependencyInjection
         {
             cfg.RegisterServicesFromAssembly(assembly);
             cfg.AddOpenBehavior(typeof(ValidationBehavior<,>));
+            // After validation: only valid, successfully handled commands are audited.
+            cfg.AddOpenBehavior(typeof(Audit.AuditBehavior<,>));
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
@@ -23,6 +25,10 @@ public static class DependencyInjection
 
         services.AddScoped<Parent.ParentAccess>();
         services.AddScoped<Transport.DriverAccess>();
+
+        // Non-HTTP scopes (jobs, tests) have no caller IP; the API host
+        // registers its HTTP-backed implementation after this (last wins).
+        services.AddScoped<Abstractions.IClientContext, Abstractions.NullClientContext>();
 
         return services;
     }

@@ -5,6 +5,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Domain.Academics;
 using SchoolErp.Domain.Attendance;
+using SchoolErp.Domain.Audit;
 using SchoolErp.Domain.Auth;
 using SchoolErp.Domain.Common;
 using SchoolErp.Domain.Communication;
@@ -124,6 +125,9 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     /// <summary>Timetable entries (tenant-scoped).</summary>
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
+
+    /// <summary>Action audit trail (platform-scoped, nullable tenant column).</summary>
+    public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();
 
     /// <summary>Transactional outbox (platform-scoped, dispatcher-read).</summary>
     public DbSet<OutboxMessage> OutboxMessages => Set<OutboxMessage>();

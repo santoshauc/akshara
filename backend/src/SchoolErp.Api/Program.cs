@@ -40,6 +40,8 @@ try
 
     builder.Services.AddHttpContextAccessor();
     builder.Services.AddScoped<ICurrentUser, CurrentUser>();
+    // Overrides AddApplication's NullClientContext (last registration wins).
+    builder.Services.AddScoped<SchoolErp.Application.Abstractions.IClientContext, HttpClientContext>();
 
     // --- Authentication & authorization -------------------------------------
     builder.Services
