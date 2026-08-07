@@ -1,0 +1,135 @@
+@page "/students"
+@attribute [Authorize]
+@inject StudentsClient Client
+@inject AcademicsClient AcademicsApi
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Students — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Students</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="@(() => Navigation.NavigateTo("students/admit"))">
+        Admit student
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudTextField @bind-Value="_search" Label="Search name or admission no."
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true" DebounceInterval="400"
+                      OnDebounceIntervalElapsed="ReloadAsync" Style="min-width: 260px;" />
+        <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Clearable="true"
+                   Style="min-width: 160px;" SelectedValuesChanged="@(_ => OnClassChangedAsync())">
+            @foreach (var schoolClass in _classes)
+            {
+                <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Clearable="true"
+                   Style="min-width: 140px;" Disabled="@(_classId is null)"
+                   SelectedValuesChanged="@(_ => ReloadAsync())">
+            @foreach (var sec in SectionsOfSelectedClass)
+            {
+                <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="StudentStatus?" @bind-Value="_status" Label="Status" Clearable="true"
+                   Style="min-width: 160px;" SelectedValuesChanged="@(_ => ReloadAsync())">
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Active">Active</MudSelectItem>
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Suspended">Suspended</MudSelectItem>
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Withdrawn">Withdrawn</MudSelectItem>
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Alumni">Alumni</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+</MudPaper>
+
+<MudTable T="StudentListItemDto" ServerData="LoadServerDataAsync" @ref="_table" Hover="true" Elevation="2"
+          OnRowClick="@(args => Navigation.NavigateTo($"students/{args.Item!.Id}"))" Style="cursor: pointer;">
+    <HeaderContent>
+        <MudTh>Admission no.</MudTh>
+        <MudTh>Name</MudTh>
+        <MudTh>Class</MudTh>
+        <MudTh>Section</MudTh>
+        <MudTh>Roll</MudTh>
+        <MudTh>Status</MudTh>
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Admission no.">
+            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.AdmissionNumber</MudText>
+        </MudTd>
+        <MudTd DataLabel="Name">@context.FirstName @context.LastName</MudTd>
+        <MudTd DataLabel="Class">@(context.ClassName ?? "—")</MudTd>
+        <MudTd DataLabel="Section">@(context.SectionName ?? "—")</MudTd>
+        <MudTd DataLabel="Roll">@(context.RollNumber?.ToString() ?? "—")</MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-6">No students found. Admit the first one.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<StudentListItemDto>? _table;
+    private List<SchoolClassDto> _classes = [];
+    private string _search = string.Empty;
+    private Guid? _classId;
+    private Guid? _sectionId;
+    private StudentStatus? _status;
+
+    private IEnumerable<SectionDto> SectionsOfSelectedClass =>
+        _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _classes = await AcademicsApi.GetClassesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task<TableData<StudentListItemDto>> LoadServerDataAsync(TableState state)
+    {
+        try
+        {
+            var result = await Client.GetStudentsAsync(
+                _search, _classId, _sectionId, _status,
+                state.Page + 1, state.PageSize == 0 ? 20 : state.PageSize);
+            return new TableData<StudentListItemDto> { Items = result.Items, TotalItems = result.TotalCount };
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            return new TableData<StudentListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private Task ReloadAsync() => _table?.ReloadServerData() ?? Task.CompletedTask;
+
+    private async Task OnClassChangedAsync()
+    {
+        _sectionId = null;
+        await ReloadAsync();
+    }
+
+    private static Color StatusColor(StudentStatus status) => status switch
+    {
+        StudentStatus.Active => Color.Success,
+        StudentStatus.Suspended => Color.Warning,
+        StudentStatus.Withdrawn => Color.Default,
+        _ => Color.Info,
+    };
+}

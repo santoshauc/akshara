@@ -1,0 +1,196 @@
+@page "/fees"
+@attribute [Authorize]
+@inject FeesClient Client
+@inject AcademicsClient AcademicsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Fees — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Fee setup</MudText>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="4">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudText Typo="Typo.h6" Class="mb-4">Fee heads</MudText>
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudTextField @bind-Value="_newHeadName" Label="New head (e.g. Tuition)" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                           OnClick="CreateHeadAsync">Add</MudButton>
+            </MudStack>
+            @foreach (var head in _heads)
+            {
+                <MudChip Size="Size.Small" Variant="Variant.Outlined" Class="ma-1">@head.Name</MudChip>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h6">Class fee plan</MudText>
+                <MudSpacer />
+                <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Dense="true"
+                           Style="min-width: 160px;" SelectedValuesChanged="@(_ => LoadPlanAsync())">
+                    @foreach (var schoolClass in _classes)
+                    {
+                        <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudStack>
+
+            @if (_classId is null)
+            {
+                <MudText Class="mud-text-secondary">Pick a class to edit its plan for the current year.</MudText>
+            }
+            else
+            {
+                @foreach (var (row, index) in _rows.Select((r, i) => (r, i)))
+                {
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
+                        <MudSelect T="Guid?" @bind-Value="row.FeeHeadId" Label="Head" Dense="true"
+                                   Style="min-width: 160px;">
+                            @foreach (var head in _heads)
+                            {
+                                <MudSelectItem T="Guid?" Value="@head.Id">@head.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudNumericField T="decimal" @bind-Value="row.Amount" Label="Amount (₹)" Min="1"
+                                         Style="width: 140px;" HideSpinButtons="true" />
+                        <MudDatePicker @bind-Date="row.DueDate" Label="Due date" Editable="true"
+                                       Style="width: 150px;" />
+                        <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                       Size="Size.Small" OnClick="@(() => _rows.RemoveAt(index))" />
+                    </MudStack>
+                }
+
+                <MudStack Row="true" Spacing="2" Class="mt-4">
+                    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add"
+                               OnClick="@(() => _rows.Add(new PlanRow()))">
+                        Add installment
+                    </MudButton>
+                    <MudSpacer />
+                    <MudText Typo="Typo.subtitle1" Class="align-self-center mr-4">
+                        Total: ₹@_rows.Sum(r => r.Amount).ToString("N0")
+                    </MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                               OnClick="SavePlanAsync">Save plan</MudButton>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private sealed class PlanRow
+    {
+        public Guid? FeeHeadId { get; set; }
+        public decimal Amount { get; set; } = 1000;
+        public DateTime? DueDate { get; set; } = DateTime.Today.AddMonths(1);
+    }
+
+    private List<FeeHeadDto> _heads = [];
+    private List<SchoolClassDto> _classes = [];
+    private Guid? _currentYearId;
+    private Guid? _classId;
+    private List<PlanRow> _rows = [];
+    private string _newHeadName = string.Empty;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var years = await AcademicsApi.GetYearsAsync();
+            _currentYearId = years.FirstOrDefault(y => y.IsCurrent)?.Id ?? years.FirstOrDefault()?.Id;
+            _heads = await Client.GetHeadsAsync();
+            _classes = await AcademicsApi.GetClassesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task CreateHeadAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newHeadName))
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateHeadAsync(_newHeadName.Trim());
+            if (error is null)
+            {
+                _newHeadName = string.Empty;
+                _heads = await Client.GetHeadsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task LoadPlanAsync()
+    {
+        if (_currentYearId is null || _classId is null)
+        {
+            return;
+        }
+
+        var items = await Client.GetStructureAsync(_currentYearId.Value, _classId.Value);
+        _rows = items.Select(i => new PlanRow
+        {
+            FeeHeadId = i.FeeHeadId,
+            Amount = i.Amount,
+            DueDate = i.DueDate.ToDateTime(TimeOnly.MinValue),
+        }).ToList();
+        if (_rows.Count == 0)
+        {
+            _rows.Add(new PlanRow());
+        }
+    }
+
+    private async Task SavePlanAsync()
+    {
+        if (_currentYearId is null || _classId is null)
+        {
+            return;
+        }
+
+        if (_rows.Any(r => r.FeeHeadId is null || r.DueDate is null || r.Amount <= 0))
+        {
+            Snackbar.Add("Every line needs a head, a positive amount and a due date.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.DefineStructureAsync(new DefineFeeStructureRequest(
+                _currentYearId.Value, _classId.Value,
+                _rows.Select(r => new FeeStructureItemInput(
+                    r.FeeHeadId!.Value, r.Amount, DateOnly.FromDateTime(r.DueDate!.Value))).ToList()));
+            if (error is null)
+            {
+                Snackbar.Add("Fee plan saved.", Severity.Success);
+                await LoadPlanAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

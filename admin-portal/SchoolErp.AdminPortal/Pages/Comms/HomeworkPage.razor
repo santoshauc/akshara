@@ -1,0 +1,163 @@
+@page "/homework"
+@attribute [Authorize]
+@inject CommsClient Client
+@inject AcademicsClient AcademicsApi
+@inject ExamsClient ExamsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Homework — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Homework</MudText>
+    <MudSpacer />
+    <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Dense="true" Style="min-width: 160px;"
+               SelectedValuesChanged="@(_ => OnClassChangedAsync())">
+        @foreach (var schoolClass in _classes)
+        {
+            <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+        }
+    </MudSelect>
+</MudStack>
+
+@if (_classId is not null)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">Assign homework</MudText>
+        <MudStack Spacing="3">
+            <MudStack Row="true" Spacing="3" Wrap="Wrap.Wrap">
+                <MudSelect T="Guid?" @bind-Value="_subjectId" Label="Subject" Style="min-width: 180px;">
+                    @foreach (var subject in _subjects)
+                    {
+                        <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Clearable="true"
+                           HelperText="Empty = all sections" Style="min-width: 160px;">
+                    @foreach (var sec in SectionsOfSelectedClass)
+                    {
+                        <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudDatePicker @bind-Date="_dueDate" Label="Due date" Editable="true"
+                               MinDate="DateTime.Today" Style="min-width: 160px;" />
+            </MudStack>
+            <MudTextField @bind-Value="_title" Label="Title" />
+            <MudTextField @bind-Value="_instructions" Label="Instructions" Lines="3" />
+            <MudStack Row="true">
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                           OnClick="AssignAsync">
+                    @(_busy ? "Assigning…" : "Assign homework")
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+
+    @if (_homework.Count == 0)
+    {
+        <MudAlert Severity="Severity.Info">No homework for this class yet.</MudAlert>
+    }
+    else
+    {
+        <MudSimpleTable Hover="true" Dense="true" Elevation="2">
+            <thead>
+                <tr>
+                    <th>Subject</th>
+                    <th>Title</th>
+                    <th>Section</th>
+                    <th>Assigned</th>
+                    <th>Due</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var item in _homework)
+                {
+                    <tr>
+                        <td>@item.SubjectName</td>
+                        <td>
+                            <MudText Typo="Typo.body2" Class="font-weight-bold">@item.Title</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@item.Instructions</MudText>
+                        </td>
+                        <td>@(item.SectionName ?? "All")</td>
+                        <td>@item.AssignedOn.ToString("dd MMM")</td>
+                        <td>@item.DueDate.ToString("dd MMM yyyy")</td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    }
+}
+else
+{
+    <MudAlert Severity="Severity.Info">Pick a class to view and assign homework.</MudAlert>
+}
+
+@code {
+    private List<SchoolClassDto> _classes = [];
+    private List<SubjectDto> _subjects = [];
+    private List<HomeworkDto> _homework = [];
+    private Guid? _classId;
+    private Guid? _subjectId;
+    private Guid? _sectionId;
+    private DateTime? _dueDate = DateTime.Today.AddDays(1);
+    private string _title = string.Empty;
+    private string _instructions = string.Empty;
+    private bool _busy;
+
+    private IEnumerable<SectionDto> SectionsOfSelectedClass =>
+        _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _classes = await AcademicsApi.GetClassesAsync();
+            _subjects = await ExamsApi.GetSubjectsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task OnClassChangedAsync()
+    {
+        _sectionId = null;
+        if (_classId is { } classId)
+        {
+            _homework = await Client.GetClassHomeworkAsync(classId);
+        }
+    }
+
+    private async Task AssignAsync()
+    {
+        if (_classId is null || _subjectId is null || _dueDate is null ||
+            string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_instructions))
+        {
+            Snackbar.Add("Subject, due date, title and instructions are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateHomeworkAsync(new CreateHomeworkRequest(
+                _classId.Value, _sectionId, _subjectId.Value,
+                _title.Trim(), _instructions.Trim(), DateOnly.FromDateTime(_dueDate.Value)));
+            if (error is null)
+            {
+                Snackbar.Add("Homework assigned. Parents can see it in the app.", Severity.Success);
+                _title = _instructions = string.Empty;
+                _homework = await Client.GetClassHomeworkAsync(_classId.Value);
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

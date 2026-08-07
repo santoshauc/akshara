@@ -1,0 +1,331 @@
+@page "/exams"
+@attribute [Authorize]
+@inject ExamsClient Client
+@inject AcademicsClient AcademicsApi
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IDialogService DialogService
+
+<PageTitle>Exams — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Examinations</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.MenuBook"
+               OnClick="@(() => _showSubjectForm = !_showSubjectForm)">
+        Add subject
+    </MudButton>
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
+               OnClick="@(() => _showExamForm = !_showExamForm)">
+        Create exam
+    </MudButton>
+</MudStack>
+
+@if (_showSubjectForm)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_subjectName" Label="Subject name" Style="min-width: 220px;" />
+            <MudTextField @bind-Value="_subjectCode" Label="Code (e.g. MATH)" Style="min-width: 140px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="CreateSubjectAsync">Save subject</MudButton>
+            @foreach (var subject in _subjects)
+            {
+                <MudChip Size="Size.Small" Variant="Variant.Outlined">@subject.Name (@subject.Code)</MudChip>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_showExamForm)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_examName" Label="Exam name (e.g. Mid-Term 1)" Style="min-width: 240px;" />
+            <MudDatePicker @bind-Date="_examStart" Label="Start" Editable="true" Style="min-width: 150px;" />
+            <MudDatePicker @bind-Date="_examEnd" Label="End" Editable="true" Style="min-width: 150px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="CreateExamAsync">Create exam</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_exams.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">No exams in the current academic year yet.</MudAlert>
+}
+else
+{
+    @foreach (var exam in _exams)
+    {
+        <MudPaper Elevation="2" Class="pa-6 mb-4">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                <MudText Typo="Typo.h6">@exam.Name</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary ml-2">
+                    @exam.StartDate.ToString("dd MMM") – @exam.EndDate.ToString("dd MMM yyyy")
+                </MudText>
+                <MudChip Size="Size.Small" Class="ml-2"
+                         Color="@(exam.Status == ExamStatus.Published ? Color.Success : Color.Info)">
+                    @exam.Status
+                </MudChip>
+                <MudSpacer />
+                @if (exam.Status == ExamStatus.Draft)
+                {
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               StartIcon="@Icons.Material.Filled.PostAdd"
+                               OnClick="@(() => ToggleScheduleForm(exam.Id))">
+                        Schedule paper
+                    </MudButton>
+                    <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Success"
+                               StartIcon="@Icons.Material.Filled.Publish" Class="ml-2"
+                               OnClick="@(() => PublishAsync(exam))">
+                        Publish results
+                    </MudButton>
+                }
+            </MudStack>
+
+            @if (_scheduleFormExamId == exam.Id)
+            {
+                <MudPaper Outlined="true" Class="pa-4 mb-3">
+                    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudSelect T="Guid?" @bind-Value="_paperClassId" Label="Class" Style="min-width: 140px;">
+                            @foreach (var schoolClass in _classes)
+                            {
+                                <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="Guid?" @bind-Value="_paperSubjectId" Label="Subject" Style="min-width: 160px;">
+                            @foreach (var subject in _subjects)
+                            {
+                                <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudDatePicker @bind-Date="_paperDate" Label="Exam date" Editable="true"
+                                       Style="min-width: 150px;" />
+                        <MudNumericField @bind-Value="_paperMax" Label="Max marks" Min="1" Max="1000"
+                                         Style="width: 110px;" />
+                        <MudNumericField @bind-Value="_paperPass" Label="Pass marks" Min="0"
+                                         Style="width: 110px;" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                                   OnClick="@(() => SchedulePaperAsync(exam.Id))">Add paper</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (exam.Subjects.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">No papers scheduled yet.</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>Class</th>
+                            <th>Subject</th>
+                            <th>Date</th>
+                            <th>Max / Pass</th>
+                            <th style="width: 140px;"></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var paper in exam.Subjects)
+                        {
+                            <tr>
+                                <td>@paper.ClassName</td>
+                                <td>@paper.SubjectName</td>
+                                <td>@(paper.ExamDate?.ToString("dd MMM yyyy") ?? "—")</td>
+                                <td>@paper.MaxMarks / @paper.PassMarks</td>
+                                <td>
+                                    <MudButton Size="Size.Small" Variant="Variant.Text" Color="Color.Primary"
+                                               StartIcon="@Icons.Material.Filled.EditNote"
+                                               Disabled="@(exam.Status == ExamStatus.Published)"
+                                               OnClick="@(() => Navigation.NavigateTo($"exams/papers/{paper.Id}/marks"))">
+                                        Marks
+                                    </MudButton>
+                                </td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    }
+}
+
+@code {
+    private List<ExamDto> _exams = [];
+    private List<SubjectDto> _subjects = [];
+    private List<SchoolClassDto> _classes = [];
+    private Guid? _currentYearId;
+    private bool _loading = true;
+    private bool _busy;
+
+    private bool _showSubjectForm;
+    private string _subjectName = string.Empty;
+    private string _subjectCode = string.Empty;
+
+    private bool _showExamForm;
+    private string _examName = string.Empty;
+    private DateTime? _examStart = DateTime.Today;
+    private DateTime? _examEnd = DateTime.Today.AddDays(7);
+
+    private Guid? _scheduleFormExamId;
+    private Guid? _paperClassId;
+    private Guid? _paperSubjectId;
+    private DateTime? _paperDate;
+    private decimal _paperMax = 100;
+    private decimal _paperPass = 33;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            var years = await AcademicsApi.GetYearsAsync();
+            _currentYearId = years.FirstOrDefault(y => y.IsCurrent)?.Id ?? years.FirstOrDefault()?.Id;
+            _subjects = await Client.GetSubjectsAsync();
+            _classes = await AcademicsApi.GetClassesAsync();
+            await ReloadExamsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ReloadExamsAsync()
+    {
+        if (_currentYearId is { } yearId)
+        {
+            _exams = await Client.GetExamsAsync(yearId);
+        }
+    }
+
+    private async Task CreateSubjectAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_subjectName) || string.IsNullOrWhiteSpace(_subjectCode))
+        {
+            Snackbar.Add("Subject name and code are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateSubjectAsync(new CreateSubjectRequest(
+                _subjectName.Trim(), _subjectCode.Trim().ToUpperInvariant()));
+            if (error is null)
+            {
+                Snackbar.Add("Subject created.", Severity.Success);
+                _subjectName = _subjectCode = string.Empty;
+                _subjects = await Client.GetSubjectsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CreateExamAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_examName) || _examStart is null || _examEnd is null ||
+            _currentYearId is null)
+        {
+            Snackbar.Add("Exam name and dates are required (and an academic year must exist).", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateExamAsync(new CreateExamRequest(
+                _examName.Trim(), _currentYearId.Value,
+                DateOnly.FromDateTime(_examStart.Value), DateOnly.FromDateTime(_examEnd.Value)));
+            if (error is null)
+            {
+                Snackbar.Add("Exam created.", Severity.Success);
+                _showExamForm = false;
+                _examName = string.Empty;
+                await ReloadExamsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void ToggleScheduleForm(Guid examId) =>
+        _scheduleFormExamId = _scheduleFormExamId == examId ? null : examId;
+
+    private async Task SchedulePaperAsync(Guid examId)
+    {
+        if (_paperClassId is null || _paperSubjectId is null)
+        {
+            Snackbar.Add("Pick a class and subject.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.SchedulePaperAsync(examId, new SchedulePaperRequest(
+                _paperClassId.Value, _paperSubjectId.Value,
+                _paperDate is null ? null : DateOnly.FromDateTime(_paperDate.Value),
+                _paperMax, _paperPass));
+            if (error is null)
+            {
+                Snackbar.Add("Paper scheduled.", Severity.Success);
+                await ReloadExamsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task PublishAsync(ExamDto exam)
+    {
+        var confirmed = await DialogService.ShowMessageBox(
+            "Publish results",
+            $"Publish '{exam.Name}'? Marks will be frozen and parents will be notified by SMS.",
+            yesText: "Publish", cancelText: "Cancel");
+        if (confirmed != true)
+        {
+            return;
+        }
+
+        var error = await Client.PublishAsync(exam.Id);
+        if (error is null)
+        {
+            Snackbar.Add("Results published. Parent notifications queued.", Severity.Success);
+            await ReloadExamsAsync();
+        }
+        else
+        {
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
+}

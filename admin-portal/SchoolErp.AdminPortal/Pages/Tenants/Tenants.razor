@@ -1,0 +1,125 @@
+@page "/tenants"
+@attribute [Authorize]
+@inject TenantsClient Client
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Schools — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Schools</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Add"
+               OnClick="@(() => Navigation.NavigateTo("tenants/new"))">
+        Onboard school
+    </MudButton>
+</MudStack>
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudTextField @bind-Value="_search" Label="Search name, code or subdomain"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                      Immediate="true" DebounceInterval="400"
+                      OnDebounceIntervalElapsed="ReloadAsync" Style="min-width: 280px;" />
+        <MudSelect T="TenantStatus?" @bind-Value="_status" Label="Status" Clearable="true"
+                   Style="min-width: 180px;" SelectedValuesChanged="@(_ => ReloadAsync())">
+            <MudSelectItem T="TenantStatus?" Value="TenantStatus.Provisioning">Provisioning</MudSelectItem>
+            <MudSelectItem T="TenantStatus?" Value="TenantStatus.Active">Active</MudSelectItem>
+            <MudSelectItem T="TenantStatus?" Value="TenantStatus.Suspended">Suspended</MudSelectItem>
+            <MudSelectItem T="TenantStatus?" Value="TenantStatus.Archived">Archived</MudSelectItem>
+        </MudSelect>
+    </MudStack>
+</MudPaper>
+
+<MudTable T="TenantDto" ServerData="LoadServerDataAsync" @ref="_table" Hover="true" Elevation="2">
+    <HeaderContent>
+        <MudTh>Code</MudTh>
+        <MudTh>Name</MudTh>
+        <MudTh>Subdomain</MudTh>
+        <MudTh>City</MudTh>
+        <MudTh>Plan</MudTh>
+        <MudTh>Status</MudTh>
+        <MudTh />
+    </HeaderContent>
+    <RowTemplate>
+        <MudTd DataLabel="Code"><MudText Typo="Typo.body2" Class="font-weight-bold">@context.Code</MudText></MudTd>
+        <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Subdomain">@context.Subdomain</MudTd>
+        <MudTd DataLabel="City">@(context.City ?? "—")</MudTd>
+        <MudTd DataLabel="Plan">@context.Plan</MudTd>
+        <MudTd DataLabel="Status">
+            <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
+        </MudTd>
+        <MudTd>
+            <MudMenu Icon="@Icons.Material.Filled.MoreVert" Dense="true" AnchorOrigin="Origin.BottomRight">
+                <MudMenuItem OnClick="@(() => Navigation.NavigateTo($"tenants/{context.Id}/edit"))">
+                    Edit
+                </MudMenuItem>
+                @if (context.Status != TenantStatus.Active && context.Status != TenantStatus.Archived)
+                {
+                    <MudMenuItem OnClick="@(() => ChangeStatusAsync(context, TenantStatus.Active))">Activate</MudMenuItem>
+                }
+                @if (context.Status == TenantStatus.Active)
+                {
+                    <MudMenuItem OnClick="@(() => ChangeStatusAsync(context, TenantStatus.Suspended))">Suspend</MudMenuItem>
+                }
+                @if (context.Status != TenantStatus.Archived)
+                {
+                    <MudMenuItem OnClick="@(() => ChangeStatusAsync(context, TenantStatus.Archived))">Archive</MudMenuItem>
+                }
+            </MudMenu>
+        </MudTd>
+    </RowTemplate>
+    <NoRecordsContent>
+        <MudText Class="pa-6">No schools found. Onboard the first one.</MudText>
+    </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
+    </PagerContent>
+</MudTable>
+
+@code {
+    private MudTable<TenantDto>? _table;
+    private string _search = string.Empty;
+    private TenantStatus? _status;
+
+    private async Task<TableData<TenantDto>> LoadServerDataAsync(TableState state)
+    {
+        try
+        {
+            var result = await Client.GetTenantsAsync(
+                _search, _status, state.Page + 1, state.PageSize == 0 ? 20 : state.PageSize);
+            return new TableData<TenantDto> { Items = result.Items, TotalItems = result.TotalCount };
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            return new TableData<TenantDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private Task ReloadAsync() => _table?.ReloadServerData() ?? Task.CompletedTask;
+
+    private async Task ChangeStatusAsync(TenantDto tenant, TenantStatus status)
+    {
+        var error = await Client.ChangeStatusAsync(tenant.Id, status);
+        if (error is null)
+        {
+            Snackbar.Add($"{tenant.Name} is now {status}.", Severity.Success);
+            await ReloadAsync();
+        }
+        else
+        {
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
+
+    private static Color StatusColor(TenantStatus status) => status switch
+    {
+        TenantStatus.Active => Color.Success,
+        TenantStatus.Provisioning => Color.Info,
+        TenantStatus.Suspended => Color.Warning,
+        _ => Color.Default,
+    };
+}

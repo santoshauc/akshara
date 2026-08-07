@@ -1,0 +1,256 @@
+@page "/attendance"
+@attribute [Authorize]
+@inject AttendanceClient Client
+@inject AcademicsClient AcademicsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Attendance — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Attendance</MudText>
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Style="min-width: 160px;"
+                   SelectedValuesChanged="@(_ => OnClassChangedAsync())">
+            @foreach (var schoolClass in _classes)
+            {
+                <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Style="min-width: 140px;"
+                   Disabled="@(_classId is null)" SelectedValuesChanged="@(_ => LoadGridAsync())">
+            @foreach (var sec in SectionsOfSelectedClass)
+            {
+                <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+            }
+        </MudSelect>
+        <MudDatePicker @bind-Date="_date" Label="Date" Editable="true" MaxDate="DateTime.Today"
+                       PickerClosed="LoadGridAsync" Style="min-width: 160px;" />
+        <MudSpacer />
+        @if (_grid is not null)
+        {
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.DoneAll"
+                       OnClick="MarkAllPresent">All present</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@(_busy || !_dirty)"
+                       StartIcon="@Icons.Material.Filled.Save" OnClick="SaveAsync">
+                @(_busy ? "Saving…" : "Save")
+            </MudButton>
+        }
+    </MudStack>
+</MudPaper>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_grid is { } grid)
+{
+    <MudPaper Elevation="2">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="pa-4 pb-0">
+            <MudText Typo="Typo.subtitle1">
+                @grid.Roster.Count students · @grid.Date.ToString("dd MMM yyyy")
+            </MudText>
+            @if (grid.IsMarked)
+            {
+                <MudChip Size="Size.Small" Color="Color.Info" Class="ml-2">Already marked — editing</MudChip>
+            }
+        </MudStack>
+        <MudSimpleTable Hover="true" Dense="true" Class="pa-2">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Roll</th>
+                    <th>Student</th>
+                    <th>Status</th>
+                    <th style="min-width: 180px;">Remarks</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>@(row.RollNumber?.ToString() ?? "—")</td>
+                        <td>
+                            <MudText Typo="Typo.body2">@row.StudentName</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@row.AdmissionNumber</MudText>
+                        </td>
+                        <td>
+                            <MudButtonGroup Size="Size.Small" Variant="Variant.Outlined" OverrideStyles="false">
+                                @foreach (var option in StatusOptions)
+                                {
+                                    var status = option.Status;
+                                    <MudButton Size="Size.Small"
+                                               Variant="@(row.Status == status ? Variant.Filled : Variant.Outlined)"
+                                               Color="@option.Color"
+                                               OnClick="@(() => SetStatus(row, status))">
+                                        @option.Label
+                                    </MudButton>
+                                }
+                            </MudButtonGroup>
+                        </td>
+                        <td>
+                            <MudTextField T="string" @bind-Value="row.Remarks" Margin="Margin.Dense"
+                                          Placeholder="—" DisableUnderLine="true" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">Pick a class, section and date to load the marking grid.</MudAlert>
+}
+
+@code {
+    private static readonly (AttendanceStatus Status, string Label, Color Color)[] StatusOptions =
+    [
+        (AttendanceStatus.Present, "P", Color.Success),
+        (AttendanceStatus.Absent, "A", Color.Error),
+        (AttendanceStatus.Late, "L", Color.Warning),
+        (AttendanceStatus.HalfDay, "½", Color.Info),
+        (AttendanceStatus.Leave, "Lv", Color.Default),
+    ];
+
+    private sealed class Row
+    {
+        public Guid EnrollmentId { get; init; }
+        public string StudentName { get; init; } = string.Empty;
+        public string AdmissionNumber { get; init; } = string.Empty;
+        public int? RollNumber { get; init; }
+        public AttendanceStatus? Status { get; set; }
+        public string? Remarks { get; set; }
+    }
+
+    private List<SchoolClassDto> _classes = [];
+    private Guid? _classId;
+    private Guid? _sectionId;
+    private DateTime? _date = DateTime.Today;
+    private SectionAttendanceDto? _grid;
+    private List<Row> _rows = [];
+    private bool _loading;
+    private bool _busy;
+    private bool _dirty;
+
+    private IEnumerable<SectionDto> SectionsOfSelectedClass =>
+        _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _classes = await AcademicsApi.GetClassesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private Task OnClassChangedAsync()
+    {
+        _sectionId = null;
+        _grid = null;
+        return Task.CompletedTask;
+    }
+
+    private async Task LoadGridAsync()
+    {
+        if (_sectionId is null || _date is null)
+        {
+            return;
+        }
+
+        _loading = true;
+        _dirty = false;
+        try
+        {
+            _grid = await Client.GetSectionAsync(_sectionId.Value, DateOnly.FromDateTime(_date.Value));
+            _rows = _grid!.Roster.Select(r => new Row
+            {
+                EnrollmentId = r.EnrollmentId,
+                StudentName = r.StudentName,
+                AdmissionNumber = r.AdmissionNumber,
+                RollNumber = r.RollNumber,
+                Status = r.Status,
+                Remarks = r.Remarks,
+            }).ToList();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void SetStatus(Row row, AttendanceStatus status)
+    {
+        row.Status = status;
+        _dirty = true;
+    }
+
+    private void MarkAllPresent()
+    {
+        foreach (var row in _rows.Where(r => r.Status is null))
+        {
+            row.Status = AttendanceStatus.Present;
+        }
+        _dirty = true;
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_sectionId is null || _date is null)
+        {
+            return;
+        }
+
+        var unmarked = _rows.Count(r => r.Status is null);
+        if (unmarked > 0)
+        {
+            Snackbar.Add($"{unmarked} student(s) still unmarked.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var entries = _rows
+                .Select(r => new AttendanceEntryModel(
+                    r.EnrollmentId, r.Status!.Value,
+                    string.IsNullOrWhiteSpace(r.Remarks) ? null : r.Remarks.Trim()))
+                .ToList();
+
+            var error = await Client.MarkAsync(
+                _sectionId.Value,
+                new MarkAttendanceRequest(DateOnly.FromDateTime(_date.Value), entries));
+
+            if (error is null)
+            {
+                var absents = entries.Count(e => e.Status == AttendanceStatus.Absent);
+                Snackbar.Add(
+                    absents > 0
+                        ? $"Attendance saved. {absents} absence notification(s) queued for parents."
+                        : "Attendance saved.",
+                    Severity.Success);
+                _dirty = false;
+                await LoadGridAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

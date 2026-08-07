@@ -1,0 +1,33 @@
+@page "/"
+@attribute [Authorize]
+
+<PageTitle>Dashboard — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6">Dashboard</MudText>
+
+<MudGrid>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
+            <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
+            <div>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Schools</MudText>
+                <MudText Typo="Typo.h5">—</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12" sm="6" md="3">
+        <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
+            <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Secondary" Size="Size.Large" />
+            <div>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Students</MudText>
+                <MudText Typo="Typo.h5">—</MudText>
+            </div>
+        </MudPaper>
+    </MudItem>
+    <MudItem xs="12">
+        <MudAlert Severity="Severity.Info">
+            Platform analytics land here as modules come online. Start with
+            <MudLink Href="tenants">Schools</MudLink> to onboard a school.
+        </MudAlert>
+    </MudItem>
+</MudGrid>

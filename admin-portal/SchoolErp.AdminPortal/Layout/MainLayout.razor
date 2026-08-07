@@ -1,0 +1,89 @@
+@inherits LayoutComponentBase
+@inject AuthApiClient AuthApi
+@inject NavigationManager Navigation
+
+<MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
+<MudDialogProvider />
+<MudSnackbarProvider />
+
+<MudLayout>
+    <AuthorizeView>
+        <Authorized>
+            <MudAppBar Elevation="1">
+                <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
+                               OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+                <MudText Typo="Typo.h6" Class="ml-2">SchoolErp Admin</MudText>
+                <MudSpacer />
+                <MudTooltip Text="Toggle dark mode">
+                    <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
+                                   Color="Color.Inherit" OnClick="@(() => _isDarkMode = !_isDarkMode)" />
+                </MudTooltip>
+                <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight">
+                    <MudMenuItem Disabled="true">@context.User.Identity?.Name</MudMenuItem>
+                    <MudDivider />
+                    <MudMenuItem OnClick="LogoutAsync">Sign out</MudMenuItem>
+                </MudMenu>
+            </MudAppBar>
+            <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
+                <MudNavMenu>
+                    <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
+                        Dashboard
+                    </MudNavLink>
+                    <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
+                        Schools
+                    </MudNavLink>
+                    <MudDivider Class="my-2" />
+                    <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
+                        Academics
+                    </MudNavLink>
+                    <MudNavLink Href="students" Icon="@Icons.Material.Filled.Groups">
+                        Students
+                    </MudNavLink>
+                    <MudNavLink Href="attendance" Icon="@Icons.Material.Filled.EventAvailable">
+                        Attendance
+                    </MudNavLink>
+                    <MudNavLink Href="exams" Icon="@Icons.Material.Filled.Quiz">
+                        Exams
+                    </MudNavLink>
+                    <MudNavLink Href="fees" Icon="@Icons.Material.Filled.Payments">
+                        Fees
+                    </MudNavLink>
+                    <MudNavLink Href="homework" Icon="@Icons.Material.Filled.MenuBook">
+                        Homework
+                    </MudNavLink>
+                    <MudNavLink Href="notices" Icon="@Icons.Material.Filled.Campaign">
+                        Notices
+                    </MudNavLink>
+                </MudNavMenu>
+            </MudDrawer>
+            <MudMainContent Class="pa-6" Style="padding-top: 88px !important;">
+                @Body
+            </MudMainContent>
+        </Authorized>
+        <NotAuthorized>
+            <MudMainContent>
+                @Body
+            </MudMainContent>
+        </NotAuthorized>
+    </AuthorizeView>
+</MudLayout>
+
+@code {
+    private bool _drawerOpen = true;
+    private bool _isDarkMode;
+
+    private readonly MudTheme _theme = new()
+    {
+        Palette = new PaletteLight
+        {
+            Primary = "#1565C0",
+            AppbarBackground = "#1565C0",
+        },
+    };
+
+    private async Task LogoutAsync()
+    {
+        await AuthApi.LogoutAsync();
+        Navigation.NavigateTo("login");
+    }
+}

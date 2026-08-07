@@ -1,0 +1,3 @@
+# EF Core generates these files; don't hold them to hand-written style rules.
+[*.cs]
+dotnet_diagnostic.CA1861.severity = none

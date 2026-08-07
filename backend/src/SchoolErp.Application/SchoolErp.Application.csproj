@@ -1,0 +1,22 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <!-- MediatR 12.x and AutoMapper 13.x are pinned deliberately: later majors
+         moved to commercial licensing. Do not bump without a license review. -->
+    <PackageReference Include="MediatR" Version="12.5.0" />
+    <PackageReference Include="AutoMapper" Version="13.0.1" />
+    <PackageReference Include="FluentValidation" Version="11.11.0" />
+    <PackageReference Include="FluentValidation.DependencyInjectionExtensions" Version="11.11.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.2" />
+    <!-- DbSet exposure in IApplicationDbContext (pragmatic Clean Architecture),
+         plus the Npgsql provider for translatable functions (ILike). -->
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="8.0.11" />
+    <PackageReference Include="Npgsql.EntityFrameworkCore.PostgreSQL" Version="8.0.11" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\SchoolErp.Domain\SchoolErp.Domain.csproj" />
+    <ProjectReference Include="..\SchoolErp.Shared\SchoolErp.Shared.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,231 @@
+@page "/academics"
+@attribute [Authorize]
+@inject AcademicsClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Academics — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-6">Academic setup</MudText>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h6">Academic years</MudText>
+                <MudSpacer />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => _showYearForm = !_showYearForm)">
+                    Add year
+                </MudButton>
+            </MudStack>
+
+            @if (_showYearForm)
+            {
+                <MudPaper Outlined="true" Class="pa-4 mb-4">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="_yearName" Label="Name (e.g. 2026-27)" />
+                        <MudStack Row="true" Spacing="3">
+                            <MudDatePicker @bind-Date="_yearStart" Label="Start date" Editable="true" />
+                            <MudDatePicker @bind-Date="_yearEnd" Label="End date" Editable="true" />
+                        </MudStack>
+                        <MudCheckBox T="bool" @bind-Value="_yearMakeCurrent" Label="Make this the current session" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                                   OnClick="CreateYearAsync">Create year</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_years.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">No academic years yet.</MudText>
+            }
+            else
+            {
+                <MudList T="AcademicYearDto" Dense="true">
+                    @foreach (var year in _years)
+                    {
+                        <MudListItem T="AcademicYearDto">
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Class="flex-grow-1">
+                                <MudText>@year.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @year.StartDate.ToString("dd MMM yyyy") – @year.EndDate.ToString("dd MMM yyyy")
+                                </MudText>
+                                <MudSpacer />
+                                @if (year.IsCurrent)
+                                {
+                                    <MudChip Size="Size.Small" Color="Color.Success">Current</MudChip>
+                                }
+                                else
+                                {
+                                    <MudButton Size="Size.Small" OnClick="@(() => SetCurrentAsync(year))">
+                                        Set current
+                                    </MudButton>
+                                }
+                            </MudStack>
+                        </MudListItem>
+                    }
+                </MudList>
+            }
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="6">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                <MudText Typo="Typo.h6">Classes &amp; sections</MudText>
+                <MudSpacer />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Add"
+                           OnClick="@(() => _showClassForm = !_showClassForm)">
+                    Add class
+                </MudButton>
+            </MudStack>
+
+            @if (_showClassForm)
+            {
+                <MudPaper Outlined="true" Class="pa-4 mb-4">
+                    <MudStack Spacing="3">
+                        <MudTextField @bind-Value="_className" Label="Class name (e.g. Grade 5)" />
+                        <MudNumericField @bind-Value="_classOrder" Label="Display order" Min="0" />
+                        <MudTextField @bind-Value="_classSections" Label="Sections (comma-separated, e.g. A, B, C)" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                                   OnClick="CreateClassAsync">Create class</MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_classes.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">No classes yet.</MudText>
+            }
+            else
+            {
+                @foreach (var schoolClass in _classes)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudText Class="mr-2">@schoolClass.Name</MudText>
+                        @foreach (var sec in schoolClass.Sections)
+                        {
+                            <MudChip Size="Size.Small" Variant="Variant.Outlined">@sec.Name</MudChip>
+                        }
+                    </MudStack>
+                }
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<AcademicYearDto> _years = [];
+    private List<SchoolClassDto> _classes = [];
+    private bool _busy;
+
+    private bool _showYearForm;
+    private string _yearName = string.Empty;
+    private DateTime? _yearStart;
+    private DateTime? _yearEnd;
+    private bool _yearMakeCurrent = true;
+
+    private bool _showClassForm;
+    private string _className = string.Empty;
+    private int _classOrder;
+    private string _classSections = "A";
+
+    protected override Task OnInitializedAsync() => ReloadAsync();
+
+    private async Task ReloadAsync()
+    {
+        try
+        {
+            _years = await Client.GetYearsAsync();
+            _classes = await Client.GetClassesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task CreateYearAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_yearName) || _yearStart is null || _yearEnd is null)
+        {
+            Snackbar.Add("Name, start and end dates are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateYearAsync(new CreateAcademicYearRequest(
+                _yearName.Trim(),
+                DateOnly.FromDateTime(_yearStart.Value),
+                DateOnly.FromDateTime(_yearEnd.Value),
+                _yearMakeCurrent));
+            if (error is null)
+            {
+                Snackbar.Add("Academic year created.", Severity.Success);
+                _showYearForm = false;
+                _yearName = string.Empty;
+                await ReloadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SetCurrentAsync(AcademicYearDto year)
+    {
+        var error = await Client.SetCurrentYearAsync(year.Id);
+        if (error is null)
+        {
+            Snackbar.Add($"{year.Name} is now the current session.", Severity.Success);
+            await ReloadAsync();
+        }
+        else
+        {
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
+
+    private async Task CreateClassAsync()
+    {
+        var sections = _classSections
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+        if (string.IsNullOrWhiteSpace(_className) || sections.Count == 0)
+        {
+            Snackbar.Add("Class name and at least one section are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateClassAsync(
+                new CreateClassRequest(_className.Trim(), _classOrder, sections));
+            if (error is null)
+            {
+                Snackbar.Add("Class created.", Severity.Success);
+                _showClassForm = false;
+                _className = string.Empty;
+                await ReloadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,0 +1,277 @@
+@page "/students/admit"
+@attribute [Authorize]
+@inject StudentsClient Client
+@inject AcademicsClient AcademicsApi
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Admit student — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Navigation.NavigateTo("students"))" />
+    <MudText Typo="Typo.h4">Admit student</MudText>
+</MudStack>
+
+<MudPaper Elevation="2" Class="pa-6" Style="max-width: 1000px;">
+    <MudGrid Spacing="3">
+        <MudItem xs="12"><MudText Typo="Typo.h6">Student</MudText></MudItem>
+        <MudItem xs="12" sm="4">
+            <MudTextField @bind-Value="_firstName" Label="First name" Required="true" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudTextField @bind-Value="_lastName" Label="Last name" Required="true" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudDatePicker @bind-Date="_dateOfBirth" Label="Date of birth" OpenTo="OpenTo.Year"
+                           MaxDate="DateTime.Today" Editable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudSelect @bind-Value="_gender" Label="Gender">
+                <MudSelectItem Value="Gender.Male">Male</MudSelectItem>
+                <MudSelectItem Value="Gender.Female">Female</MudSelectItem>
+                <MudSelectItem Value="Gender.Other">Other</MudSelectItem>
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudSelect @bind-Value="_bloodGroup" Label="Blood group" Clearable="true">
+                @foreach (var bg in new[] { "A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-" })
+                {
+                    <MudSelectItem Value="@bg">@bg</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudTextField @bind-Value="_medicalNotes" Label="Medical notes (allergies, conditions)" />
+        </MudItem>
+        <MudItem xs="12" sm="6">
+            <MudTextField @bind-Value="_addressLine1" Label="Address" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudTextField @bind-Value="_city" Label="City" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudTextField @bind-Value="_state" Label="State" />
+        </MudItem>
+
+        <MudItem xs="12"><MudText Typo="Typo.h6">Admission &amp; placement</MudText></MudItem>
+        <MudItem xs="12" sm="3">
+            <MudTextField @bind-Value="_admissionNumber" Label="Admission no. (blank = auto)" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudDatePicker @bind-Date="_admissionDate" Label="Admission date" Editable="true" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudSelect T="Guid?" @bind-Value="_yearId" Label="Academic year" Required="true">
+                @foreach (var year in _years)
+                {
+                    <MudSelectItem T="Guid?" Value="@year.Id">@year.Name @(year.IsCurrent ? "(current)" : "")</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudNumericField @bind-Value="_rollNumber" Label="Roll no. (optional)" Min="1" />
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Required="true"
+                       SelectedValuesChanged="@(_ => _sectionId = null)">
+                @foreach (var schoolClass in _classes)
+                {
+                    <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+        <MudItem xs="12" sm="3">
+            <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Required="true"
+                       Disabled="@(_classId is null)">
+                @foreach (var sec in SectionsOfSelectedClass)
+                {
+                    <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+                }
+            </MudSelect>
+        </MudItem>
+
+        <MudItem xs="12">
+            <MudStack Row="true" AlignItems="AlignItems.Center">
+                <MudText Typo="Typo.h6">Guardians</MudText>
+                <MudSpacer />
+                <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="AddGuardian">
+                    Add guardian
+                </MudButton>
+            </MudStack>
+        </MudItem>
+
+        @foreach (var (guardian, index) in _guardians.Select((g, i) => (g, i)))
+        {
+            <MudItem xs="12">
+                <MudPaper Outlined="true" Class="pa-4">
+                    <MudGrid Spacing="2">
+                        <MudItem xs="12" sm="3">
+                            <MudTextField @bind-Value="guardian.FirstName" Label="First name" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="3">
+                            <MudTextField @bind-Value="guardian.LastName" Label="Last name" Required="true" />
+                        </MudItem>
+                        <MudItem xs="12" sm="2">
+                            <MudSelect @bind-Value="guardian.Relation" Label="Relation">
+                                <MudSelectItem Value="GuardianRelation.Father">Father</MudSelectItem>
+                                <MudSelectItem Value="GuardianRelation.Mother">Mother</MudSelectItem>
+                                <MudSelectItem Value="GuardianRelation.Guardian">Guardian</MudSelectItem>
+                                <MudSelectItem Value="GuardianRelation.Other">Other</MudSelectItem>
+                            </MudSelect>
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="guardian.Phone" Label="Phone (+91…)" Required="true"
+                                          HelperText="Parent-app login number" />
+                        </MudItem>
+                        <MudItem xs="12" sm="4">
+                            <MudTextField @bind-Value="guardian.Email" Label="Email" />
+                        </MudItem>
+                        <MudItem xs="12" sm="3">
+                            <MudTextField @bind-Value="guardian.Occupation" Label="Occupation" />
+                        </MudItem>
+                        <MudItem xs="12" sm="3" Class="d-flex align-center">
+                            <MudCheckBox T="bool"
+                                         Value="@guardian.IsPrimary"
+                                         ValueChanged="@(on => SetPrimary(index, on))"
+                                         Label="Primary contact" />
+                        </MudItem>
+                        <MudItem xs="12" sm="2" Class="d-flex align-center justify-end">
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
+                                           Disabled="@(_guardians.Count == 1)"
+                                           OnClick="@(() => _guardians.RemoveAt(index))" />
+                        </MudItem>
+                    </MudGrid>
+                </MudPaper>
+            </MudItem>
+        }
+
+        @if (_error is not null)
+        {
+            <MudItem xs="12"><MudAlert Severity="Severity.Error">@_error</MudAlert></MudItem>
+        }
+
+        <MudItem xs="12" Class="d-flex justify-end gap-3">
+            <MudButton OnClick="@(() => Navigation.NavigateTo("students"))">Cancel</MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy" OnClick="SubmitAsync">
+                @(_busy ? "Admitting…" : "Admit student")
+            </MudButton>
+        </MudItem>
+    </MudGrid>
+</MudPaper>
+
+@code {
+    private List<AcademicYearDto> _years = [];
+    private List<SchoolClassDto> _classes = [];
+    private bool _busy;
+    private string? _error;
+
+    private string _firstName = string.Empty;
+    private string _lastName = string.Empty;
+    private DateTime? _dateOfBirth;
+    private Gender _gender = Gender.Male;
+    private string? _bloodGroup;
+    private string? _medicalNotes;
+    private string? _addressLine1;
+    private string? _city;
+    private string? _state;
+    private string? _admissionNumber;
+    private DateTime? _admissionDate = DateTime.Today;
+    private Guid? _yearId;
+    private Guid? _classId;
+    private Guid? _sectionId;
+    private int? _rollNumber;
+
+    private readonly List<GuardianInputModel> _guardians =
+        [new GuardianInputModel { IsPrimary = true }];
+
+    private IEnumerable<SectionDto> SectionsOfSelectedClass =>
+        _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _years = await AcademicsApi.GetYearsAsync();
+            _classes = await AcademicsApi.GetClassesAsync();
+            _yearId = _years.FirstOrDefault(y => y.IsCurrent)?.Id ?? _years.FirstOrDefault()?.Id;
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private void AddGuardian() => _guardians.Add(new GuardianInputModel());
+
+    /// <summary>Keeps exactly one guardian primary.</summary>
+    private void SetPrimary(int index, bool on)
+    {
+        if (!on)
+        {
+            _guardians[index].IsPrimary = false;
+            return;
+        }
+
+        for (var i = 0; i < _guardians.Count; i++)
+        {
+            _guardians[i].IsPrimary = i == index;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_firstName) || string.IsNullOrWhiteSpace(_lastName) ||
+            _dateOfBirth is null || _admissionDate is null ||
+            _yearId is null || _classId is null || _sectionId is null)
+        {
+            _error = "Name, date of birth, academic year, class and section are required.";
+            return;
+        }
+
+        _busy = true;
+        _error = null;
+        try
+        {
+            var (id, error) = await Client.AdmitAsync(new AdmitStudentRequest(
+                string.IsNullOrWhiteSpace(_admissionNumber) ? null : _admissionNumber.Trim(),
+                _firstName.Trim(),
+                _lastName.Trim(),
+                DateOnly.FromDateTime(_dateOfBirth.Value),
+                _gender,
+                _bloodGroup,
+                null,
+                null,
+                _addressLine1,
+                _city,
+                _state,
+                null,
+                _medicalNotes,
+                DateOnly.FromDateTime(_admissionDate.Value),
+                _yearId.Value,
+                _classId.Value,
+                _sectionId.Value,
+                _rollNumber,
+                _guardians));
+
+            if (id is { } studentId)
+            {
+                Snackbar.Add($"{_firstName} admitted.", Severity.Success);
+                Navigation.NavigateTo($"students/{studentId}");
+            }
+            else
+            {
+                _error = error;
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the server.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -1,0 +1,6 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Shared kernel: Result types, error envelope, pagination contracts, constants.
+       Referenced by every layer, so it must stay dependency-free. -->
+
+</Project>

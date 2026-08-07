@@ -1,0 +1,146 @@
+@page "/exams/papers/{ExamSubjectId:guid}/marks"
+@attribute [Authorize]
+@inject ExamsClient Client
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Marks entry — SchoolErp</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_grid is { } grid)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => Navigation.NavigateTo("exams"))" />
+        <div>
+            <MudText Typo="Typo.h4">@grid.SubjectName — @grid.ClassName</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                Maximum @grid.MaxMarks marks · @grid.Rows.Count students
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                   StartIcon="@Icons.Material.Filled.Save" OnClick="SaveAsync">
+            @(_busy ? "Saving…" : "Save marks")
+        </MudButton>
+    </MudStack>
+
+    <MudPaper Elevation="2">
+        <MudSimpleTable Hover="true" Dense="true" Class="pa-2">
+            <thead>
+                <tr>
+                    <th style="width: 60px;">Roll</th>
+                    <th>Student</th>
+                    <th style="width: 160px;">Marks (of @grid.MaxMarks)</th>
+                    <th style="width: 110px;">Absent</th>
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var row in _rows)
+                {
+                    <tr>
+                        <td>@(row.RollNumber?.ToString() ?? "—")</td>
+                        <td>
+                            <MudText Typo="Typo.body2">@row.StudentName</MudText>
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">@row.AdmissionNumber</MudText>
+                        </td>
+                        <td>
+                            <MudNumericField T="decimal?" @bind-Value="row.Marks" Min="0" Max="@_grid.MaxMarks"
+                                             Margin="Margin.Dense" Disabled="@row.IsAbsent" HideSpinButtons="true" />
+                        </td>
+                        <td>
+                            <MudCheckBox T="bool" @bind-Value="row.IsAbsent" Dense="true" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Error">Paper not found.</MudAlert>
+}
+
+@code {
+    [Parameter]
+    public Guid ExamSubjectId { get; set; }
+
+    private sealed class Row
+    {
+        public Guid EnrollmentId { get; init; }
+        public string StudentName { get; init; } = string.Empty;
+        public string AdmissionNumber { get; init; } = string.Empty;
+        public int? RollNumber { get; init; }
+        public decimal? Marks { get; set; }
+        public bool IsAbsent { get; set; }
+    }
+
+    private MarksGridDto? _grid;
+    private List<Row> _rows = [];
+    private bool _loading = true;
+    private bool _busy;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        try
+        {
+            _grid = await Client.GetMarksGridAsync(ExamSubjectId);
+            _rows = _grid?.Rows.Select(r => new Row
+            {
+                EnrollmentId = r.EnrollmentId,
+                StudentName = r.StudentName,
+                AdmissionNumber = r.AdmissionNumber,
+                RollNumber = r.RollNumber,
+                Marks = r.MarksObtained,
+                IsAbsent = r.IsAbsent,
+            }).ToList() ?? [];
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SaveAsync()
+    {
+        var incomplete = _rows.Count(r => !r.IsAbsent && r.Marks is null);
+        if (incomplete > 0)
+        {
+            Snackbar.Add($"{incomplete} student(s) have no marks and are not marked absent.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.EnterMarksAsync(ExamSubjectId, new EnterMarksRequest(
+                _rows.Select(r => new MarkInputModel(
+                    r.EnrollmentId, r.IsAbsent ? null : r.Marks, r.IsAbsent)).ToList()));
+            if (error is null)
+            {
+                Snackbar.Add("Marks saved.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

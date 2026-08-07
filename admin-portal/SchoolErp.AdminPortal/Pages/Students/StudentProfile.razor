@@ -1,0 +1,354 @@
+@page "/students/{Id:guid}"
+@attribute [Authorize]
+@inject StudentsClient Client
+@inject AttendanceClient AttendanceApi
+@inject ExamsClient ExamsApi
+@inject AcademicsClient AcademicsApi
+@inject FeesClient FeesApi
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>Student — SchoolErp</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_student is { } student)
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+        <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                       OnClick="@(() => Navigation.NavigateTo("students"))" />
+        <MudAvatar Color="Color.Primary" Size="Size.Large">
+            @student.FirstName[0]@(student.LastName.Length > 0 ? student.LastName[0] : ' ')
+        </MudAvatar>
+        <div>
+            <MudText Typo="Typo.h4">@student.FirstName @student.LastName</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @student.AdmissionNumber · admitted @student.AdmissionDate.ToString("dd MMM yyyy")
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudChip Color="@(student.Status == StudentStatus.Active ? Color.Success : Color.Warning)">
+            @student.Status
+        </MudChip>
+    </MudStack>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-4">Details</MudText>
+                <MudSimpleTable Dense="true" Bordered="false" Elevation="0">
+                    <tbody>
+                        <tr><td class="mud-text-secondary">Date of birth</td><td>@student.DateOfBirth.ToString("dd MMM yyyy")</td></tr>
+                        <tr><td class="mud-text-secondary">Gender</td><td>@student.Gender</td></tr>
+                        <tr><td class="mud-text-secondary">Blood group</td><td>@(student.BloodGroup ?? "—")</td></tr>
+                        <tr><td class="mud-text-secondary">Address</td><td>@(FormatAddress(student))</td></tr>
+                        <tr><td class="mud-text-secondary">Medical notes</td><td>@(student.MedicalNotes ?? "—")</td></tr>
+                    </tbody>
+                </MudSimpleTable>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6 mb-4">
+                <MudText Typo="Typo.h6" Class="mb-4">Current placement</MudText>
+                @if (student.CurrentEnrollment is { } enrollment)
+                {
+                    <MudStack Row="true" Spacing="4">
+                        <MudChip Color="Color.Primary" Variant="Variant.Outlined">@enrollment.AcademicYearName</MudChip>
+                        <MudChip Variant="Variant.Outlined">@enrollment.ClassName — @enrollment.SectionName</MudChip>
+                        @if (enrollment.RollNumber is { } roll)
+                        {
+                            <MudChip Variant="Variant.Outlined">Roll @roll</MudChip>
+                        }
+                    </MudStack>
+                }
+                else
+                {
+                    <MudText Class="mud-text-secondary">Not enrolled in any academic year.</MudText>
+                }
+            </MudPaper>
+
+            @if (_month is { MarkedDays: > 0 } month)
+            {
+                <MudPaper Elevation="2" Class="pa-6 mb-4">
+                    <MudText Typo="Typo.h6" Class="mb-4">
+                        Attendance — @(new DateOnly(month.Year, month.Month, 1).ToString("MMMM yyyy"))
+                    </MudText>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="4" Wrap="Wrap.Wrap">
+                        <MudProgressCircular Value="@month.AttendancePercent" Color="Color.Success"
+                                             Size="Size.Large">
+                            <MudText Typo="Typo.caption">@month.AttendancePercent%</MudText>
+                        </MudProgressCircular>
+                        <MudChip Size="Size.Small" Color="Color.Success">Present @month.PresentCount</MudChip>
+                        <MudChip Size="Size.Small" Color="Color.Error">Absent @month.AbsentCount</MudChip>
+                        <MudChip Size="Size.Small" Color="Color.Warning">Late @month.LateCount</MudChip>
+                        @if (month.LeaveCount > 0)
+                        {
+                            <MudChip Size="Size.Small">Leave @month.LeaveCount</MudChip>
+                        }
+                    </MudStack>
+                </MudPaper>
+            }
+
+            @if (_exams.Count > 0)
+            {
+                <MudPaper Elevation="2" Class="pa-6 mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                        <MudText Typo="Typo.h6">Report card</MudText>
+                        <MudSpacer />
+                        <MudSelect T="Guid?" @bind-Value="_selectedExamId" Label="Exam" Dense="true"
+                                   Style="min-width: 200px;"
+                                   SelectedValuesChanged="@(_ => LoadResultAsync())">
+                            @foreach (var exam in _exams)
+                            {
+                                <MudSelectItem T="Guid?" Value="@exam.Id">@exam.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+
+                    @if (_result is { } result)
+                    {
+                        <MudSimpleTable Dense="true">
+                            <thead>
+                                <tr><th>Subject</th><th>Marks</th><th>Grade</th><th>Result</th></tr>
+                            </thead>
+                            <tbody>
+                                @foreach (var line in result.Lines)
+                                {
+                                    <tr>
+                                        <td>@line.SubjectName</td>
+                                        <td>@(line.IsAbsent ? "Absent" : $"{line.MarksObtained} / {line.MaxMarks}")</td>
+                                        <td>@line.Grade</td>
+                                        <td>
+                                            <MudChip Size="Size.Small"
+                                                     Color="@(line.Passed ? Color.Success : Color.Error)">
+                                                @(line.Passed ? "Pass" : "Fail")
+                                            </MudChip>
+                                        </td>
+                                    </tr>
+                                }
+                            </tbody>
+                        </MudSimpleTable>
+                        <MudStack Row="true" Spacing="2" Class="mt-4" Wrap="Wrap.Wrap">
+                            <MudChip Color="Color.Primary">
+                                Total @result.TotalObtained / @result.TotalMax
+                            </MudChip>
+                            <MudChip Color="Color.Primary" Variant="Variant.Outlined">@result.Percent%</MudChip>
+                            <MudChip Color="Color.Secondary">Grade @result.OverallGrade</MudChip>
+                            @if (result.SectionRank is { } rank)
+                            {
+                                <MudChip Variant="Variant.Outlined">
+                                    Rank @rank of @result.SectionSize
+                                </MudChip>
+                            }
+                            @if (result.ExamStatus != ExamStatus.Published)
+                            {
+                                <MudChip Size="Size.Small" Color="Color.Warning">Unpublished — staff preview</MudChip>
+                            }
+                        </MudStack>
+                    }
+                    else if (_selectedExamId is not null)
+                    {
+                        <MudText Class="mud-text-secondary">No marks recorded for this exam.</MudText>
+                    }
+                </MudPaper>
+            }
+
+            @if (_fees is { } fees)
+            {
+                <MudPaper Elevation="2" Class="pa-6 mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+                        <MudText Typo="Typo.h6">Fees</MudText>
+                        <MudSpacer />
+                        <MudChip Color="@(fees.Balance <= 0 ? Color.Success : Color.Warning)">
+                            Balance ₹@fees.Balance.ToString("N0")
+                        </MudChip>
+                    </MudStack>
+
+                    <MudSimpleTable Dense="true" Class="mb-3">
+                        <thead>
+                            <tr><th>Head</th><th>Amount</th><th>Due date</th></tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var line in fees.DueLines)
+                            {
+                                <tr>
+                                    <td>@line.FeeHeadName</td>
+                                    <td>₹@line.Amount.ToString("N0")</td>
+                                    <td>
+                                        @line.DueDate.ToString("dd MMM yyyy")
+                                        @if (line.Overdue)
+                                        {
+                                            <MudChip Size="Size.Small" Color="Color.Error" Class="ml-1">Overdue</MudChip>
+                                        }
+                                    </td>
+                                </tr>
+                            }
+                        </tbody>
+                    </MudSimpleTable>
+
+                    @if (fees.Payments.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Payments</MudText>
+                        @foreach (var payment in fees.Payments)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudIcon Icon="@Icons.Material.Filled.Receipt" Size="Size.Small"
+                                         Class="mud-text-secondary" />
+                                <MudText Typo="Typo.body2">
+                                    @payment.ReceiptNumber · ₹@payment.Amount.ToString("N0")
+                                    · @payment.Mode · @payment.PaidOn.ToString("dd MMM yyyy")
+                                </MudText>
+                            </MudStack>
+                        }
+                    }
+
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Record payment</MudText>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudNumericField T="decimal" @bind-Value="_payAmount" Label="Amount (₹)" Min="1"
+                                         Style="width: 130px;" HideSpinButtons="true" />
+                        <MudSelect T="PaymentMode" @bind-Value="_payMode" Label="Mode" Dense="true"
+                                   Style="width: 120px;">
+                            <MudSelectItem Value="PaymentMode.Cash">Cash</MudSelectItem>
+                            <MudSelectItem Value="PaymentMode.Cheque">Cheque</MudSelectItem>
+                            <MudSelectItem Value="PaymentMode.Upi">UPI</MudSelectItem>
+                        </MudSelect>
+                        <MudTextField @bind-Value="_payReference" Label="Reference" Style="width: 160px;" />
+                        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_payBusy"
+                                   OnClick="RecordPaymentAsync">
+                            @(_payBusy ? "Saving…" : "Collect")
+                        </MudButton>
+                    </MudStack>
+                </MudPaper>
+            }
+
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-4">Guardians</MudText>
+                @foreach (var guardian in student.Guardians)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                        <MudIcon Icon="@Icons.Material.Filled.Person" Class="mud-text-secondary" />
+                        <div>
+                            <MudText>
+                                @guardian.FirstName @guardian.LastName
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary" Inline="true">
+                                    (@guardian.Relation)
+                                </MudText>
+                            </MudText>
+                            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                                @guardian.Phone @(guardian.Email is not null ? $"· {guardian.Email}" : "")
+                            </MudText>
+                        </div>
+                        <MudSpacer />
+                        @if (guardian.IsPrimary)
+                        {
+                            <MudChip Size="Size.Small" Color="Color.Info">Primary</MudChip>
+                        }
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private StudentDetailDto? _student;
+    private StudentMonthAttendanceDto? _month;
+    private List<ExamDto> _exams = [];
+    private Guid? _selectedExamId;
+    private StudentResultDto? _result;
+    private StudentFeeSummaryDto? _fees;
+    private Guid? _currentYearId;
+    private decimal _payAmount = 1000;
+    private PaymentMode _payMode = PaymentMode.Cash;
+    private string? _payReference;
+    private bool _payBusy;
+    private bool _loading = true;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        try
+        {
+            _student = await Client.GetStudentAsync(Id);
+            var today = DateTime.Today;
+            _month = await AttendanceApi.GetStudentMonthAsync(Id, today.Year, today.Month);
+
+            var years = await AcademicsApi.GetYearsAsync();
+            var currentYear = years.FirstOrDefault(y => y.IsCurrent) ?? years.FirstOrDefault();
+            if (currentYear is not null)
+            {
+                _currentYearId = currentYear.Id;
+                _exams = await ExamsApi.GetExamsAsync(currentYear.Id);
+                _selectedExamId = _exams.FirstOrDefault()?.Id;
+                await LoadResultAsync();
+                _fees = await FeesApi.GetStudentSummaryAsync(Id, currentYear.Id);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task LoadResultAsync()
+    {
+        _result = _selectedExamId is { } examId
+            ? await ExamsApi.GetStudentResultAsync(examId, Id)
+            : null;
+    }
+
+    private async Task RecordPaymentAsync()
+    {
+        if (_currentYearId is null || _payAmount <= 0)
+        {
+            return;
+        }
+
+        _payBusy = true;
+        try
+        {
+            var (receipt, error) = await FeesApi.RecordPaymentAsync(new RecordPaymentRequest(
+                Id, _currentYearId.Value, _payAmount,
+                DateOnly.FromDateTime(DateTime.Today), _payMode,
+                string.IsNullOrWhiteSpace(_payReference) ? null : _payReference.Trim(), null));
+            if (receipt is not null)
+            {
+                Snackbar.Add($"Collected ₹{receipt.Amount:N0} — receipt {receipt.ReceiptNumber}. " +
+                    "SMS confirmation queued.", Severity.Success);
+                _payReference = null;
+                _fees = await FeesApi.GetStudentSummaryAsync(Id, _currentYearId.Value);
+            }
+            else
+            {
+                Snackbar.Add(error ?? "Payment failed.", Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _payBusy = false;
+        }
+    }
+
+    private static string FormatAddress(StudentDetailDto student)
+    {
+        var parts = new[] { student.AddressLine1, student.City, student.State, student.PostalCode }
+            .Where(p => !string.IsNullOrWhiteSpace(p));
+        var joined = string.Join(", ", parts);
+        return joined.Length == 0 ? "—" : joined;
+    }
+}

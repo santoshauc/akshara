@@ -1,0 +1,17 @@
+<Project>
+  <!-- Repo-wide build settings: applies to every project in the monorepo. -->
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <AnalysisLevel>latest-recommended</AnalysisLevel>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <!-- CS1591: missing XML doc comments are reported but do not fail the build.
+         CA1716: "Shared" is a VB keyword; the SchoolErp.Shared namespace is intentional. -->
+    <NoWarn>$(NoWarn);CS1591;CA1716</NoWarn>
+    <InvariantGlobalization>false</InvariantGlobalization>
+  </PropertyGroup>
+</Project>

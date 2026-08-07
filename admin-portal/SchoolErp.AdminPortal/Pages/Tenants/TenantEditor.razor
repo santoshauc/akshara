@@ -1,0 +1,236 @@
+@page "/tenants/new"
+@page "/tenants/{Id:guid}/edit"
+@attribute [Authorize]
+@inject TenantsClient Client
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+
+<PageTitle>@(_isNew ? "Onboard school" : "Edit school") — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Navigation.NavigateTo("tenants"))" />
+    <MudText Typo="Typo.h4">@(_isNew ? "Onboard school" : $"Edit — {_name}")</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else
+{
+    <MudPaper Elevation="2" Class="pa-6" Style="max-width: 900px;">
+        <MudGrid Spacing="3">
+            <MudItem xs="12"><MudText Typo="Typo.h6">Identity</MudText></MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_code" Label="School code" Required="true"
+                              Disabled="@(!_isNew)" HelperText="4–8 uppercase letters/digits. Immutable." />
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudTextField @bind-Value="_name" Label="School name" Required="true" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_subdomain" Label="Subdomain" Required="true"
+                              Disabled="@(!_isNew)" HelperText="lowercase; immutable" />
+            </MudItem>
+            <MudItem xs="12" sm="8">
+                <MudTextField @bind-Value="_customDomain" Label="Custom domain (optional)" />
+            </MudItem>
+
+            <MudItem xs="12"><MudText Typo="Typo.h6">Contact</MudText></MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_contactEmail" Label="Contact email" InputType="InputType.Email" />
+            </MudItem>
+            <MudItem xs="12" sm="6">
+                <MudTextField @bind-Value="_contactPhone" Label="Contact phone" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_city" Label="City" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_state" Label="State" />
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_board" Label="Board affiliation" Clearable="true">
+                    <MudSelectItem Value="@("CBSE")">CBSE</MudSelectItem>
+                    <MudSelectItem Value="@("ICSE")">ICSE</MudSelectItem>
+                    <MudSelectItem Value="@("State Board")">State Board</MudSelectItem>
+                    <MudSelectItem Value="@("IB")">IB</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+
+            <MudItem xs="12"><MudText Typo="Typo.h6">Subscription &amp; modules</MudText></MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_plan" Label="Plan">
+                    @foreach (var plan in Enum.GetValues<SubscriptionPlan>())
+                    {
+                        <MudSelectItem Value="plan">@plan</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudSelect @bind-Value="_language" Label="Default language">
+                    <MudSelectItem Value="@("en")">English</MudSelectItem>
+                    <MudSelectItem Value="@("te")">తెలుగు (Telugu)</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            @if (!_isNew)
+            {
+                <MudItem xs="12" sm="2">
+                    <MudNumericField @bind-Value="_storageLimitMb" Label="Storage (MB)" Min="1" />
+                </MudItem>
+                <MudItem xs="12" sm="2">
+                    <MudNumericField @bind-Value="_smsCredits" Label="SMS credits" Min="0" />
+                </MudItem>
+            }
+            <MudItem xs="12">
+                <MudText Typo="Typo.body2" Class="mb-2 mud-text-secondary">Enabled modules</MudText>
+                <MudStack Row="true" Wrap="Wrap.Wrap" Spacing="1">
+                    @foreach (var module in SelectableModules)
+                    {
+                        <MudCheckBox T="bool"
+                                     Value="@_modules.HasFlag(module)"
+                                     ValueChanged="@(on => ToggleModule(module, on))"
+                                     Label="@module.ToString()" Dense="true" />
+                    }
+                </MudStack>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Core (SIS, attendance, communication) is always enabled.
+                </MudText>
+            </MudItem>
+
+            @if (_error is not null)
+            {
+                <MudItem xs="12"><MudAlert Severity="Severity.Error">@_error</MudAlert></MudItem>
+            }
+
+            <MudItem xs="12" Class="d-flex justify-end gap-3">
+                <MudButton OnClick="@(() => Navigation.NavigateTo("tenants"))">Cancel</MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy" OnClick="SaveAsync">
+                    @(_busy ? "Saving…" : _isNew ? "Onboard school" : "Save changes")
+                </MudButton>
+            </MudItem>
+        </MudGrid>
+    </MudPaper>
+}
+
+@code {
+    [Parameter]
+    public Guid? Id { get; set; }
+
+    private static readonly TenantModules[] SelectableModules =
+    [
+        TenantModules.Examination, TenantModules.Fees, TenantModules.Transport,
+        TenantModules.Library, TenantModules.Timetable, TenantModules.Homework,
+        TenantModules.FrontOffice, TenantModules.HumanResources,
+        TenantModules.Inventory, TenantModules.Hostel,
+    ];
+
+    private bool _isNew => Id is null;
+    private bool _loading;
+    private bool _busy;
+    private string? _error;
+
+    private TenantDto? _existing;
+    private string _code = string.Empty;
+    private string _name = string.Empty;
+    private string _subdomain = string.Empty;
+    private string? _customDomain;
+    private string? _contactEmail;
+    private string? _contactPhone;
+    private string? _city;
+    private string? _state;
+    private string? _board;
+    private SubscriptionPlan _plan = SubscriptionPlan.Trial;
+    private TenantModules _modules = TenantModules.Core;
+    private string _language = "en";
+    private int _storageLimitMb = 5120;
+    private int _smsCredits;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        if (Id is not { } id)
+        {
+            return;
+        }
+
+        _loading = true;
+        try
+        {
+            _existing = await Client.GetTenantAsync(id);
+            if (_existing is { } t)
+            {
+                _code = t.Code;
+                _name = t.Name;
+                _subdomain = t.Subdomain;
+                _customDomain = t.CustomDomain;
+                _contactEmail = t.ContactEmail;
+                _contactPhone = t.ContactPhone;
+                _city = t.City;
+                _state = t.State;
+                _board = t.AffiliationBoard;
+                _plan = t.Plan;
+                _modules = t.EnabledModules;
+                _language = t.DefaultLanguage;
+                _storageLimitMb = t.StorageLimitMb;
+                _smsCredits = t.SmsCredits;
+            }
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ToggleModule(TenantModules module, bool on) =>
+        _modules = on ? _modules | module : _modules & ~module;
+
+    private async Task SaveAsync()
+    {
+        _busy = true;
+        _error = null;
+        try
+        {
+            if (_isNew)
+            {
+                var (created, error) = await Client.CreateAsync(new CreateTenantRequest(
+                    _code.Trim().ToUpperInvariant(), _name, _subdomain.Trim().ToLowerInvariant(),
+                    NullIfEmpty(_customDomain), NullIfEmpty(_contactEmail), NullIfEmpty(_contactPhone),
+                    NullIfEmpty(_city), NullIfEmpty(_state), NullIfEmpty(_board),
+                    _plan, _modules | TenantModules.Core, "Asia/Kolkata", _language));
+                _error = error;
+                if (created is not null)
+                {
+                    Snackbar.Add($"{created.Name} onboarded.", Severity.Success);
+                    Navigation.NavigateTo("tenants");
+                }
+            }
+            else
+            {
+                var (updated, error) = await Client.UpdateAsync(new UpdateTenantRequest(
+                    Id!.Value, _name, NullIfEmpty(_customDomain), NullIfEmpty(_contactEmail),
+                    NullIfEmpty(_contactPhone), NullIfEmpty(_city), NullIfEmpty(_state),
+                    NullIfEmpty(_board), _existing?.LogoUrl, null, null,
+                    _plan, _existing?.SubscriptionExpiresOn, _modules | TenantModules.Core,
+                    _storageLimitMb, _smsCredits, "Asia/Kolkata", _language));
+                _error = error;
+                if (updated is not null)
+                {
+                    Snackbar.Add("Changes saved.", Severity.Success);
+                    Navigation.NavigateTo("tenants");
+                }
+            }
+        }
+        catch (HttpRequestException)
+        {
+            _error = "Cannot reach the server.";
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string? NullIfEmpty(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+}

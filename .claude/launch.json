@@ -1,0 +1,17 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "api",
+      "runtimeExecutable": "C:\\Program Files\\dotnet\\dotnet.exe",
+      "runtimeArgs": ["run", "--project", "backend/src/SchoolErp.Api", "--launch-profile", "http"],
+      "port": 5199
+    },
+    {
+      "name": "portal",
+      "runtimeExecutable": "C:\\Program Files\\dotnet\\dotnet.exe",
+      "runtimeArgs": ["run", "--project", "admin-portal/SchoolErp.AdminPortal", "--launch-profile", "http"],
+      "port": 5050
+    }
+  ]
+}

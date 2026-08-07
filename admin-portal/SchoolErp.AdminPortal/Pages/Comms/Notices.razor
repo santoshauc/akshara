@@ -1,0 +1,133 @@
+@page "/notices"
+@attribute [Authorize]
+@inject CommsClient Client
+@inject AcademicsClient AcademicsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Notices — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudText Typo="Typo.h4">Notices</MudText>
+    <MudSpacer />
+    <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Campaign"
+               OnClick="@(() => _showForm = !_showForm)">
+        Publish notice
+    </MudButton>
+</MudStack>
+
+@if (_showForm)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudStack Spacing="3">
+            <MudTextField @bind-Value="_title" Label="Title" />
+            <MudTextField @bind-Value="_body" Label="Message" Lines="4" />
+            <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                <MudSelect T="Guid?" @bind-Value="_classId" Label="Audience" Clearable="true"
+                           HelperText="Empty = whole school" Style="min-width: 200px;">
+                    @foreach (var schoolClass in _classes)
+                    {
+                        <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name only</MudSelectItem>
+                    }
+                </MudSelect>
+                <MudDatePicker @bind-Date="_expires" Label="Expires (optional)" Editable="true"
+                               Style="min-width: 170px;" />
+                <MudCheckBox T="bool" @bind-Value="_pinned" Label="Pin to top" />
+                <MudSpacer />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                           OnClick="PublishAsync">
+                    @(_busy ? "Publishing…" : "Publish")
+                </MudButton>
+            </MudStack>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_notices.Count == 0)
+{
+    <MudAlert Severity="Severity.Info">No notices yet.</MudAlert>
+}
+else
+{
+    @foreach (var notice in _notices)
+    {
+        <MudPaper Elevation="2" Class="pa-4 mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+                @if (notice.IsPinned)
+                {
+                    <MudIcon Icon="@Icons.Material.Filled.PushPin" Size="Size.Small" Color="Color.Warning" />
+                }
+                <MudText Typo="Typo.subtitle1" Class="font-weight-bold">@notice.Title</MudText>
+                <MudSpacer />
+                <MudChip Size="Size.Small" Variant="Variant.Outlined"
+                         Color="@(notice.SchoolClassId is null ? Color.Primary : Color.Secondary)">
+                    @(notice.ClassName ?? "Whole school")
+                </MudChip>
+            </MudStack>
+            <MudText Typo="Typo.body2">@notice.Body</MudText>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
+                @notice.PublishedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")
+                @(notice.ExpiresOn is { } expiry ? $" · expires {expiry:dd MMM yyyy}" : "")
+            </MudText>
+        </MudPaper>
+    }
+}
+
+@code {
+    private List<NoticeDto> _notices = [];
+    private List<SchoolClassDto> _classes = [];
+    private bool _showForm;
+    private bool _busy;
+    private string _title = string.Empty;
+    private string _body = string.Empty;
+    private Guid? _classId;
+    private DateTime? _expires;
+    private bool _pinned;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _classes = await AcademicsApi.GetClassesAsync();
+            _notices = await Client.GetNoticesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task PublishAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_body))
+        {
+            Snackbar.Add("Title and message are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateNoticeAsync(new CreateNoticeRequest(
+                _title.Trim(), _body.Trim(), _classId,
+                _expires is null ? null : DateOnly.FromDateTime(_expires.Value), _pinned));
+            if (error is null)
+            {
+                Snackbar.Add("Notice published. Parents will see it in the app.", Severity.Success);
+                _showForm = false;
+                _title = _body = string.Empty;
+                _classId = null;
+                _expires = null;
+                _pinned = false;
+                _notices = await Client.GetNoticesAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}
