@@ -98,7 +98,13 @@ Integration tests use Testcontainers (needs Docker running).
    NOTE: no git remote is configured yet — push to GitHub to activate CI.
    ~~Docs pack~~ DONE — docs/architecture.md, docs/api-guide.md,
    docs/user-manual-admin.md, docs/user-manual-apps.md (+ README index).
-   Still remaining: localization resources (en/te), report-card PDFs.
+   ~~Localization (en/te)~~ DONE — both Expo apps have a typed i18n module
+   (src/i18n: en source-of-truth keys, Telugu coverage compiler-enforced),
+   an EN/తెలుగు toggle (login + home headers) persisted via
+   SecureStore/localStorage, and every UI string translated. School-entered
+   data (names, subjects) intentionally stays as entered. Portal/SMS remain
+   English (SMS localization would need per-guardian language preference —
+   future work). Still remaining: report-card PDFs.
 
 ## How to run (Windows dev box)
 

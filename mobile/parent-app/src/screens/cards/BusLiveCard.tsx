@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { parentApi } from '../../api/parent';
 import { BusLocation } from '../../api/types';
+import { useI18n } from '../../i18n';
 
 const POLL_SECONDS = 20;
 
@@ -13,22 +14,23 @@ const formatClock = (iso: string) => {
   return `${displayHours}:${String(date.getMinutes()).padStart(2, '0')} ${suffix}`;
 };
 
-const formatAgo = (iso: string) => {
-  const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
-  if (seconds < 60) {
-    return 'just now';
-  }
-  const minutes = Math.round(seconds / 60);
-  return minutes === 1 ? '1 minute ago' : `${minutes} minutes ago`;
-};
-
 /**
  * Live bus tracking during an active trip on the child's route.
  * Polls the parent bus endpoint while mounted; idle state when no trip runs.
  */
 export default function BusLiveCard({ studentId }: { studentId: string }) {
+  const { t } = useI18n();
   const [bus, setBus] = useState<BusLocation | null>(null);
   const [loaded, setLoaded] = useState(false);
+
+  const formatAgo = (iso: string) => {
+    const seconds = Math.max(0, Math.round((Date.now() - new Date(iso).getTime()) / 1000));
+    if (seconds < 60) {
+      return t('justNow');
+    }
+    const minutes = Math.round(seconds / 60);
+    return minutes === 1 ? t('minuteAgo') : t('minutesAgo', { count: minutes });
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -59,24 +61,26 @@ export default function BusLiveCard({ studentId }: { studentId: string }) {
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Live bus</Text>
+      <Text style={styles.title}>{t('liveBusTitle')}</Text>
       {!bus ? (
         <Text style={styles.muted}>
-          {loaded ? 'The bus is not on a trip right now.' : 'Checking the bus…'}
+          {loaded ? t('liveBusIdle') : t('liveBusChecking')}
         </Text>
       ) : (
         <>
           <View style={styles.liveRow}>
             <View style={styles.liveDot} />
             <Text style={styles.liveText}>
-              {bus.tripType === 1 ? 'Pickup trip in progress' : 'Drop trip in progress'} ·
-              started {formatClock(bus.startedAt)}
+              {bus.tripType === 1 ? t('pickupInProgress') : t('dropInProgress')} ·{' '}
+              {t('started')} {formatClock(bus.startedAt)}
             </Text>
           </View>
           {hasFix ? (
             <>
               {bus.lastSeenAt && (
-                <Text style={styles.detail}>Location updated {formatAgo(bus.lastSeenAt)}</Text>
+                <Text style={styles.detail}>
+                  {t('locationUpdated', { when: formatAgo(bus.lastSeenAt) })}
+                </Text>
               )}
               <TouchableOpacity
                 style={styles.mapButton}
@@ -86,11 +90,11 @@ export default function BusLiveCard({ studentId }: { studentId: string }) {
                   )
                 }
               >
-                <Text style={styles.mapText}>🗺️ Open bus location in Maps</Text>
+                <Text style={styles.mapText}>{t('openInMaps')}</Text>
               </TouchableOpacity>
             </>
           ) : (
-            <Text style={styles.detail}>Waiting for a GPS signal from the bus…</Text>
+            <Text style={styles.detail}>{t('waitingForGps')}</Text>
           )}
         </>
       )}

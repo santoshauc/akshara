@@ -1,6 +1,7 @@
 import React from 'react';
 import { Linking, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { ChildTransport } from '../../api/types';
+import { useI18n } from '../../i18n';
 
 const formatTime = (value: string) => {
   const [hours, minutes] = value.split(':').map(Number);
@@ -11,11 +12,12 @@ const formatTime = (value: string) => {
 
 /** The child's bus route, stop and driver contact. */
 export default function TransportCard({ transport }: { transport: ChildTransport | null }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Transport</Text>
+      <Text style={styles.title}>{t('transportTitle')}</Text>
       {!transport ? (
-        <Text style={styles.muted}>No bus allocation for this child.</Text>
+        <Text style={styles.muted}>{t('transportEmpty')}</Text>
       ) : (
         <>
           <View style={styles.row}>
@@ -23,11 +25,11 @@ export default function TransportCard({ transport }: { transport: ChildTransport
             <View style={styles.info}>
               <Text style={styles.route}>{transport.routeName}</Text>
               <Text style={styles.detail}>
-                Stop: {transport.stopName}
-                {transport.pickupTime ? ` · pickup ${formatTime(transport.pickupTime)}` : ''}
+                {t('stop')}: {transport.stopName}
+                {transport.pickupTime ? ` · ${t('pickup')} ${formatTime(transport.pickupTime)}` : ''}
               </Text>
               {transport.vehicleRegistration && (
-                <Text style={styles.detail}>Bus {transport.vehicleRegistration}</Text>
+                <Text style={styles.detail}>{t('bus')} {transport.vehicleRegistration}</Text>
               )}
             </View>
           </View>
@@ -37,7 +39,10 @@ export default function TransportCard({ transport }: { transport: ChildTransport
               onPress={() => Linking.openURL(`tel:${transport.driverPhone}`)}
             >
               <Text style={styles.callText}>
-                📞 Call {transport.driverName ?? 'driver'} ({transport.driverPhone})
+                📞 {t('callDriver', {
+                  name: transport.driverName ?? t('driver'),
+                  phone: transport.driverPhone,
+                })}
               </Text>
             </TouchableOpacity>
           )}

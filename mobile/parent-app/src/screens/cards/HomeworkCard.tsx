@@ -1,23 +1,25 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Homework } from '../../api/types';
+import { useI18n } from '../../i18n';
 
 const formatDate = (value: string) =>
   new Date(value).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' });
 
 /** Homework for the child's class/section, nearest due date first. */
 export default function HomeworkCard({ homework }: { homework: Homework[] }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Homework</Text>
+      <Text style={styles.title}>{t('homeworkTitle')}</Text>
       {homework.length === 0 ? (
-        <Text style={styles.muted}>No homework assigned. Enjoy the evening! 🎈</Text>
+        <Text style={styles.muted}>{t('homeworkEmpty')}</Text>
       ) : (
         homework.slice(0, 5).map((item) => (
           <View key={item.id} style={styles.item}>
             <View style={styles.itemHeader}>
               <Text style={styles.subject}>{item.subjectName}</Text>
-              <Text style={styles.due}>Due {formatDate(item.dueDate)}</Text>
+              <Text style={styles.due}>{t('due', { date: formatDate(item.dueDate) })}</Text>
             </View>
             <Text style={styles.itemTitle}>{item.title}</Text>
             <Text style={styles.instructions}>{item.instructions}</Text>

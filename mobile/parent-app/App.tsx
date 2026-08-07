@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { tokenStore } from './src/api/client';
+import { LanguageProvider } from './src/i18n';
 import { BRAND } from './src/config';
 import HomeScreen from './src/screens/HomeScreen';
 import LoginScreen from './src/screens/LoginScreen';
@@ -26,13 +27,13 @@ export default function App() {
   }
 
   return (
-    <>
+    <LanguageProvider>
       <StatusBar style="dark" />
       {signedIn ? (
         <HomeScreen onSignedOut={() => setSignedIn(false)} />
       ) : (
         <LoginScreen onSignedIn={() => setSignedIn(true)} />
       )}
-    </>
+    </LanguageProvider>
   );
 }

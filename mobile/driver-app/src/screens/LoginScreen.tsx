@@ -10,6 +10,8 @@ import {
   View,
 } from 'react-native';
 import { requestOtp, verifyOtp } from '../api/driver';
+import LanguageToggle from '../components/LanguageToggle';
+import { useI18n } from '../i18n';
 import { BRAND } from '../config';
 
 interface Props {
@@ -18,6 +20,7 @@ interface Props {
 
 /** School code + driver phone → OTP → session. */
 export default function LoginScreen({ onSignedIn }: Props) {
+  const { t } = useI18n();
   const [schoolCode, setSchoolCode] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
@@ -27,7 +30,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
 
   const sendCode = async () => {
     if (!schoolCode.trim() || !phone.trim()) {
-      setError('Enter your school code and phone number.');
+      setError(t('errEnterSchoolAndPhone'));
       return;
     }
     setBusy(true);
@@ -36,7 +39,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
       await requestOtp(schoolCode.trim().toUpperCase(), phone.trim());
       setStage('code');
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(e instanceof Error ? e.message : t('errGeneric'));
     } finally {
       setBusy(false);
     }
@@ -44,7 +47,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
 
   const confirmCode = async () => {
     if (code.trim().length !== 6) {
-      setError('Enter the 6-digit code from the SMS.');
+      setError(t('errEnterCode'));
       return;
     }
     setBusy(true);
@@ -53,7 +56,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
       await verifyOtp(schoolCode.trim().toUpperCase(), phone.trim(), code.trim());
       onSignedIn();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Something went wrong.');
+      setError(e instanceof Error ? e.message : t('errGeneric'));
     } finally {
       setBusy(false);
     }
@@ -65,22 +68,25 @@ export default function LoginScreen({ onSignedIn }: Props) {
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
       <View style={styles.card}>
+        <View style={styles.langRow}>
+          <LanguageToggle />
+        </View>
         <Text style={styles.logo}>🚌</Text>
-        <Text style={styles.title}>SchoolErp Driver</Text>
-        <Text style={styles.subtitle}>Safe trips, informed parents</Text>
+        <Text style={styles.title}>{t('appTitle')}</Text>
+        <Text style={styles.subtitle}>{t('appSubtitle')}</Text>
 
         {stage === 'details' ? (
           <>
             <TextInput
               style={styles.input}
-              placeholder="School code (e.g. DEMO01)"
+              placeholder={t('schoolCodePlaceholder')}
               autoCapitalize="characters"
               value={schoolCode}
               onChangeText={setSchoolCode}
             />
             <TextInput
               style={styles.input}
-              placeholder="Driver mobile number (+91…)"
+              placeholder={t('phonePlaceholder')}
               keyboardType="phone-pad"
               value={phone}
               onChangeText={setPhone}
@@ -90,13 +96,13 @@ export default function LoginScreen({ onSignedIn }: Props) {
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Send code</Text>
+                <Text style={styles.buttonText}>{t('sendCode')}</Text>
               )}
             </TouchableOpacity>
           </>
         ) : (
           <>
-            <Text style={styles.hint}>We sent a 6-digit code to {phone}</Text>
+            <Text style={styles.hint}>{t('codeSentTo', { phone })}</Text>
             <TextInput
               style={[styles.input, styles.codeInput]}
               placeholder="••••••"
@@ -110,11 +116,11 @@ export default function LoginScreen({ onSignedIn }: Props) {
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.buttonText}>Sign in</Text>
+                <Text style={styles.buttonText}>{t('signIn')}</Text>
               )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setStage('details')}>
-              <Text style={styles.link}>Change number</Text>
+              <Text style={styles.link}>{t('changeNumber')}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -134,6 +140,7 @@ const styles = StyleSheet.create({
     shadowRadius: 12,
     elevation: 3,
   },
+  langRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
   logo: { fontSize: 40, textAlign: 'center' },
   title: { fontSize: 22, fontWeight: '700', textAlign: 'center', marginTop: 8 },
   subtitle: { fontSize: 14, color: '#775', textAlign: 'center', marginBottom: 24 },

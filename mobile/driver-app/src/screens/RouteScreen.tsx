@@ -11,19 +11,23 @@ import {
 } from 'react-native';
 import { driverApi, logout } from '../api/driver';
 import { DriverRoute, ManifestRider, RiderEventType, TripType } from '../api/types';
+import LanguageToggle from '../components/LanguageToggle';
 import { BRAND, PING_INTERVAL_SECONDS } from '../config';
+import { useI18n } from '../i18n';
+import { TranslationKey } from '../i18n/translations';
 
 interface Props {
   onSignedOut: () => void;
 }
 
-const CHECKLIST = ['Fuel level', 'Tyres', 'Brakes', 'Emergency kit'] as const;
+const CHECKLIST: TranslationKey[] = ['checkFuel', 'checkTyres', 'checkBrakes', 'checkEmergencyKit'];
 
 /**
  * The driver's single working screen: manifest + inspection-gated trip start,
  * then per-rider board/drop marking with a background GPS ping loop.
  */
 export default function RouteScreen({ onSignedOut }: Props) {
+  const { t } = useI18n();
   const [route, setRoute] = useState<DriverRoute | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,10 +43,10 @@ export default function RouteScreen({ onSignedOut }: Props) {
       setRoute(data);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your route.');
+      setError(e instanceof Error ? e.message : t('errLoadRoute'));
       setRoute(null);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     void load();
@@ -90,7 +94,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
 
   const startTrip = async () => {
     if (!checks.every(Boolean)) {
-      setError('Complete every inspection item before starting the trip.');
+      setError(t('errCompleteInspection'));
       return;
     }
     setBusy(true);
@@ -100,7 +104,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
       setMarked({});
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not start the trip.');
+      setError(e instanceof Error ? e.message : t('errStartTrip'));
     } finally {
       setBusy(false);
     }
@@ -111,7 +115,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
       await driverApi.markRider(rider.studentId, eventType, null);
       setMarked((current) => ({ ...current, [rider.studentId]: eventType }));
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not record the event.');
+      setError(e instanceof Error ? e.message : t('errRecordEvent'));
     }
   };
 
@@ -123,7 +127,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
       setMarked({});
       await load();
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not end the trip.');
+      setError(e instanceof Error ? e.message : t('errEndTrip'));
     } finally {
       setBusy(false);
     }
@@ -152,21 +156,24 @@ export default function RouteScreen({ onSignedOut }: Props) {
     >
       <View style={styles.header}>
         <View>
-          <Text style={styles.headerTitle}>{route?.routeName ?? 'My route'}</Text>
+          <Text style={styles.headerTitle}>{route?.routeName ?? t('myRoute')}</Text>
           {route?.vehicleRegistration && (
             <Text style={styles.headerMeta}>🚌 {route.vehicleRegistration}</Text>
           )}
         </View>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.signOut}>Sign out</Text>
-        </TouchableOpacity>
+        <View style={styles.headerActions}>
+          <LanguageToggle />
+          <TouchableOpacity onPress={signOut}>
+            <Text style={styles.signOut}>{t('signOut')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
 
       {route && !active && (
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Pre-trip inspection</Text>
+          <Text style={styles.cardTitle}>{t('inspectionTitle')}</Text>
           {CHECKLIST.map((item, index) => (
             <TouchableOpacity
               key={item}
@@ -176,7 +183,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
               }
             >
               <Text style={styles.checkbox}>{checks[index] ? '☑' : '☐'}</Text>
-              <Text style={styles.checkLabel}>{item}</Text>
+              <Text style={styles.checkLabel}>{t(item)}</Text>
             </TouchableOpacity>
           ))}
 
@@ -188,7 +195,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
                 onPress={() => setTripType(type)}
               >
                 <Text style={[styles.typeText, tripType === type && styles.typeTextActive]}>
-                  {type === 1 ? 'Morning pickup' : 'Evening drop'}
+                  {type === 1 ? t('morningPickup') : t('eveningDrop')}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -202,7 +209,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
             {busy ? (
               <ActivityIndicator color="#fff" />
             ) : (
-              <Text style={styles.buttonText}>Start trip</Text>
+              <Text style={styles.buttonText}>{t('startTrip')}</Text>
             )}
           </TouchableOpacity>
         </View>
@@ -212,7 +219,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
         <>
           <View style={styles.activeBanner}>
             <Text style={styles.activeText}>
-              {isPickup ? '🌅 Pickup trip in progress' : '🌇 Drop trip in progress'} · GPS on
+              {isPickup ? t('pickupInProgress') : t('dropInProgress')} · {t('gpsOn')}
             </Text>
           </View>
 
@@ -236,7 +243,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
                       </View>
                       {state ? (
                         <Text style={styles.riderState}>
-                          {state === 3 ? '❌ Absent' : isPickup ? '✅ On board' : '✅ Dropped'}
+                          {state === 3 ? t('markedAbsent') : isPickup ? t('onBoard') : t('dropped')}
                         </Text>
                       ) : (
                         <View style={styles.riderActions}>
@@ -245,14 +252,14 @@ export default function RouteScreen({ onSignedOut }: Props) {
                             onPress={() => void mark(rider, isPickup ? 1 : 2)}
                           >
                             <Text style={styles.actionText}>
-                              {isPickup ? 'Board' : 'Drop'}
+                              {isPickup ? t('board') : t('drop')}
                             </Text>
                           </TouchableOpacity>
                           <TouchableOpacity
                             style={[styles.actionButton, styles.absentButton]}
                             onPress={() => void mark(rider, 3)}
                           >
-                            <Text style={styles.absentText}>Absent</Text>
+                            <Text style={styles.absentText}>{t('absent')}</Text>
                           </TouchableOpacity>
                         </View>
                       )}
@@ -264,7 +271,7 @@ export default function RouteScreen({ onSignedOut }: Props) {
           })}
 
           <TouchableOpacity style={[styles.button, styles.endButton]} onPress={endTrip} disabled={busy}>
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>End trip</Text>}
+            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('endTrip')}</Text>}
           </TouchableOpacity>
         </>
       )}
@@ -284,6 +291,7 @@ const styles = StyleSheet.create({
   },
   headerTitle: { fontSize: 22, fontWeight: '700' },
   headerMeta: { fontSize: 13, color: '#775', marginTop: 2 },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   signOut: { color: BRAND, fontWeight: '600' },
   error: { color: '#C62828', textAlign: 'center', marginHorizontal: 24, marginBottom: 8 },
   card: {

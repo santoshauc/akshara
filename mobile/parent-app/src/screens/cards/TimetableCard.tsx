@@ -2,9 +2,16 @@ import React, { useState } from 'react';
 import { ScrollView, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
 import { TimetableEntry } from '../../api/types';
 import { BRAND } from '../../config';
+import { useI18n } from '../../i18n';
+import { TranslationKey } from '../../i18n/translations';
 
-const DAY_NAMES = ['', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-const DAY_SHORT = ['', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+const DAY_KEYS: TranslationKey[] = [
+  'dayMon', 'dayMon', 'dayTue', 'dayWed', 'dayThu', 'dayFri', 'daySat', 'daySun',
+];
+const DAY_SHORT_KEYS: TranslationKey[] = [
+  'dayMonShort', 'dayMonShort', 'dayTueShort', 'dayWedShort', 'dayThuShort',
+  'dayFriShort', 'daySatShort', 'daySunShort',
+];
 
 const formatTime = (value: string) => {
   const [hours, minutes] = value.split(':').map(Number);
@@ -24,6 +31,7 @@ const todayIso = () => {
  * with the selected day's periods as a time-ordered agenda.
  */
 export default function TimetableCard({ entries }: { entries: TimetableEntry[] }) {
+  const { t } = useI18n();
   const days = [...new Set(entries.map((e) => e.dayOfWeek))].sort((a, b) => a - b);
   const [selectedDay, setSelectedDay] = useState<number>(() =>
     days.includes(todayIso()) ? todayIso() : (days[0] ?? 1),
@@ -36,9 +44,9 @@ export default function TimetableCard({ entries }: { entries: TimetableEntry[] }
 
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Class timetable</Text>
+      <Text style={styles.title}>{t('timetableTitle')}</Text>
       {entries.length === 0 ? (
-        <Text style={styles.muted}>The school hasn't published a timetable yet.</Text>
+        <Text style={styles.muted}>{t('timetableEmpty')}</Text>
       ) : (
         <>
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.tabs}>
@@ -51,7 +59,7 @@ export default function TimetableCard({ entries }: { entries: TimetableEntry[] }
                   onPress={() => setSelectedDay(day)}
                 >
                   <Text style={[styles.tabText, active && styles.tabTextActive]}>
-                    {DAY_SHORT[day]}
+                    {t(DAY_SHORT_KEYS[day])}
                     {day === todayIso() ? ' •' : ''}
                   </Text>
                 </TouchableOpacity>
@@ -60,8 +68,8 @@ export default function TimetableCard({ entries }: { entries: TimetableEntry[] }
           </ScrollView>
 
           <Text style={styles.dayHeading}>
-            {DAY_NAMES[activeDay]}
-            {activeDay === todayIso() ? ' (today)' : ''}
+            {t(DAY_KEYS[activeDay])}
+            {activeDay === todayIso() ? ` (${t('today')})` : ''}
           </Text>
 
           {slots.map((entry) => (

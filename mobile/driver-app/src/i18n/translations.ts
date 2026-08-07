@@ -1,0 +1,90 @@
+/**
+ * UI strings for the driver app. `en` is the source of truth for keys;
+ * `te` (Telugu) must cover every key — the compiler enforces it.
+ * Placeholders use {name} and are substituted by t().
+ */
+export const en = {
+  // Login
+  appTitle: 'SchoolErp Driver',
+  appSubtitle: 'Safe trips, informed parents',
+  schoolCodePlaceholder: 'School code (e.g. DEMO01)',
+  phonePlaceholder: 'Driver mobile number (+91…)',
+  sendCode: 'Send code',
+  signIn: 'Sign in',
+  codeSentTo: 'We sent a 6-digit code to {phone}',
+  changeNumber: 'Change number',
+  errEnterSchoolAndPhone: 'Enter your school code and phone number.',
+  errEnterCode: 'Enter the 6-digit code from the SMS.',
+  errGeneric: 'Something went wrong.',
+
+  // Route screen
+  myRoute: 'My route',
+  signOut: 'Sign out',
+  inspectionTitle: 'Pre-trip inspection',
+  checkFuel: 'Fuel level',
+  checkTyres: 'Tyres',
+  checkBrakes: 'Brakes',
+  checkEmergencyKit: 'Emergency kit',
+  morningPickup: 'Morning pickup',
+  eveningDrop: 'Evening drop',
+  startTrip: 'Start trip',
+  pickupInProgress: '🌅 Pickup trip in progress',
+  dropInProgress: '🌇 Drop trip in progress',
+  gpsOn: 'GPS on',
+  board: 'Board',
+  drop: 'Drop',
+  absent: 'Absent',
+  onBoard: '✅ On board',
+  dropped: '✅ Dropped',
+  markedAbsent: '❌ Absent',
+  endTrip: 'End trip',
+  errCompleteInspection: 'Complete every inspection item before starting the trip.',
+  errLoadRoute: 'Could not load your route.',
+  errStartTrip: 'Could not start the trip.',
+  errRecordEvent: 'Could not record the event.',
+  errEndTrip: 'Could not end the trip.',
+} as const;
+
+export type TranslationKey = keyof typeof en;
+
+export const te: Record<TranslationKey, string> = {
+  // Login
+  appTitle: 'స్కూల్ ERP డ్రైవర్',
+  appSubtitle: 'సురక్షిత ప్రయాణాలు, సమాచారంతో తల్లిదండ్రులు',
+  schoolCodePlaceholder: 'స్కూల్ కోడ్ (ఉదా. DEMO01)',
+  phonePlaceholder: 'డ్రైవర్ మొబైల్ నంబర్ (+91…)',
+  sendCode: 'కోడ్ పంపండి',
+  signIn: 'సైన్ ఇన్',
+  codeSentTo: '{phone} కి 6 అంకెల కోడ్ పంపాము',
+  changeNumber: 'నంబర్ మార్చండి',
+  errEnterSchoolAndPhone: 'మీ స్కూల్ కోడ్ మరియు ఫోన్ నంబర్ నమోదు చేయండి.',
+  errEnterCode: 'SMS లో వచ్చిన 6 అంకెల కోడ్ నమోదు చేయండి.',
+  errGeneric: 'ఏదో పొరపాటు జరిగింది.',
+
+  // Route screen
+  myRoute: 'నా రూట్',
+  signOut: 'సైన్ అవుట్',
+  inspectionTitle: 'ప్రయాణానికి ముందు తనిఖీ',
+  checkFuel: 'ఇంధనం స్థాయి',
+  checkTyres: 'టైర్లు',
+  checkBrakes: 'బ్రేకులు',
+  checkEmergencyKit: 'అత్యవసర కిట్',
+  morningPickup: 'ఉదయం పికప్',
+  eveningDrop: 'సాయంత్రం డ్రాప్',
+  startTrip: 'ప్రయాణం ప్రారంభించండి',
+  pickupInProgress: '🌅 పికప్ ప్రయాణం జరుగుతోంది',
+  dropInProgress: '🌇 డ్రాప్ ప్రయాణం జరుగుతోంది',
+  gpsOn: 'GPS ఆన్',
+  board: 'ఎక్కారు',
+  drop: 'దిగారు',
+  absent: 'రాలేదు',
+  onBoard: '✅ బస్సులో ఉన్నారు',
+  dropped: '✅ దిగారు',
+  markedAbsent: '❌ రాలేదు',
+  endTrip: 'ప్రయాణం ముగించండి',
+  errCompleteInspection: 'ప్రయాణం ప్రారంభించే ముందు అన్ని తనిఖీ అంశాలు పూర్తి చేయండి.',
+  errLoadRoute: 'మీ రూట్ లోడ్ కాలేదు.',
+  errStartTrip: 'ప్రయాణం ప్రారంభించలేకపోయాం.',
+  errRecordEvent: 'నమోదు చేయలేకపోయాం.',
+  errEndTrip: 'ప్రయాణం ముగించలేకపోయాం.',
+};

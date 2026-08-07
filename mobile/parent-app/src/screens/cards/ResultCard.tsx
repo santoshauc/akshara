@@ -1,6 +1,7 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { StudentResult } from '../../api/types';
+import { useI18n } from '../../i18n';
 
 /** Latest published exam result as a mini report card. */
 export default function ResultCard({
@@ -10,12 +11,13 @@ export default function ResultCard({
   result: StudentResult | null;
   examCount: number;
 }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Latest result</Text>
+      <Text style={styles.title}>{t('resultTitle')}</Text>
       {!result ? (
         <Text style={styles.muted}>
-          {examCount === 0 ? 'No results published yet.' : 'No marks recorded yet.'}
+          {examCount === 0 ? t('resultNonePublished') : t('resultNoMarks')}
         </Text>
       ) : (
         <>
@@ -24,19 +26,19 @@ export default function ResultCard({
             <View key={line.subjectName} style={styles.line}>
               <Text style={styles.subject}>{line.subjectName}</Text>
               <Text style={styles.marks}>
-                {line.isAbsent ? 'Absent' : `${line.marksObtained} / ${line.maxMarks}`}
+                {line.isAbsent ? t('resultAbsent') : `${line.marksObtained} / ${line.maxMarks}`}
               </Text>
               <Text style={[styles.grade, !line.passed && styles.gradeFail]}>{line.grade}</Text>
             </View>
           ))}
           <View style={styles.summary}>
             <Text style={styles.summaryText}>
-              Total {result.totalObtained}/{result.totalMax} · {result.percent}% · Grade{' '}
-              {result.overallGrade}
+              {t('total')} {result.totalObtained}/{result.totalMax} · {result.percent}% ·{' '}
+              {t('grade')} {result.overallGrade}
             </Text>
             {result.sectionRank != null && (
               <Text style={styles.rank}>
-                Rank {result.sectionRank} of {result.sectionSize}
+                {t('rankOf', { rank: result.sectionRank, size: result.sectionSize })}
               </Text>
             )}
           </View>

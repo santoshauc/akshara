@@ -20,7 +20,9 @@ import {
   StudentResult,
   TimetableEntry,
 } from '../api/types';
+import LanguageToggle from '../components/LanguageToggle';
 import { BRAND } from '../config';
+import { useI18n } from '../i18n';
 import AttendanceCard from './cards/AttendanceCard';
 import BusLiveCard from './cards/BusLiveCard';
 import FeesCard from './cards/FeesCard';
@@ -39,6 +41,7 @@ interface Props {
  * daily questions — was my child in school, how are the results, what do I owe.
  */
 export default function HomeScreen({ onSignedOut }: Props) {
+  const { t } = useI18n();
   const [children, setChildren] = useState<Child[] | null>(null);
   const [selected, setSelected] = useState<Child | null>(null);
   const [attendance, setAttendance] = useState<MonthAttendance | null>(null);
@@ -59,10 +62,10 @@ export default function HomeScreen({ onSignedOut }: Props) {
       setSelected((current) => current ?? list[0] ?? null);
       setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : 'Could not load your children.');
+      setError(e instanceof Error ? e.message : t('errLoadChildren'));
       setChildren([]);
     }
-  }, []);
+  }, [t]);
 
   const loadChildData = useCallback(async (child: Child) => {
     const now = new Date();
@@ -131,18 +134,19 @@ export default function HomeScreen({ onSignedOut }: Props) {
       refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
     >
       <View style={styles.header}>
-        <Text style={styles.headerTitle}>My children</Text>
-        <TouchableOpacity onPress={signOut}>
-          <Text style={styles.signOut}>Sign out</Text>
-        </TouchableOpacity>
+        <Text style={styles.headerTitle}>{t('myChildren')}</Text>
+        <View style={styles.headerActions}>
+          <LanguageToggle />
+          <TouchableOpacity onPress={signOut}>
+            <Text style={styles.signOut}>{t('signOut')}</Text>
+          </TouchableOpacity>
+        </View>
       </View>
 
       {error && <Text style={styles.error}>{error}</Text>}
 
       {children.length === 0 && !error && (
-        <Text style={styles.empty}>
-          No children are linked to this phone number yet. Please contact the school office.
-        </Text>
+        <Text style={styles.empty}>{t('noChildren')}</Text>
       )}
 
       <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.switcher}>
@@ -159,7 +163,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
               </Text>
               <Text style={[styles.childMeta, active && styles.childNameActive]}>
                 {child.className ?? '—'} {child.sectionName ?? ''}
-                {child.rollNumber ? ` · Roll ${child.rollNumber}` : ''}
+                {child.rollNumber ? ` · ${t('roll')} ${child.rollNumber}` : ''}
               </Text>
             </TouchableOpacity>
           );
@@ -193,6 +197,7 @@ const styles = StyleSheet.create({
     paddingTop: 60,
   },
   headerTitle: { fontSize: 24, fontWeight: '700' },
+  headerActions: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   signOut: { color: BRAND, fontWeight: '600' },
   switcher: { paddingHorizontal: 16 },
   childChip: {

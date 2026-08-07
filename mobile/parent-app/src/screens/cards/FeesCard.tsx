@@ -1,27 +1,36 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { FeeSummary } from '../../api/types';
+import { useI18n } from '../../i18n';
 
 const inr = (value: number) => `₹${value.toLocaleString('en-IN')}`;
 
 /** Fee ledger: balance headline, due lines and recent receipts. */
 export default function FeesCard({ fees }: { fees: FeeSummary | null }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Fees</Text>
+      <Text style={styles.title}>{t('feesTitle')}</Text>
       {!fees ? (
-        <Text style={styles.muted}>No fee plan for this year yet.</Text>
+        <Text style={styles.muted}>{t('feesEmpty')}</Text>
       ) : (
         <>
           <Text style={[styles.balance, fees.balance <= 0 && styles.balanceClear]}>
-            {fees.balance <= 0 ? 'All paid 🎉' : `Balance ${inr(fees.balance)}`}
+            {fees.balance <= 0 ? t('allPaid') : t('balance', { amount: inr(fees.balance) })}
           </Text>
           {fees.dueLines.map((line, index) => (
             <View key={`${line.feeHeadName}-${index}`} style={styles.line}>
               <Text style={styles.head}>{line.feeHeadName}</Text>
               <Text style={styles.amount}>{inr(line.amount)}</Text>
               <Text style={[styles.due, line.overdue && styles.overdue]}>
-                {line.overdue ? 'Overdue' : `Due ${new Date(line.dueDate).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}`}
+                {line.overdue
+                  ? t('overdue')
+                  : t('dueOn', {
+                      date: new Date(line.dueDate).toLocaleDateString('en-IN', {
+                        day: '2-digit',
+                        month: 'short',
+                      }),
+                    })}
               </Text>
             </View>
           ))}

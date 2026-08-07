@@ -1,22 +1,33 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import { ATTENDANCE_LABELS, MonthAttendance } from '../../api/types';
+import { AttendanceStatus, MonthAttendance } from '../../api/types';
+import { useI18n } from '../../i18n';
+import { TranslationKey } from '../../i18n/translations';
+
+const STATUS_KEYS: Record<AttendanceStatus, TranslationKey> = {
+  1: 'present',
+  2: 'absent',
+  3: 'late',
+  4: 'halfDay',
+  5: 'leave',
+};
 
 /** This month's attendance: percentage headline + recent day list. */
 export default function AttendanceCard({ attendance }: { attendance: MonthAttendance | null }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Attendance this month</Text>
+      <Text style={styles.title}>{t('attendanceTitle')}</Text>
       {!attendance || attendance.markedDays === 0 ? (
-        <Text style={styles.muted}>No attendance marked yet this month.</Text>
+        <Text style={styles.muted}>{t('attendanceEmpty')}</Text>
       ) : (
         <>
           <View style={styles.row}>
             <Text style={styles.percent}>{attendance.attendancePercent}%</Text>
             <View style={styles.counters}>
-              <Text style={styles.counter}>✅ Present {attendance.presentCount}</Text>
-              <Text style={styles.counter}>❌ Absent {attendance.absentCount}</Text>
-              <Text style={styles.counter}>⏰ Late {attendance.lateCount}</Text>
+              <Text style={styles.counter}>✅ {t('present')} {attendance.presentCount}</Text>
+              <Text style={styles.counter}>❌ {t('absent')} {attendance.absentCount}</Text>
+              <Text style={styles.counter}>⏰ {t('late')} {attendance.lateCount}</Text>
             </View>
           </View>
           {attendance.days
@@ -30,7 +41,7 @@ export default function AttendanceCard({ attendance }: { attendance: MonthAttend
                     month: 'short',
                   })}
                 </Text>
-                <Text style={styles.dayStatus}>{ATTENDANCE_LABELS[day.status]}</Text>
+                <Text style={styles.dayStatus}>{t(STATUS_KEYS[day.status])}</Text>
                 {day.remarks ? <Text style={styles.remarks}>{day.remarks}</Text> : null}
               </View>
             ))}

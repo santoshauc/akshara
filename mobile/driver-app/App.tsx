@@ -3,6 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { tokenStore } from './src/api/client';
 import { BRAND } from './src/config';
+import { LanguageProvider } from './src/i18n';
 import LoginScreen from './src/screens/LoginScreen';
 import RouteScreen from './src/screens/RouteScreen';
 
@@ -23,13 +24,13 @@ export default function App() {
   }
 
   return (
-    <>
+    <LanguageProvider>
       <StatusBar style="dark" />
       {signedIn ? (
         <RouteScreen onSignedOut={() => setSignedIn(false)} />
       ) : (
         <LoginScreen onSignedIn={() => setSignedIn(true)} />
       )}
-    </>
+    </LanguageProvider>
   );
 }

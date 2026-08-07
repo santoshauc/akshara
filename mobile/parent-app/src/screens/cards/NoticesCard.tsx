@@ -1,14 +1,16 @@
 import React from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { Notice } from '../../api/types';
+import { useI18n } from '../../i18n';
 
 /** School notices: pinned first, newest first. */
 export default function NoticesCard({ notices }: { notices: Notice[] }) {
+  const { t } = useI18n();
   return (
     <View style={styles.card}>
-      <Text style={styles.title}>Notices</Text>
+      <Text style={styles.title}>{t('noticesTitle')}</Text>
       {notices.length === 0 ? (
-        <Text style={styles.muted}>No notices right now.</Text>
+        <Text style={styles.muted}>{t('noticesEmpty')}</Text>
       ) : (
         notices.slice(0, 5).map((notice) => (
           <View key={notice.id} style={styles.notice}>
@@ -22,7 +24,7 @@ export default function NoticesCard({ notices }: { notices: Notice[] }) {
                 day: '2-digit',
                 month: 'short',
               })}
-              {notice.schoolClassId ? ' · your class' : ' · whole school'}
+              {notice.schoolClassId ? ` · ${t('yourClass')}` : ` · ${t('wholeSchool')}`}
             </Text>
           </View>
         ))
