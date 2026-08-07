@@ -32,9 +32,11 @@ Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
 
-1. Transport trips/GPS + React Native driver app (base transport —
-   vehicles/routes/stops/allocation, portal UI, parent card — is DONE and
-   E2E-verified, commits 59c43d9 + 013af23; 81 tests green).
+1. React Native driver app (Expo, like parent-app) over the DONE driver
+   API: OTP login with driver phone, manifest, inspection checklist →
+   start trip, GPS ping loop, board/drop buttons, end trip. Backend fully
+   done + tested (commits 59c43d9, 013af23, 3c11045; 84 tests green).
+   Parent app: add live-bus card using /parent/children/{id}/bus.
 2. Timetable module.
 3. Auth hardening (task list #7): device registration, MFA, persistent
    audit-log trail, dev-seeder claim backfill (see Gotchas).
