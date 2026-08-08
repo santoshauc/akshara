@@ -67,6 +67,7 @@ public sealed class TransportModuleFixture : IAsyncLifetime
                 Name = "Transport Test School",
                 Subdomain = "transtest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

@@ -61,6 +61,7 @@ public sealed class AuditTrailFixture : IAsyncLifetime
             Name = "Audit Test School",
             Subdomain = "audittest",
             Status = TenantStatus.Active,
+            SmsCredits = 1_000,
         });
         await db.SaveChangesAsync();
     }

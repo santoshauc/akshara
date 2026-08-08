@@ -79,6 +79,7 @@ public sealed class TripLifecycleFixture : IAsyncLifetime
                 Name = "Trip Test School",
                 Subdomain = "triptest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

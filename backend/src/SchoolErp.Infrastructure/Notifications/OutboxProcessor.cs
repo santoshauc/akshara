@@ -49,6 +49,17 @@ public sealed partial class OutboxProcessor
         {
             try
             {
+                if (message.Type == OutboxMessageTypes.Sms &&
+                    !await TryConsumeSmsCreditAsync(message.TenantId, ct).ConfigureAwait(false))
+                {
+                    // Out of credits: dead-letter immediately (no point retrying —
+                    // the queue would clog while the school tops up).
+                    message.Attempts = MaxAttempts;
+                    message.LastError = "No SMS credits remaining for this school.";
+                    LogSmsCreditsExhausted(_logger, message.TenantId, message.Id);
+                    continue;
+                }
+
                 await DeliverAsync(message, ct).ConfigureAwait(false);
                 message.ProcessedAt = _clock.GetUtcNow();
                 message.LastError = null;
@@ -84,7 +95,31 @@ public sealed partial class OutboxProcessor
         }
     }
 
+    /// <summary>
+    /// Atomically spends one SMS credit; returns false when the balance is 0.
+    /// Platform messages (no tenant) are unmetered. The guarded UPDATE makes
+    /// concurrent dispatchers safe — no read-modify-write race.
+    /// </summary>
+    private async Task<bool> TryConsumeSmsCreditAsync(Guid tenantId, CancellationToken ct)
+    {
+        if (tenantId == Guid.Empty)
+        {
+            return true;
+        }
+
+        var spent = await _db.Tenants
+            .IgnoreQueryFilters()
+            .Where(t => t.Id == tenantId && t.SmsCredits > 0)
+            .ExecuteUpdateAsync(s => s.SetProperty(t => t.SmsCredits, t => t.SmsCredits - 1), ct)
+            .ConfigureAwait(false);
+        return spent > 0;
+    }
+
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "Outbox delivery failed for message {MessageId} (attempt {Attempt})")]
     private static partial void LogDeliveryFailed(ILogger logger, Exception ex, Guid messageId, int attempt);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "SMS blocked: tenant {TenantId} has no SMS credits (message {MessageId} dead-lettered)")]
+    private static partial void LogSmsCreditsExhausted(ILogger logger, Guid tenantId, Guid messageId);
 }

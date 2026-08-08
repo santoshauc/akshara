@@ -2,6 +2,7 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Application.Library;
 using SchoolErp.Shared.Authorization;
 
@@ -9,6 +10,7 @@ namespace SchoolErp.Api.Controllers.V1;
 
 /// <summary>Library: catalog, issuing and returns.</summary>
 [ApiController]
+[RequiresModule(TenantModules.Library)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/library")]
 public sealed class LibraryController : ControllerBase

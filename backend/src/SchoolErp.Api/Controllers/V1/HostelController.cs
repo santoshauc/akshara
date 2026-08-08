@@ -2,6 +2,7 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Application.Hostel;
 using SchoolErp.Shared.Authorization;
 
@@ -9,6 +10,7 @@ namespace SchoolErp.Api.Controllers.V1;
 
 /// <summary>Hostels: buildings, rooms, and student stays.</summary>
 [ApiController]
+[RequiresModule(TenantModules.Hostel)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/hostel")]
 public sealed class HostelController : ControllerBase

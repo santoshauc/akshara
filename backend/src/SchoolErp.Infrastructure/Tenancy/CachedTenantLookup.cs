@@ -68,7 +68,9 @@ public sealed class CachedTenantLookup : ITenantLookup
                 t.CustomDomain,
                 t.Status == TenantStatus.Active,
                 t.TimeZoneId,
-                t.DefaultLanguage))
+                t.DefaultLanguage,
+                t.EnabledModules,
+                t.SubscriptionExpiresOn))
             .FirstOrDefaultAsync(ct)
             .ConfigureAwait(false);
 

@@ -287,6 +287,10 @@ public sealed class AuthController : ControllerBase
             AuthError.UserInactive => Problem(
                 title: "This account has been deactivated.",
                 statusCode: StatusCodes.Status403Forbidden),
+            AuthError.SubscriptionExpired => Problem(
+                title: "Your school's subscription has expired. " +
+                    "Please ask the school to renew to restore access.",
+                statusCode: StatusCodes.Status423Locked),
             _ => Problem(
                 title: "Invalid credentials.",
                 statusCode: StatusCodes.Status401Unauthorized),

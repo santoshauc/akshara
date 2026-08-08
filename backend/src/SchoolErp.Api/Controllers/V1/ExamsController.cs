@@ -2,6 +2,7 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Application.Exams;
 using SchoolErp.Application.Exams.Commands;
 using SchoolErp.Application.Exams.Queries;
@@ -11,6 +12,7 @@ namespace SchoolErp.Api.Controllers.V1;
 
 /// <summary>Examinations: subjects, scheduling, marks entry, publication, results.</summary>
 [ApiController]
+[RequiresModule(TenantModules.Examination)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/exams")]
 public sealed class ExamsController : ControllerBase

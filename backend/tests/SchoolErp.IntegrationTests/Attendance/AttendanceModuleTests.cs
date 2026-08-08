@@ -85,6 +85,7 @@ public sealed class AttendanceModuleFixture : IAsyncLifetime
                 Name = "Attendance Test School",
                 Subdomain = "attend",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

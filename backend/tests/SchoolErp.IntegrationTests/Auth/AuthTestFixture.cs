@@ -88,6 +88,7 @@ public sealed class AuthTestFixture : IAsyncLifetime
             Name = "Demo Public School",
             Subdomain = "demo",
             Status = TenantStatus.Active,
+            SmsCredits = 1_000,
         });
 
         var role = new ApplicationRole

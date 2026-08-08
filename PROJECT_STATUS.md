@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 74 integration = **122 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 79 integration = **127 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -146,7 +146,26 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   (InputFile + label pattern); parent app child switcher shows the
   avatar (falls back to initial). 6 unit tests (roundtrip, traversal,
   bad extension/category). E2E-verified in portal + parent app.
-- A5 Plan enforcement — NEXT.
+- A5 Plan enforcement — DONE. Phase A complete.
+  - Module gate: `[RequiresModule(TenantModules.X)]` on Exams, Fees,
+    Transport, Driver, Library, Timetable and Hostel controllers, enforced
+    by a global `ModuleGateFilter` (403 with a clear message; platform/
+    Super Admin requests are never gated). TenantInfo now carries
+    EnabledModules + SubscriptionExpiresOn (60s cache — changes apply
+    within a minute).
+  - Expired subscription: password AND OTP login return 423 with a renewal
+    message (OTP *requests* are silently swallowed — no SMS burned); the
+    portal login page shows the server's 423 title verbatim.
+  - SMS metering: the outbox dispatcher atomically spends one credit per
+    SMS (`UPDATE … WHERE sms_credits > 0` — concurrency-safe); at 0 the
+    message is dead-lettered immediately with "No SMS credits remaining"
+    (logged warning). Platform messages (no tenant) are unmetered.
+  - DevSeeder backfills demo entitlements at startup (all shipped modules
+    + 10k credits) so local demos never trip the gates; integration-test
+    tenants seed SmsCredits explicitly.
+  - 5 integration tests (metering + dead-letter, expiry lockout for both
+    login paths, gate blocks/allows/skips-platform); all E2E-verified live
+    (403 message, 423 message, restore).
 
 ## How to run (Windows dev box)
 

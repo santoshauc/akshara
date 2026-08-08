@@ -5,6 +5,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Transport;
+using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Domain.Transport;
 using SchoolErp.Infrastructure.Identity;
 
@@ -16,6 +18,7 @@ namespace SchoolErp.Api.Controllers.V1;
 /// verified phone) can only ever see and act on that route.
 /// </summary>
 [ApiController]
+[RequiresModule(TenantModules.Transport)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/driver")]
 [Authorize]

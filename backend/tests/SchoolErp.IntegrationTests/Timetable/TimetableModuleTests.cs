@@ -77,6 +77,7 @@ public sealed class TimetableModuleFixture : IAsyncLifetime
                 Name = "Timetable Test School",
                 Subdomain = "timetest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

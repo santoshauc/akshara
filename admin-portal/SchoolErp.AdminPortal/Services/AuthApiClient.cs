@@ -31,11 +31,14 @@ public sealed class AuthApiClient
 
         if (!response.IsSuccessStatusCode)
         {
-            return new LoginOutcome(
-                response.StatusCode == System.Net.HttpStatusCode.Locked
-                    ? "Account is temporarily locked. Try again in 15 minutes."
-                    : "Invalid school code, login or password.",
-                null);
+            // 423 carries a server explanation (lockout vs expired subscription)
+            // worth showing verbatim; other failures stay deliberately vague.
+            if (response.StatusCode == System.Net.HttpStatusCode.Locked)
+            {
+                return new LoginOutcome(await ProblemResponse.ReadTitleAsync(response), null);
+            }
+
+            return new LoginOutcome("Invalid school code, login or password.", null);
         }
 
         var body = await response.Content.ReadFromJsonAsync<LoginResponseDto>();

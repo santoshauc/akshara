@@ -76,6 +76,7 @@ public sealed class NoticesHomeworkFixture : IAsyncLifetime
                 Name = "Comm Test School",
                 Subdomain = "commtest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

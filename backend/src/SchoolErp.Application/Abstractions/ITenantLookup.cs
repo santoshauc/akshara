@@ -12,7 +12,14 @@ public sealed record TenantInfo(
     string? CustomDomain,
     bool IsActive,
     string TimeZoneId,
-    string DefaultLanguage);
+    string DefaultLanguage,
+    Domain.TenantCatalog.TenantModules EnabledModules,
+    DateOnly? SubscriptionExpiresOn)
+{
+    /// <summary>True when the subscription window has lapsed (date-only, IST-agnostic UTC date).</summary>
+    public bool IsSubscriptionExpired(DateOnly today) =>
+        SubscriptionExpiresOn is { } expires && expires < today;
+}
 
 /// <summary>
 /// Resolves catalog tenants by the identifiers a request can carry.

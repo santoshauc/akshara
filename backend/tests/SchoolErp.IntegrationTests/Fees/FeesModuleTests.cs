@@ -85,6 +85,7 @@ public sealed class FeesModuleFixture : IAsyncLifetime
                 Name = "Fees Test School",
                 Subdomain = "feestest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

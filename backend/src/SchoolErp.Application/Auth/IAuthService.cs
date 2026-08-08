@@ -15,6 +15,9 @@ public enum AuthError
     /// <summary>Password was correct but a TOTP/recovery code must follow.</summary>
     MfaRequired,
     InvalidMfaCode,
+
+    /// <summary>The school's subscription has lapsed; sign-in is blocked.</summary>
+    SubscriptionExpired,
 }
 
 /// <summary>Issued token pair. <c>ExpiresInSeconds</c> refers to the access token.</summary>

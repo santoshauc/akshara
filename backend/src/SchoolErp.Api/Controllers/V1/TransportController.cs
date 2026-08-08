@@ -2,6 +2,7 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Application.Transport;
 using SchoolErp.Shared.Authorization;
 
@@ -9,6 +10,7 @@ namespace SchoolErp.Api.Controllers.V1;
 
 /// <summary>Transport: vehicles, routes, stops, student allocation.</summary>
 [ApiController]
+[RequiresModule(TenantModules.Transport)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/transport")]
 public sealed class TransportController : ControllerBase

@@ -3,6 +3,7 @@ using MediatR;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Application.Fees;
 using SchoolErp.Application.Fees.Commands;
 using SchoolErp.Application.Fees.Queries;
@@ -13,6 +14,7 @@ namespace SchoolErp.Api.Controllers.V1;
 
 /// <summary>Fee management: heads, structures, collections, online orders.</summary>
 [ApiController]
+[RequiresModule(TenantModules.Fees)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/fees")]
 public sealed class FeesController : ControllerBase

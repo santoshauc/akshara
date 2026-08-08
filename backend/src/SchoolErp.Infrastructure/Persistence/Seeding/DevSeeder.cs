@@ -43,6 +43,7 @@ public static partial class DevSeeder
         // constants added since the original seed are backfilled here. (Users
         // still need to sign out/in — permission claims live in the JWT.)
         await BackfillSchoolAdminClaimsAsync(db, logger).ConfigureAwait(false);
+        await BackfillDemoEntitlementsAsync(db, logger).ConfigureAwait(false);
 
         if (await db.Users.AnyAsync().ConfigureAwait(false))
         {
@@ -85,8 +86,8 @@ public static partial class DevSeeder
             State = "Telangana",
             AffiliationBoard = "CBSE",
             Plan = SubscriptionPlan.Standard,
-            EnabledModules = TenantModules.Core | TenantModules.Examination |
-                             TenantModules.Fees | TenantModules.Transport,
+            EnabledModules = DemoModules,
+            SmsCredits = 10_000,
             Status = TenantStatus.Active,
         };
         db.Tenants.Add(tenant);
@@ -171,6 +172,47 @@ public static partial class DevSeeder
         }
     }
 
+    /// <summary>Every module SchoolErp has actually shipped, for the demo school.</summary>
+    private const TenantModules DemoModules =
+        TenantModules.Core | TenantModules.Examination | TenantModules.Fees |
+        TenantModules.Transport | TenantModules.Library | TenantModules.Timetable |
+        TenantModules.Homework | TenantModules.Hostel;
+
+    /// <summary>
+    /// Keeps the demo school's entitlements current as modules ship: enables
+    /// every built module and tops SMS credits back up when they run out, so
+    /// local demos never trip the plan-enforcement gates unintentionally.
+    /// </summary>
+    private static async Task BackfillDemoEntitlementsAsync(AppDbContext db, ILogger logger)
+    {
+        var demo = await db.Tenants
+            .FirstOrDefaultAsync(t => t.Code == DemoSchoolCode)
+            .ConfigureAwait(false);
+        if (demo is null)
+        {
+            return;
+        }
+
+        var changed = false;
+        if ((demo.EnabledModules & DemoModules) != DemoModules)
+        {
+            demo.EnabledModules |= DemoModules;
+            changed = true;
+        }
+
+        if (demo.SmsCredits <= 0)
+        {
+            demo.SmsCredits = 10_000;
+            changed = true;
+        }
+
+        if (changed)
+        {
+            await db.SaveChangesAsync().ConfigureAwait(false);
+            LogDemoEntitlements(logger);
+        }
+    }
+
     private static async Task CreateUserAsync(
         UserManager<ApplicationUser> userManager, ApplicationUser user)
     {
@@ -194,4 +236,8 @@ public static partial class DevSeeder
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Backfilled {Count} missing permission claims onto SchoolAdmin roles; users must re-login to receive them")]
     private static partial void LogClaimsBackfilled(ILogger logger, int count);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Demo school entitlements refreshed: all shipped modules enabled, SMS credits topped up")]
+    private static partial void LogDemoEntitlements(ILogger logger);
 }

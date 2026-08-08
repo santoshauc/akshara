@@ -72,6 +72,7 @@ public sealed class TeacherModuleFixture : IAsyncLifetime
                 Name = "Staff Test School",
                 Subdomain = "stafftest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

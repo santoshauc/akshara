@@ -84,7 +84,9 @@ try
     builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
     // --- Web ---------------------------------------------------------------
-    builder.Services.AddControllers();
+    builder.Services.AddControllers(options =>
+        // Subscription-plan module gating (see RequiresModuleAttribute).
+        options.Filters.Add<SchoolErp.Api.Authorization.ModuleGateFilter>());
 
     builder.Services
         .AddApiVersioning(options =>

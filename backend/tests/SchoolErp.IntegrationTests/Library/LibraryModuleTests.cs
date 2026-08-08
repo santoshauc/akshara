@@ -70,6 +70,7 @@ public sealed class LibraryHostelFixture : IAsyncLifetime
                 Name = "Library Test School",
                 Subdomain = "libtest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

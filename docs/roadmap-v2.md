@@ -14,7 +14,7 @@ as items land.
 | A2 | Production SMS adapter | MSG91-style adapter behind ISmsSender, config-activated like Razorpay (`Sms:Provider`), with DLT template-id support; DevSmsSender remains the fallback; unit tests over a fake HTTP handler. | DONE |
 | A3 | In-app fee payment | Parent app "Pay now": parent-scoped order endpoint → Razorpay Checkout (web) / payment link (device); dev gateway simulates capture end-to-end; balance refreshes after webhook. | DONE |
 | A4 | File storage + student photos | IFileStorage abstraction + local-disk implementation (path-safe, size/type-limited); student photo upload in portal; photos served and shown in portal + parent app. | DONE |
-| A5 | Plan enforcement | EnabledModules gates module endpoints (403 with a clear message); SmsCredits decremented by the outbox dispatcher and sends blocked at 0 (logged); expired subscription blocks tenant login (423-style message). Super Admin editor already manages the fields. | |
+| A5 | Plan enforcement | EnabledModules gates module endpoints (403 with a clear message); SmsCredits decremented by the outbox dispatcher and sends blocked at 0 (logged); expired subscription blocks tenant login (423-style message). Super Admin editor already manages the fields. | DONE |
 
 ## Phase B — real school operations
 

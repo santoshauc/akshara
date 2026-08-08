@@ -63,6 +63,11 @@ public sealed partial class AuthService : IAuthService
                 return AuthResult.Fail(AuthError.SchoolNotFound);
             }
 
+            if (tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime)))
+            {
+                return AuthResult.Fail(AuthError.SubscriptionExpired);
+            }
+
             tenantId = tenant.Id;
         }
 
@@ -243,7 +248,8 @@ public sealed partial class AuthService : IAuthService
     public async Task RequestOtpAsync(string schoolCode, string phone, CancellationToken ct = default)
     {
         var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
-        if (tenant is null || !tenant.IsActive)
+        if (tenant is null || !tenant.IsActive ||
+            tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime)))
         {
             return; // Silent: callers must not learn which schools/phones exist.
         }
@@ -294,6 +300,11 @@ public sealed partial class AuthService : IAuthService
         if (tenant is null || !tenant.IsActive)
         {
             return AuthResult.Fail(AuthError.SchoolNotFound);
+        }
+
+        if (tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime)))
+        {
+            return AuthResult.Fail(AuthError.SubscriptionExpired);
         }
 
         var now = _clock.GetUtcNow();

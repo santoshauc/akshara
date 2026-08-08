@@ -77,6 +77,7 @@ public sealed class ParentAccessFixture : IAsyncLifetime
                 Name = "Parent Test School",
                 Subdomain = "parenttest",
                 Status = TenantStatus.Active,
+                SmsCredits = 1_000,
             });
             await db.SaveChangesAsync();
         }

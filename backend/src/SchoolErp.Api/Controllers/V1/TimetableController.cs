@@ -2,6 +2,7 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Application.Timetable;
 using SchoolErp.Shared.Authorization;
 
@@ -9,6 +10,7 @@ namespace SchoolErp.Api.Controllers.V1;
 
 /// <summary>Class timetables: define, publish, view.</summary>
 [ApiController]
+[RequiresModule(TenantModules.Timetable)]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/timetable")]
 public sealed class TimetableController : ControllerBase
