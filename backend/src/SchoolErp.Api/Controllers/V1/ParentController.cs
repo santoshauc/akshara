@@ -13,6 +13,7 @@ using SchoolErp.Application.Exams;
 using SchoolErp.Application.Exams.Commands;
 using SchoolErp.Application.Exams.Queries;
 using SchoolErp.Application.Fees;
+using SchoolErp.Application.Fees.Commands;
 using SchoolErp.Application.Fees.Queries;
 using SchoolErp.Application.Homework;
 using SchoolErp.Application.Hostel;
@@ -171,6 +172,31 @@ public sealed class ParentController : ControllerBase
         return stay is null ? NoContent() : Ok(stay);
     }
 
+    /// <summary>
+    /// Creates an online payment order for the child's fees and returns the
+    /// checkout URL to open in a browser. The webhook completes the payment.
+    /// </summary>
+    [HttpPost("children/{studentId:guid}/fees/orders")]
+    [ProducesResponseType(typeof(ParentPaymentOrderResponse), StatusCodes.Status200OK)]
+    public async Task<IActionResult> CreateFeeOrder(
+        Guid studentId, [FromBody] ParentFeeOrderRequest request, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+
+        var yearId = await _db.AcademicYears.AsNoTracking()
+            .Where(y => y.IsCurrent)
+            .Select(y => (Guid?)y.Id)
+            .FirstOrDefaultAsync(ct)
+            ?? throw new NotFoundException("Current academic year", "none");
+
+        var order = await _sender.Send(
+            new CreatePaymentOrderCommand(studentId, yearId, request.Amount), ct);
+        var checkoutUrl =
+            $"{Request.Scheme}://{Request.Host}/api/v1/payments/checkout/{order.GatewayOrderId}";
+        return Ok(new ParentPaymentOrderResponse(
+            order.OrderId, order.GatewayOrderId, order.Amount, checkoutUrl));
+    }
+
     /// <summary>A child's report card for a published exam, as a PDF.</summary>
     [HttpGet("children/{studentId:guid}/exams/{examId:guid}/report-card")]
     [ProducesResponseType(StatusCodes.Status200OK)]
@@ -225,3 +251,11 @@ public sealed class ParentController : ControllerBase
             .Select(y => (Guid?)y.Id)
             .FirstOrDefaultAsync(ct);
 }
+
+/// <summary>Parent online-payment order payload.</summary>
+public sealed record ParentFeeOrderRequest(
+    [System.ComponentModel.DataAnnotations.Range(1, 10_00_000)] decimal Amount);
+
+/// <summary>Order + checkout URL as returned to the parent app.</summary>
+public sealed record ParentPaymentOrderResponse(
+    Guid OrderId, string GatewayOrderId, decimal Amount, string CheckoutUrl);

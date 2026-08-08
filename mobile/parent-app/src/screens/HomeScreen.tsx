@@ -190,7 +190,8 @@ export default function HomeScreen({ onSignedOut }: Props) {
           <TimetableCard entries={timetable} />
           <HomeworkCard homework={homework} />
           <ResultCard result={result} examCount={exams.length} />
-          <FeesCard fees={fees} />
+          <FeesCard fees={fees} studentId={selected.studentId}
+            onPaymentStarted={() => { setTimeout(() => void loadChildData(selected), 8000); setTimeout(() => void loadChildData(selected), 20000); }} />
           <NoticesCard notices={notices} />
         </View>
       )}

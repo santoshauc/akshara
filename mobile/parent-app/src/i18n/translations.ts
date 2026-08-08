@@ -98,6 +98,9 @@ export const en = {
   balance: 'Balance {amount}',
   overdue: 'Overdue',
   dueOn: 'Due {date}',
+  payNow: '💳 Pay {amount} online',
+  paymentOpened: 'Complete the payment in the opened page, then pull to refresh.',
+  paymentFailed: 'Could not start the payment.',
 
   // Notices
   noticesTitle: 'Notices',
@@ -217,6 +220,9 @@ export const te: Record<TranslationKey, string> = {
   balance: 'బకాయి {amount}',
   overdue: 'గడువు దాటింది',
   dueOn: 'గడువు {date}',
+  payNow: '💳 {amount} ఆన్‌లైన్‌లో చెల్లించండి',
+  paymentOpened: 'తెరిచిన పేజీలో చెల్లింపు పూర్తి చేసి, రిఫ్రెష్ చేయండి.',
+  paymentFailed: 'చెల్లింపు ప్రారంభించలేకపోయాం.',
 
   // Notices
   noticesTitle: 'ప్రకటనలు',

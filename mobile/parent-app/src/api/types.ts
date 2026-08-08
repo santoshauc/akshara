@@ -160,6 +160,14 @@ export interface ChildHostel {
   allocatedOn: string;
 }
 
+/** Online payment order with its browser checkout URL. */
+export interface FeeOrder {
+  orderId: string;
+  gatewayOrderId: string;
+  amount: number;
+  checkoutUrl: string;
+}
+
 export interface FeeSummary {
   studentId: string;
   dueLines: FeeDueLine[];

@@ -8,6 +8,7 @@ import {
   ChildHostel,
   ChildTransport,
   Exam,
+  FeeOrder,
   FeeSummary,
   Homework,
   MonthAttendance,
@@ -108,6 +109,13 @@ export const parentApi = {
 
   getLibrary: (studentId: string) =>
     request<BookLoan[]>(`/api/v1/parent/children/${studentId}/library`),
+
+  /** Creates an online payment order; open checkoutUrl in a browser. */
+  createFeeOrder: (studentId: string, amount: number) =>
+    request<FeeOrder>(`/api/v1/parent/children/${studentId}/fees/orders`, {
+      method: 'POST',
+      body: JSON.stringify({ amount }),
+    }),
 
   /** Returns null for day scholars (204). */
   getHostel: (studentId: string) =>
