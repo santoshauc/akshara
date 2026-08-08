@@ -1,5 +1,3 @@
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -29,13 +27,8 @@ public sealed class CreateAcademicYearCommandHandler
     : IRequestHandler<CreateAcademicYearCommand, AcademicYearDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public CreateAcademicYearCommandHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public CreateAcademicYearCommandHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<AcademicYearDto> Handle(
         CreateAcademicYearCommand request, CancellationToken cancellationToken)
@@ -61,7 +54,7 @@ public sealed class CreateAcademicYearCommandHandler
         _db.AcademicYears.Add(year);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return _mapper.Map<AcademicYearDto>(year);
+        return year.ToDto();
     }
 
     /// <summary>Clears IsCurrent on tracked entities (never raw SQL — RLS-safe by construction).</summary>
@@ -110,19 +103,14 @@ public sealed class GetAcademicYearsQueryHandler
     : IRequestHandler<GetAcademicYearsQuery, IReadOnlyList<AcademicYearDto>>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public GetAcademicYearsQueryHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public GetAcademicYearsQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<AcademicYearDto>> Handle(
         GetAcademicYearsQuery request, CancellationToken cancellationToken) =>
         await _db.AcademicYears.AsNoTracking()
             .OrderByDescending(y => y.StartDate)
-            .ProjectTo<AcademicYearDto>(_mapper.ConfigurationProvider)
+            .Select(AcademicsMappings.YearProjection)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 }

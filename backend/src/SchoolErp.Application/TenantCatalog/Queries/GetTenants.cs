@@ -1,5 +1,3 @@
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -31,13 +29,8 @@ public sealed class GetTenantsQueryValidator : AbstractValidator<GetTenantsQuery
 public sealed class GetTenantsQueryHandler : IRequestHandler<GetTenantsQuery, PagedResult<TenantDto>>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public GetTenantsQueryHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public GetTenantsQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<PagedResult<TenantDto>> Handle(
         GetTenantsQuery request, CancellationToken cancellationToken)
@@ -64,7 +57,7 @@ public sealed class GetTenantsQueryHandler : IRequestHandler<GetTenantsQuery, Pa
             .OrderBy(t => t.Name)
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
-            .ProjectTo<TenantDto>(_mapper.ConfigurationProvider)
+            .Select(TenantMappings.Projection)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
@@ -79,19 +72,14 @@ public sealed record GetTenantByIdQuery(Guid Id) : IRequest<TenantDto>;
 public sealed class GetTenantByIdQueryHandler : IRequestHandler<GetTenantByIdQuery, TenantDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public GetTenantByIdQueryHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public GetTenantByIdQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<TenantDto> Handle(GetTenantByIdQuery request, CancellationToken cancellationToken)
     {
         var dto = await _db.Tenants.AsNoTracking()
             .Where(t => t.Id == request.Id)
-            .ProjectTo<TenantDto>(_mapper.ConfigurationProvider)
+            .Select(TenantMappings.Projection)
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 

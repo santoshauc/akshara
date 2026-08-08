@@ -1,4 +1,3 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -27,13 +26,8 @@ public sealed class CreateSubjectCommandValidator : AbstractValidator<CreateSubj
 public sealed class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectCommand, SubjectDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public CreateSubjectCommandHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public CreateSubjectCommandHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<SubjectDto> Handle(CreateSubjectCommand request, CancellationToken cancellationToken)
     {
@@ -49,7 +43,7 @@ public sealed class CreateSubjectCommandHandler : IRequestHandler<CreateSubjectC
         var subject = new Subject { Name = name, Code = code };
         _db.Subjects.Add(subject);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return _mapper.Map<SubjectDto>(subject);
+        return subject.ToDto();
     }
 }
 
@@ -209,25 +203,17 @@ public sealed record GetExamsQuery(Guid AcademicYearId) : IRequest<IReadOnlyList
 public sealed class GetExamsQueryHandler : IRequestHandler<GetExamsQuery, IReadOnlyList<ExamDto>>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public GetExamsQueryHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public GetExamsQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<ExamDto>> Handle(
         GetExamsQuery request, CancellationToken cancellationToken)
     {
-        var exams = await _db.Exams.AsNoTracking()
-            .Include(e => e.Subjects).ThenInclude(s => s.SchoolClass)
-            .Include(e => e.Subjects).ThenInclude(s => s.Subject)
+        return await _db.Exams.AsNoTracking()
             .Where(e => e.AcademicYearId == request.AcademicYearId)
             .OrderBy(e => e.StartDate)
+            .Select(ExamMappings.ExamProjection)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
-
-        return exams.Select(_mapper.Map<ExamDto>).ToList();
     }
 }

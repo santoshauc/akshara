@@ -118,7 +118,8 @@ ALL originally-scoped roadmap items are now complete. Parent app also has a
 report-card download button on the result card (web: blob open; device:
 expo-file-system File + expo-sharing share sheet; localized en/te).
 Remaining backlog is polish only: task #4 local-infra extras, portal/SMS
-localization, AutoMapper→Mapster swap pre-GA.
+localization. (AutoMapper is REMOVED — hand-written mappings; the High
+advisory GHSA-rvv3-g6hj-g44x is resolved.)
 
 ## How to run (Windows dev box)
 
@@ -163,9 +164,10 @@ localization, AutoMapper→Mapster swap pre-GA.
   (`OutboxMessage` + `SmsPayload`), written in the same SaveChanges as the
   business change. Dispatcher: Hangfire recurring job `outbox-dispatch`
   (OutboxDispatchJob → OutboxProcessor) every 15s; dashboard at /jobs (dev).
-- Package pins are deliberate (OSS licensing): MediatR 12.x, AutoMapper 13.x,
-  FluentAssertions 6.x. AutoMapper 13.0.1 has a known advisory — accepted and
-  documented in `docs/security-notes.md`; plan is to swap to Mapster pre-GA.
+- Package pins are deliberate (OSS licensing): MediatR 12.x,
+  FluentAssertions 6.x. AutoMapper was removed — mappings are hand-written
+  in `*Mappings` static classes (EF-translatable `Expression` fields for
+  query projection + `ToDto()` extensions for in-memory maps).
 - Zero-warning policy: builds must be clean (analyzers on). Test naming with
   underscores is allowed via `backend/tests/Directory.Build.props`.
 

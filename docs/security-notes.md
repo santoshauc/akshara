@@ -2,17 +2,12 @@
 
 ## Open advisories (accepted, tracked)
 
-### AutoMapper 13.0.1 — GHSA-rvv3-g6hj-g44x (High)
+### ~~AutoMapper 13.0.1 — GHSA-rvv3-g6hj-g44x (High)~~ RESOLVED
 
-- **Status:** Accepted risk, tracked.
-- **Why not fixed:** The patched release line is AutoMapper 15.x, which moved
-  to commercial licensing. 13.0.1 is the newest MIT-licensed release.
-- **Exposure assessment:** AutoMapper is used exclusively to map trusted,
-  server-side domain entities to DTOs. No untrusted input reaches mapping
-  configuration or expression compilation.
-- **Planned remediation:** Replace AutoMapper with Mapster (MIT) or
-  hand-written mapping extensions before GA. Mapping usage is confined to the
-  Application layer, so the swap is mechanical.
+- **Resolution:** AutoMapper was removed entirely. Mappings are hand-written
+  (`*Mappings` static classes: EF-translatable expressions for query
+  projection plus `ToDto()` extensions for in-memory maps). No replacement
+  dependency was introduced.
 
 ### OpenTelemetry.Exporter.OpenTelemetryProtocol 1.11.2 — GHSA-4625-4j76-fww9 (Moderate)
 

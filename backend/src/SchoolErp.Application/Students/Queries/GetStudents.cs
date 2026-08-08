@@ -1,5 +1,3 @@
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -119,13 +117,8 @@ public sealed record GetStudentByIdQuery(Guid Id) : IRequest<StudentDetailDto>;
 public sealed class GetStudentByIdQueryHandler : IRequestHandler<GetStudentByIdQuery, StudentDetailDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public GetStudentByIdQueryHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public GetStudentByIdQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<StudentDetailDto> Handle(
         GetStudentByIdQuery request, CancellationToken cancellationToken)
@@ -179,7 +172,7 @@ public sealed class GetStudentByIdQueryHandler : IRequestHandler<GetStudentByIdQ
                 })
                 .OrderByDescending(g => g.IsPrimary)
                 .ToList(),
-            CurrentEnrollment = enrollment is null ? null : _mapper.Map<EnrollmentDto>(enrollment),
+            CurrentEnrollment = enrollment?.ToDto(),
         };
     }
 }

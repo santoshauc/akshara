@@ -1,4 +1,4 @@
-using AutoMapper;
+using System.Linq.Expressions;
 using SchoolErp.Domain.Academics;
 
 namespace SchoolErp.Application.Academics;
@@ -30,13 +30,50 @@ public sealed record SchoolClassDto
     public IReadOnlyList<SectionDto> Sections { get; init; } = [];
 }
 
-/// <summary>AutoMapper profile for academic structure.</summary>
-public sealed class AcademicsProfile : Profile
+/// <summary>Hand-written projections (EF-translatable expressions + in-memory maps).</summary>
+public static class AcademicsMappings
 {
-    public AcademicsProfile()
+    /// <summary>EF-translatable projection for query composition.</summary>
+    public static readonly Expression<Func<AcademicYear, AcademicYearDto>> YearProjection =
+        year => new AcademicYearDto
+        {
+            Id = year.Id,
+            Name = year.Name,
+            StartDate = year.StartDate,
+            EndDate = year.EndDate,
+            IsCurrent = year.IsCurrent,
+        };
+
+    /// <summary>EF-translatable projection including sections.</summary>
+    public static readonly Expression<Func<SchoolClass, SchoolClassDto>> ClassProjection =
+        schoolClass => new SchoolClassDto
+        {
+            Id = schoolClass.Id,
+            Name = schoolClass.Name,
+            DisplayOrder = schoolClass.DisplayOrder,
+            Sections = schoolClass.Sections
+                .OrderBy(s => s.Name)
+                .Select(s => new SectionDto { Id = s.Id, Name = s.Name, Capacity = s.Capacity })
+                .ToList(),
+        };
+
+    public static AcademicYearDto ToDto(this AcademicYear year) => new()
     {
-        CreateMap<AcademicYear, AcademicYearDto>();
-        CreateMap<Section, SectionDto>();
-        CreateMap<SchoolClass, SchoolClassDto>();
-    }
+        Id = year.Id,
+        Name = year.Name,
+        StartDate = year.StartDate,
+        EndDate = year.EndDate,
+        IsCurrent = year.IsCurrent,
+    };
+
+    public static SchoolClassDto ToDto(this SchoolClass schoolClass) => new()
+    {
+        Id = schoolClass.Id,
+        Name = schoolClass.Name,
+        DisplayOrder = schoolClass.DisplayOrder,
+        Sections = schoolClass.Sections
+            .OrderBy(s => s.Name)
+            .Select(s => new SectionDto { Id = s.Id, Name = s.Name, Capacity = s.Capacity })
+            .ToList(),
+    };
 }

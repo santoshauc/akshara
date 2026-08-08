@@ -1,4 +1,4 @@
-using AutoMapper;
+using System.Linq.Expressions;
 using SchoolErp.Domain.TenantCatalog;
 
 namespace SchoolErp.Application.TenantCatalog;
@@ -28,11 +28,36 @@ public sealed record TenantDto
     public DateTimeOffset CreatedAt { get; init; }
 }
 
-/// <summary>AutoMapper profile for the tenant catalog module.</summary>
-public sealed class TenantProfile : Profile
+/// <summary>Hand-written projection (EF-translatable + in-memory).</summary>
+public static class TenantMappings
 {
-    public TenantProfile()
-    {
-        CreateMap<Tenant, TenantDto>();
-    }
+    /// <summary>EF-translatable projection for query composition.</summary>
+    public static readonly Expression<Func<Tenant, TenantDto>> Projection =
+        tenant => new TenantDto
+        {
+            Id = tenant.Id,
+            Code = tenant.Code,
+            Name = tenant.Name,
+            Subdomain = tenant.Subdomain,
+            CustomDomain = tenant.CustomDomain,
+            City = tenant.City,
+            State = tenant.State,
+            ContactEmail = tenant.ContactEmail,
+            ContactPhone = tenant.ContactPhone,
+            AffiliationBoard = tenant.AffiliationBoard,
+            LogoUrl = tenant.LogoUrl,
+            Plan = tenant.Plan,
+            SubscriptionExpiresOn = tenant.SubscriptionExpiresOn,
+            EnabledModules = tenant.EnabledModules,
+            StorageLimitMb = tenant.StorageLimitMb,
+            SmsCredits = tenant.SmsCredits,
+            TimeZoneId = tenant.TimeZoneId,
+            DefaultLanguage = tenant.DefaultLanguage,
+            Status = tenant.Status,
+            CreatedAt = tenant.CreatedAt,
+        };
+
+    private static readonly Func<Tenant, TenantDto> Compiled = Projection.Compile();
+
+    public static TenantDto ToDto(this Tenant tenant) => Compiled(tenant);
 }

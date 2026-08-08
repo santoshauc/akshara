@@ -1,4 +1,4 @@
-using AutoMapper;
+using System.Linq.Expressions;
 using SchoolErp.Domain.Exams;
 
 namespace SchoolErp.Application.Exams;
@@ -79,15 +79,39 @@ public sealed record StudentResultDto
     public int SectionSize { get; init; }
 }
 
-/// <summary>AutoMapper profile for the exams module.</summary>
-public sealed class ExamsProfile : Profile
+/// <summary>Hand-written projections (EF-translatable expressions + in-memory maps).</summary>
+public static class ExamMappings
 {
-    public ExamsProfile()
-    {
-        CreateMap<Domain.Academics.Subject, SubjectDto>();
-        CreateMap<ExamSubject, ExamSubjectDto>()
-            .ForMember(d => d.ClassName, o => o.MapFrom(s => s.SchoolClass!.Name))
-            .ForMember(d => d.SubjectName, o => o.MapFrom(s => s.Subject!.Name));
-        CreateMap<Exam, ExamDto>();
-    }
+    /// <summary>EF-translatable subject projection.</summary>
+    public static readonly Expression<Func<Domain.Academics.Subject, SubjectDto>> SubjectProjection =
+        subject => new SubjectDto(subject.Id, subject.Name, subject.Code);
+
+    /// <summary>EF-translatable exam projection with its papers.</summary>
+    public static readonly Expression<Func<Exam, ExamDto>> ExamProjection =
+        exam => new ExamDto
+        {
+            Id = exam.Id,
+            Name = exam.Name,
+            AcademicYearId = exam.AcademicYearId,
+            StartDate = exam.StartDate,
+            EndDate = exam.EndDate,
+            Status = exam.Status,
+            Subjects = exam.Subjects
+                .OrderBy(s => s.ExamDate)
+                .Select(s => new ExamSubjectDto
+                {
+                    Id = s.Id,
+                    SchoolClassId = s.SchoolClassId,
+                    ClassName = s.SchoolClass!.Name,
+                    SubjectId = s.SubjectId,
+                    SubjectName = s.Subject!.Name,
+                    ExamDate = s.ExamDate,
+                    MaxMarks = s.MaxMarks,
+                    PassMarks = s.PassMarks,
+                })
+                .ToList(),
+        };
+
+    public static SubjectDto ToDto(this Domain.Academics.Subject subject) =>
+        new(subject.Id, subject.Name, subject.Code);
 }

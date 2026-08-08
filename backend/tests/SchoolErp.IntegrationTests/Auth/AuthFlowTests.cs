@@ -271,7 +271,9 @@ public sealed class AuthFlowTests : IClassFixture<AuthTestFixture>
             Array.Reverse(counter);
         }
 
+#pragma warning disable CA5350 // RFC 6238 TOTP mandates HMAC-SHA1; not used for security at rest.
         using var hmac = new System.Security.Cryptography.HMACSHA1(key);
+#pragma warning restore CA5350
         var hash = hmac.ComputeHash(counter);
         var offset = hash[^1] & 0xF;
         var binary = ((hash[offset] & 0x7F) << 24) | (hash[offset + 1] << 16) |

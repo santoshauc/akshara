@@ -1,5 +1,3 @@
-using AutoMapper;
-using AutoMapper.QueryableExtensions;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -31,13 +29,8 @@ public sealed class CreateClassCommandValidator : AbstractValidator<CreateClassC
 public sealed class CreateClassCommandHandler : IRequestHandler<CreateClassCommand, SchoolClassDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public CreateClassCommandHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public CreateClassCommandHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<SchoolClassDto> Handle(CreateClassCommand request, CancellationToken cancellationToken)
     {
@@ -58,7 +51,7 @@ public sealed class CreateClassCommandHandler : IRequestHandler<CreateClassComma
         _db.SchoolClasses.Add(schoolClass);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return _mapper.Map<SchoolClassDto>(schoolClass);
+        return schoolClass.ToDto();
     }
 }
 
@@ -69,19 +62,14 @@ public sealed record GetClassesQuery : IRequest<IReadOnlyList<SchoolClassDto>>;
 public sealed class GetClassesQueryHandler : IRequestHandler<GetClassesQuery, IReadOnlyList<SchoolClassDto>>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public GetClassesQueryHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public GetClassesQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<SchoolClassDto>> Handle(
         GetClassesQuery request, CancellationToken cancellationToken) =>
         await _db.SchoolClasses.AsNoTracking()
             .OrderBy(c => c.DisplayOrder).ThenBy(c => c.Name)
-            .ProjectTo<SchoolClassDto>(_mapper.ConfigurationProvider)
+            .Select(AcademicsMappings.ClassProjection)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 }

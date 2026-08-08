@@ -1,4 +1,3 @@
-using AutoMapper;
 using FluentValidation;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -65,13 +64,8 @@ public sealed class CreateTenantCommandValidator : AbstractValidator<CreateTenan
 public sealed class CreateTenantCommandHandler : IRequestHandler<CreateTenantCommand, TenantDto>
 {
     private readonly IApplicationDbContext _db;
-    private readonly IMapper _mapper;
 
-    public CreateTenantCommandHandler(IApplicationDbContext db, IMapper mapper)
-    {
-        _db = db;
-        _mapper = mapper;
-    }
+    public CreateTenantCommandHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<TenantDto> Handle(CreateTenantCommand request, CancellationToken cancellationToken)
     {
@@ -115,6 +109,6 @@ public sealed class CreateTenantCommandHandler : IRequestHandler<CreateTenantCom
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
-        return _mapper.Map<TenantDto>(tenant);
+        return tenant.ToDto();
     }
 }

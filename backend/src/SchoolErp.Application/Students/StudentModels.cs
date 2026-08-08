@@ -1,4 +1,3 @@
-using AutoMapper;
 using SchoolErp.Domain.Students;
 
 namespace SchoolErp.Application.Students;
@@ -77,14 +76,20 @@ public sealed record GuardianInput(
     string? Occupation,
     bool IsPrimary);
 
-/// <summary>AutoMapper profile for the students module.</summary>
-public sealed class StudentsProfile : Profile
+/// <summary>Hand-written mappings for the students module.</summary>
+public static class StudentMappings
 {
-    public StudentsProfile()
+    /// <summary>Requires AcademicYear/SchoolClass/Section navigations to be loaded.</summary>
+    public static EnrollmentDto ToDto(this Enrollment enrollment) => new()
     {
-        CreateMap<Enrollment, EnrollmentDto>()
-            .ForMember(d => d.AcademicYearName, o => o.MapFrom(e => e.AcademicYear!.Name))
-            .ForMember(d => d.ClassName, o => o.MapFrom(e => e.SchoolClass!.Name))
-            .ForMember(d => d.SectionName, o => o.MapFrom(e => e.Section!.Name));
-    }
+        Id = enrollment.Id,
+        AcademicYearId = enrollment.AcademicYearId,
+        AcademicYearName = enrollment.AcademicYear?.Name ?? string.Empty,
+        SchoolClassId = enrollment.SchoolClassId,
+        ClassName = enrollment.SchoolClass?.Name ?? string.Empty,
+        SectionId = enrollment.SectionId,
+        SectionName = enrollment.Section?.Name ?? string.Empty,
+        RollNumber = enrollment.RollNumber,
+        Status = enrollment.Status,
+    };
 }

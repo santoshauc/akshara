@@ -21,7 +21,6 @@ public static class DependencyInjection
         });
 
         services.AddValidatorsFromAssembly(assembly, includeInternalTypes: true);
-        services.AddAutoMapper(assembly);
 
         services.AddScoped<Parent.ParentAccess>();
         services.AddScoped<Transport.DriverAccess>();
