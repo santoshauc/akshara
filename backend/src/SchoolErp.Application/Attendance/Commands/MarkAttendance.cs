@@ -154,17 +154,12 @@ public sealed class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanc
 
         foreach (var contact in contacts)
         {
-            var payload = new SmsPayload(
-                contact.Phone,
+            await Notifications.NotificationQueue.QueueGuardianAsync(
+                _db, _tenantContext.TenantId, contact.Phone,
+                "Absence noted",
                 $"{contact.StudentName} was marked absent on {date:dd MMM yyyy} at {schoolName}. " +
-                "Please contact the school if this is unexpected.");
-
-            _db.OutboxMessages.Add(new OutboxMessage
-            {
-                TenantId = _tenantContext.TenantId,
-                Type = OutboxMessageTypes.Sms,
-                Payload = JsonSerializer.Serialize(payload),
-            });
+                "Please contact the school if this is unexpected.",
+                ct).ConfigureAwait(false);
         }
     }
 }

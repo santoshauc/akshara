@@ -27,6 +27,20 @@ internal sealed class StubCurrentUser : ICurrentUser
     public bool IsAuthenticated => true;
 }
 
+/// <summary>Records push notifications instead of sending them.</summary>
+public sealed class RecordingPushSender : SchoolErp.Application.Notifications.IPushSender
+{
+    private readonly List<(string Token, string Title, string Body)> _sent = [];
+
+    public IReadOnlyList<(string Token, string Title, string Body)> Sent => _sent;
+
+    public Task SendAsync(string token, string title, string body, CancellationToken ct = default)
+    {
+        _sent.Add((token, title, body));
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>
 /// Test user with a REAL Guid id, for flows that parse it (leave requests).
 /// Settable so one fixture can act as different people per scope.

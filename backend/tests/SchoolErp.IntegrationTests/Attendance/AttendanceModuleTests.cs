@@ -54,6 +54,9 @@ public sealed class AttendanceModuleFixture : IAsyncLifetime
     /// <summary>Captures SMS handed to the gateway by the outbox processor.</summary>
     public RecordingSmsSender SmsSender { get; } = new();
 
+    /// <summary>Captures push notifications handed to the outbox processor.</summary>
+    public RecordingPushSender PushSender { get; } = new();
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -73,6 +76,7 @@ public sealed class AttendanceModuleFixture : IAsyncLifetime
         services.AddInfrastructure(configuration);
         services.AddScoped<ICurrentUser, StubCurrentUser>();
         services.AddSingleton<ISmsSender>(SmsSender);
+        services.AddSingleton<SchoolErp.Application.Notifications.IPushSender>(PushSender);
         _provider = services.BuildServiceProvider(validateScopes: true);
 
         await using (var scope = _provider.CreateAsyncScope())
@@ -217,6 +221,52 @@ public sealed class AttendanceModuleTests : IClassFixture<AttendanceModuleFixtur
 
         _fixture.SmsSender.Sent.Should().Contain(s =>
             s.Phone == "+919700000002" && s.Message.Contains("Sita") && s.Message.Contains("absent"));
+    }
+
+    [Fact]
+    public async Task Absence_also_pushes_to_registered_devices()
+    {
+        var date = new DateOnly(2026, 7, 17);
+
+        await using (var scope = _fixture.CreateScope())
+        {
+            // Student A's guardian has a device registered for push.
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.PushTokens.Add(new SchoolErp.Domain.Notifications.PushToken
+            {
+                UserId = Guid.NewGuid(),
+                Phone = "+919700000001",
+                Token = "ExponentPushToken[test-device-1]",
+                Platform = "android",
+            });
+            await db.SaveChangesAsync();
+
+            var before = await db.OutboxMessages
+                .Where(m => m.TenantId == _fixture.TenantId)
+                .Select(m => m.Id)
+                .ToListAsync();
+
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            await sender.Send(new MarkAttendanceCommand(_fixture.SectionId, date,
+                [new AttendanceEntry(_fixture.EnrollmentA, AttendanceStatus.Absent, null)]));
+
+            // One absence with a registered device → one SMS row + one push row.
+            var queued = await db.OutboxMessages
+                .Where(m => m.TenantId == _fixture.TenantId && !before.Contains(m.Id))
+                .ToListAsync();
+            queued.Where(m => m.Type == "sms").Should().HaveCount(1);
+            queued.Where(m => m.Type == "push").Should().HaveCount(1);
+        }
+
+        await using (var dispatcherScope = _fixture.CreateDispatcherScope())
+        {
+            var processor = dispatcherScope.ServiceProvider.GetRequiredService<OutboxProcessor>();
+            await processor.ProcessPendingAsync();
+        }
+
+        _fixture.PushSender.Sent.Should().Contain(p =>
+            p.Token == "ExponentPushToken[test-device-1]" &&
+            p.Title == "Absence noted" && p.Body.Contains("Ravi"));
     }
 
     [Fact]

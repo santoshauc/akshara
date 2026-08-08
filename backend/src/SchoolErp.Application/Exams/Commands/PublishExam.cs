@@ -77,17 +77,12 @@ public sealed class PublishExamCommandHandler : IRequestHandler<PublishExamComma
 
         foreach (var recipient in recipients)
         {
-            var payload = new SmsPayload(
-                recipient.Phone,
+            await Notifications.NotificationQueue.QueueGuardianAsync(
+                _db, _tenantContext.TenantId, recipient.Phone,
+                "Results published",
                 $"Results for {exam.Name} are now available for {recipient.StudentName} " +
-                $"at {schoolName}. Open the parent app to view the report card.");
-
-            _db.OutboxMessages.Add(new OutboxMessage
-            {
-                TenantId = _tenantContext.TenantId,
-                Type = OutboxMessageTypes.Sms,
-                Payload = JsonSerializer.Serialize(payload),
-            });
+                $"at {schoolName}. Open the parent app to view the report card.",
+                cancellationToken).ConfigureAwait(false);
         }
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

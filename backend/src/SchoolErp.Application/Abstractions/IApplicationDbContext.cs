@@ -58,6 +58,8 @@ public interface IApplicationDbContext
 
     DbSet<FeeConcession> FeeConcessions { get; }
 
+    DbSet<Domain.Notifications.PushToken> PushTokens { get; }
+
     DbSet<PaymentOrder> PaymentOrders { get; }
 
     DbSet<Notice> Notices { get; }

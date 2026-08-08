@@ -93,6 +93,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public DbSet<FeeConcession> FeeConcessions => Set<FeeConcession>();
 
+    public DbSet<Domain.Notifications.PushToken> PushTokens => Set<Domain.Notifications.PushToken>();
+
     /// <summary>Online payment orders (platform-scoped, webhook-read).</summary>
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
 

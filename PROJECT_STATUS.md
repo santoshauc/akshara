@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 86 integration = **134 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 87 integration = **135 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -237,6 +237,23 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   fetch narrow window and filter client-side.
   GOTCHA: Blazor dev-server deep links can be HTTP-cached stale after
   index.html changes — cache-bust with a query string when verifying.
+- B6 Push notifications — DONE. PushToken entity (RLS'd AddPushTokens
+  migration): device Expo token + denormalized owner phone (so guardian
+  events queued by phone inside tenant scope fan out without touching
+  the identity store). Outbox "push" type + PushPayload; OutboxProcessor
+  dispatches via IPushSender (pushes are NOT SMS-credit metered).
+  DevPushSender logs; ExpoPushSender (exp.host, no creds) activates on
+  Push:Provider=expo and throws on rejected tickets so the outbox
+  retries. All four guardian events (absence, results published,
+  payment received, bus board/drop) now queue SMS + one push per
+  registered device through NotificationQueue.QueueGuardianAsync.
+  POST/DELETE api/v1/push/tokens (any signed-in user; upsert by token,
+  re-points on user change). Parent app registers after sign-in
+  (expo-notifications + expo-device installed; best-effort, no-op on
+  web/simulator). Integration test (absence → sms+push rows →
+  dispatcher delivers to RecordingPushSender); E2E-verified live:
+  parent OTP login → token registered → absence marked → API logged
+  "[DEV PUSH] to ExponentPushToken[priya-phone-1]: Absence noted…".
 
 ## How to run (Windows dev box)
 

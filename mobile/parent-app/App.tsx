@@ -2,6 +2,7 @@ import { StatusBar } from 'expo-status-bar';
 import React, { useEffect, useState } from 'react';
 import { ActivityIndicator, View } from 'react-native';
 import { tokenStore } from './src/api/client';
+import { registerForPushAsync } from './src/api/push';
 import { LanguageProvider } from './src/i18n';
 import { BRAND } from './src/config';
 import HomeScreen from './src/screens/HomeScreen';
@@ -17,6 +18,13 @@ export default function App() {
   useEffect(() => {
     void tokenStore.getRefresh().then((token) => setSignedIn(token != null));
   }, []);
+
+  // Device push registration follows every sign-in (best-effort; no-op on web).
+  useEffect(() => {
+    if (signedIn) {
+      void registerForPushAsync();
+    }
+  }, [signedIn]);
 
   if (signedIn === null) {
     return (

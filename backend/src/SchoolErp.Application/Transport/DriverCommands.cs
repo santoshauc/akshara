@@ -335,14 +335,11 @@ public sealed class MarkRiderEventCommandHandler : IRequestHandler<MarkRiderEven
             ? "boarded the school bus"
             : "was dropped off by the school bus";
 
-        _db.OutboxMessages.Add(new OutboxMessage
-        {
-            TenantId = _tenantContext.TenantId,
-            Type = OutboxMessageTypes.Sms,
-            Payload = JsonSerializer.Serialize(new SmsPayload(
-                contact.Phone,
-                $"{contact.StudentName} {action} just now. — {tenant?.Name ?? "School"}")),
-        });
+        await Notifications.NotificationQueue.QueueGuardianAsync(
+            _db, _tenantContext.TenantId, contact.Phone,
+            eventType == TripStudentEventType.PickedUp ? "On the bus" : "Dropped off",
+            $"{contact.StudentName} {action} just now. — {tenant?.Name ?? "School"}",
+            ct).ConfigureAwait(false);
     }
 }
 

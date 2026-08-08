@@ -20,17 +20,20 @@ public sealed partial class OutboxProcessor
 
     private readonly AppDbContext _db;
     private readonly ISmsSender _smsSender;
+    private readonly Application.Notifications.IPushSender _pushSender;
     private readonly TimeProvider _clock;
     private readonly ILogger<OutboxProcessor> _logger;
 
     public OutboxProcessor(
         AppDbContext db,
         ISmsSender smsSender,
+        Application.Notifications.IPushSender pushSender,
         TimeProvider clock,
         ILogger<OutboxProcessor> logger)
     {
         _db = db;
         _smsSender = smsSender;
+        _pushSender = pushSender;
         _clock = clock;
         _logger = logger;
     }
@@ -88,6 +91,14 @@ public sealed partial class OutboxProcessor
                 var sms = JsonSerializer.Deserialize<SmsPayload>(message.Payload)
                     ?? throw new InvalidOperationException("Empty SMS payload.");
                 await _smsSender.SendAsync(sms.Phone, sms.Message, ct).ConfigureAwait(false);
+                break;
+
+            case OutboxMessageTypes.Push:
+                var push = JsonSerializer
+                    .Deserialize<Application.Notifications.PushPayload>(message.Payload)
+                    ?? throw new InvalidOperationException("Empty push payload.");
+                await _pushSender.SendAsync(push.Token, push.Title, push.Body, ct)
+                    .ConfigureAwait(false);
                 break;
 
             default:

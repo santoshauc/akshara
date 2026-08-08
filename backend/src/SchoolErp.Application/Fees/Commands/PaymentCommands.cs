@@ -121,16 +121,12 @@ public static class PaymentRecorder
         {
             var tenant = await tenantLookup.FindByIdAsync(tenantContext.TenantId, ct)
                 .ConfigureAwait(false);
-            var payload = new SmsPayload(
-                guardianPhone,
+            await Notifications.NotificationQueue.QueueGuardianAsync(
+                db, tenantContext.TenantId, guardianPhone,
+                "Payment received",
                 $"Payment of Rs.{amount:0.##} received for {student.FirstName} at " +
-                $"{tenant?.Name ?? "your school"}. Receipt {receiptNumber}. Thank you.");
-            db.OutboxMessages.Add(new OutboxMessage
-            {
-                TenantId = tenantContext.TenantId,
-                Type = OutboxMessageTypes.Sms,
-                Payload = JsonSerializer.Serialize(payload),
-            });
+                $"{tenant?.Name ?? "your school"}. Receipt {receiptNumber}. Thank you.",
+                ct).ConfigureAwait(false);
         }
 
         await db.SaveChangesAsync(ct).ConfigureAwait(false);

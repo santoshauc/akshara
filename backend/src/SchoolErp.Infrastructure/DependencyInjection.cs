@@ -103,6 +103,23 @@ public static class DependencyInjection
             services.AddScoped<ISmsSender, DevSmsSender>();
         }
 
+        // Expo push goes live on Push:Provider=expo; otherwise pushes are logged.
+        services.AddHttpClient<Notifications.ExpoPushSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://exp.host/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        if (string.Equals(configuration["Push:Provider"], "expo", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<Application.Notifications.IPushSender>(
+                sp => sp.GetRequiredService<Notifications.ExpoPushSender>());
+        }
+        else
+        {
+            services.AddScoped<Application.Notifications.IPushSender,
+                Notifications.DevPushSender>();
+        }
+
         // Outbox delivery core; the polling BackgroundService is registered by
         // the API host so tests can drive the processor synchronously.
         services.AddScoped<Notifications.OutboxProcessor>();

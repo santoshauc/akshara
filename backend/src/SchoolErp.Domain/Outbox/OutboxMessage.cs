@@ -6,6 +6,8 @@ namespace SchoolErp.Domain.Outbox;
 public static class OutboxMessageTypes
 {
     public const string Sms = "sms";
+
+    public const string Push = "push";
 }
 
 /// <summary>
