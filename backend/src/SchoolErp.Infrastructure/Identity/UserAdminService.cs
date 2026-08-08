@@ -262,6 +262,56 @@ public sealed class UserAdminService : IUserAdminService
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// The classroom permission bundle a fresh "Teacher" role starts with.
+    /// Schools can tune it later in Users &amp; roles — it is get-or-created,
+    /// not system-managed.
+    /// </summary>
+    private static readonly string[] TeacherPermissions =
+    [
+        Permissions.Students.View,
+        Permissions.Attendance.View,
+        Permissions.Attendance.Mark,
+        Permissions.Examinations.View,
+        Permissions.Examinations.EnterMarks,
+        Permissions.Homework.View,
+        Permissions.Homework.Manage,
+        Permissions.Timetable.View,
+    ];
+
+    public async Task<Guid> CreateTeacherLoginAsync(
+        Guid teacherId, string temporaryPassword, CancellationToken ct = default)
+    {
+        var teacher = await _db.Teachers
+            .FirstOrDefaultAsync(t => t.Id == teacherId, ct)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException("Teacher", teacherId);
+
+        if (teacher.UserId is not null)
+        {
+            throw new ConflictException($"{teacher.FullName} already has a login.");
+        }
+
+        var hasRole = await _db.Roles.AnyAsync(
+                r => r.TenantId == TenantId && r.Name == WellKnownRoles.Teacher, ct)
+            .ConfigureAwait(false);
+        if (!hasRole)
+        {
+            await CreateRoleAsync(
+                WellKnownRoles.Teacher,
+                "Classroom staff: attendance, marks entry, homework, timetable.",
+                TeacherPermissions, ct).ConfigureAwait(false);
+        }
+
+        var userId = await CreateUserAsync(
+            teacher.FullName, teacher.Email, teacher.Phone, temporaryPassword,
+            [WellKnownRoles.Teacher], ct).ConfigureAwait(false);
+
+        teacher.UserId = userId;
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return userId;
+    }
+
     private async Task<ApplicationUser> GetTenantUserAsync(Guid userId, CancellationToken ct) =>
         await _db.Users
             .FirstOrDefaultAsync(u => u.Id == userId && u.TenantId == TenantId, ct)

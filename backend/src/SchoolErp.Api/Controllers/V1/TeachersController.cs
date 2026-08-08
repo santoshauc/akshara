@@ -49,6 +49,21 @@ public sealed class TeachersController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// One-click login for a teacher: creates a staff account with the
+    /// school's "Teacher" role (attendance, marks, homework, timetable)
+    /// from the teacher's own contact details. Returns the new user id.
+    /// </summary>
+    [HttpPost("{teacherId:guid}/login")]
+    [HasPermission(Permissions.Users.Manage)]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateLogin(
+        Guid teacherId, [FromBody] CreateTeacherLoginRequest request, CancellationToken ct) =>
+        Ok(await _sender.Send(
+            new CreateTeacherLoginCommand(teacherId, request.TemporaryPassword), ct));
+
     /// <summary>The teacher's weekly schedule across all classes (drafts included).</summary>
     [HttpGet("{teacherId:guid}/schedule")]
     [HasPermission(Permissions.Staff.View)]
@@ -57,3 +72,6 @@ public sealed class TeachersController : ControllerBase
     public async Task<IActionResult> GetSchedule(Guid teacherId, CancellationToken ct) =>
         Ok(await _sender.Send(new GetTeacherScheduleQuery(teacherId), ct));
 }
+
+/// <summary>Temporary password for a new teacher login.</summary>
+public sealed record CreateTeacherLoginRequest(string TemporaryPassword);

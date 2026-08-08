@@ -54,4 +54,14 @@ public interface IUserAdminService
     Task UpdateRoleAsync(
         Guid roleId, string? description, IReadOnlyList<string> permissions,
         CancellationToken ct = default);
+
+    /// <summary>
+    /// One-click teacher login: get-or-creates the school's "Teacher" role
+    /// (default classroom permission bundle), creates a staff account from the
+    /// teacher's contact details with the temporary password, and links it via
+    /// Teacher.UserId. Throws ConflictException if the teacher already has a
+    /// login or the contact details clash with an existing account.
+    /// </summary>
+    Task<Guid> CreateTeacherLoginAsync(
+        Guid teacherId, string temporaryPassword, CancellationToken ct = default);
 }

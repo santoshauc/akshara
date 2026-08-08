@@ -31,6 +31,15 @@ public sealed class StaffClient
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
 
+    /// <summary>Creates the teacher's staff login; null on success.</summary>
+    public async Task<string?> CreateLoginAsync(
+        Guid teacherId, string temporaryPassword, CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync(
+            $"api/v1/teachers/{teacherId}/login", new { temporaryPassword }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
     public async Task<List<TeacherScheduleItemDto>> GetScheduleAsync(
         Guid teacherId, CancellationToken ct = default) =>
         await _http.GetFromJsonAsync<List<TeacherScheduleItemDto>>(

@@ -10,7 +10,8 @@ public sealed record TeacherDto(
     string? Qualification,
     string? Specialization,
     DateOnly? JoinedOn,
-    bool IsActive);
+    bool IsActive,
+    bool HasLogin);
 
 /// <summary>Create payload (mirrors CreateTeacherCommand).</summary>
 public sealed record CreateTeacherRequest(

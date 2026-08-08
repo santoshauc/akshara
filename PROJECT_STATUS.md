@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 80 integration = **128 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 81 integration = **129 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -178,6 +178,18 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   demo data then reverted via SQL so Ananya stays in Grade 5 A).
   NOTE: portal student list for the opt-out picker caps at 100 (the
   GetStudents pageSize limit) — fine for real section sizes.
+- B2 Teacher logins — DONE. Teacher.UserId (AddTeacherLogin migration,
+  column-only). IUserAdminService.CreateTeacherLoginAsync get-or-creates
+  the tenant "Teacher" role (students.view, attendance.view/mark,
+  exams.view/enter-marks, homework.view/manage, timetable.view — an
+  editable role, not system), creates the account from the teacher's own
+  contact details + temp password, links it; one login per teacher (409).
+  POST teachers/{id}/login (users.manage). Portal: key icon on rows
+  without a login → temp-password form → "Has login" chip. 1 integration
+  test (role seeded w/ bundle, user linked, real password sign-in, 409 on
+  second). E2E-verified: Anita Rao (EMP-001) login created in the portal,
+  signed in via +919888811122/Anita@2026Pass — JWT carries exactly the
+  classroom bundle; students.view 200, students.manage 403.
 
 ## How to run (Windows dev box)
 
@@ -203,6 +215,8 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   `[DEV SMS]`.
 - Driver (OTP): school `DEMO01`, phone `+919888877766` (Ramesh Kumar, assigned
   to Route 1 — West; Ananya rides from stop "Jubilee Hills").
+- Teacher: `DEMO01` + `+919888811122` / `Anita@2026Pass` (Anita Rao EMP-001,
+  "Teacher" role — classroom permissions only).
 
 ## Conventions (follow these when adding modules)
 

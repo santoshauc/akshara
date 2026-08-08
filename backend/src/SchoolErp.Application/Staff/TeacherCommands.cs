@@ -17,7 +17,8 @@ public sealed record TeacherDto(
     string? Qualification,
     string? Specialization,
     DateOnly? JoinedOn,
-    bool IsActive);
+    bool IsActive,
+    bool HasLogin);
 
 /// <summary>Registers a teacher. Employee code and phone are unique per school.</summary>
 public sealed record CreateTeacherCommand(
@@ -144,6 +145,35 @@ public sealed class UpdateTeacherCommandHandler : IRequestHandler<UpdateTeacherC
     }
 }
 
+/// <summary>
+/// One-click login for a teacher: creates a staff account with the school's
+/// "Teacher" role from the teacher's own contact details. The teacher can then
+/// sign in with the temporary password (or phone OTP) and mark attendance,
+/// enter marks and manage homework.
+/// </summary>
+public sealed record CreateTeacherLoginCommand(
+    Guid TeacherId, string TemporaryPassword) : IRequest<Guid>;
+
+/// <summary>Password shape rule (Identity enforces complexity on top).</summary>
+public sealed class CreateTeacherLoginCommandValidator
+    : AbstractValidator<CreateTeacherLoginCommand>
+{
+    public CreateTeacherLoginCommandValidator() =>
+        RuleFor(c => c.TemporaryPassword).NotEmpty().MinimumLength(8).MaximumLength(128);
+}
+
+/// <summary>Delegates to the identity layer (role + account + link).</summary>
+public sealed class CreateTeacherLoginCommandHandler
+    : IRequestHandler<CreateTeacherLoginCommand, Guid>
+{
+    private readonly Users.IUserAdminService _users;
+
+    public CreateTeacherLoginCommandHandler(Users.IUserAdminService users) => _users = users;
+
+    public Task<Guid> Handle(CreateTeacherLoginCommand request, CancellationToken cancellationToken) =>
+        _users.CreateTeacherLoginAsync(request.TeacherId, request.TemporaryPassword, cancellationToken);
+}
+
 /// <summary>Teacher directory; optional name/code/phone search.</summary>
 public sealed record GetTeachersQuery(string? Search = null)
     : IRequest<IReadOnlyList<TeacherDto>>;
@@ -173,7 +203,8 @@ public sealed class GetTeachersQueryHandler
             .OrderBy(t => t.FullName)
             .Select(t => new TeacherDto(
                 t.Id, t.EmployeeCode, t.FullName, t.Phone, t.Email,
-                t.Qualification, t.Specialization, t.JoinedOn, t.IsActive))
+                t.Qualification, t.Specialization, t.JoinedOn, t.IsActive,
+                t.UserId != null))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
     }

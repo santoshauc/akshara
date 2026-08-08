@@ -28,4 +28,7 @@ public class Teacher : TenantEntity
 
     /// <summary>Inactive teachers stay for history but can't take new periods.</summary>
     public bool IsActive { get; set; } = true;
+
+    /// <summary>The staff account this teacher signs in with, once created.</summary>
+    public Guid? UserId { get; set; }
 }

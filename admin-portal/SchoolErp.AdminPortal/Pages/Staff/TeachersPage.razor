@@ -40,6 +40,12 @@
                 <MudChip Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
                     @(context.IsActive ? "Active" : "Inactive")
                 </MudChip>
+                @if (context.HasLogin)
+                {
+                    <MudChip Size="Size.Small" Color="Color.Info" Variant="Variant.Outlined">
+                        Has login
+                    </MudChip>
+                }
             </MudTd>
             <MudTd>
                 <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
@@ -47,6 +53,12 @@
                 <MudIconButton Icon="@Icons.Material.Filled.CalendarViewWeek" Size="Size.Small"
                                Color="@(_scheduleTeacher?.Id == context.Id ? Color.Primary : Color.Default)"
                                OnClick="@(() => ShowScheduleAsync(context))" />
+                @if (!context.HasLogin)
+                {
+                    <MudIconButton Icon="@Icons.Material.Filled.Key" Size="Size.Small"
+                                   title="Create login"
+                                   OnClick="@(() => OpenLoginForm(context))" />
+                }
             </MudTd>
         </RowTemplate>
         <NoRecordsContent>
@@ -85,6 +97,29 @@
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy" OnClick="SaveAsync">
                 @(_editing is null ? "Add teacher" : "Save changes")
             </MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_loginTeacher is { } loginTeacher)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-1">Create login — @loginTeacher.FullName</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Creates a staff account with the "Teacher" role (attendance, marks entry,
+            homework, timetable). They sign in with
+            @(loginTeacher.Email ?? loginTeacher.Phone) and this temporary password —
+            or with a phone OTP.
+        </MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudTextField @bind-Value="_loginPassword" Label="Temporary password"
+                          HelperText="Min 8 chars, upper + lower + digit"
+                          Style="min-width: 240px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                       OnClick="CreateLoginAsync">
+                Create login
+            </MudButton>
+            <MudButton OnClick="@(() => _loginTeacher = null)">Cancel</MudButton>
         </MudStack>
     </MudPaper>
 }
@@ -160,6 +195,8 @@
     private List<TeacherScheduleItemDto> _schedule = [];
     private TeacherDto? _editing;
     private TeacherDto? _scheduleTeacher;
+    private TeacherDto? _loginTeacher;
+    private string _loginPassword = string.Empty;
     private TeacherForm _form = new();
     private string? _search;
     private bool _editorOpen;
@@ -236,6 +273,48 @@
             {
                 Snackbar.Add(error, Severity.Error);
             }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OpenLoginForm(TeacherDto teacher)
+    {
+        _loginTeacher = teacher;
+        _loginPassword = string.Empty;
+    }
+
+    private async Task CreateLoginAsync()
+    {
+        if (_loginTeacher is null || string.IsNullOrWhiteSpace(_loginPassword))
+        {
+            Snackbar.Add("Enter a temporary password.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateLoginAsync(_loginTeacher.Id, _loginPassword);
+            if (error is null)
+            {
+                Snackbar.Add(
+                    $"Login created. {_loginTeacher.FullName} signs in with " +
+                    $"{_loginTeacher.Email ?? _loginTeacher.Phone} and the temporary password.",
+                    Severity.Success);
+                _loginTeacher = null;
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
         }
         finally
         {

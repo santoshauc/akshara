@@ -682,4 +682,8 @@ public static class WellKnownRoles
     public const string SuperAdmin = "SuperAdmin";
 
     public const string SchoolAdmin = "SchoolAdmin";
+
+    /// <summary>Classroom staff role, get-or-created per school on first
+    /// teacher login (see UserAdminService.CreateTeacherLoginAsync).</summary>
+    public const string Teacher = "Teacher";
 }

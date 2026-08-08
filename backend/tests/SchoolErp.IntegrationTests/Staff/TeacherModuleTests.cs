@@ -222,4 +222,47 @@ public sealed class TeacherModuleTests : IClassFixture<TeacherModuleFixture>
         grid.Single(e => e.DayOfWeek == 5).TeacherName.Should().Be("Anita Rao");
         grid.Single(e => e.DayOfWeek == 5).TeacherId.Should().Be(teacherId);
     }
+
+    [Fact]
+    public async Task Teacher_login_seeds_role_links_user_and_signs_in()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        var teacherId = await sender.Send(new CreateTeacherCommand(
+            "EMP-500", "Kiran Kumar", "+919200000500", "kiran@staff.school",
+            null, "Mathematics", null));
+
+        var userId = await sender.Send(
+            new CreateTeacherLoginCommand(teacherId, "Teacher@12345"));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Teachers.SingleAsync(t => t.Id == teacherId)).UserId.Should().Be(userId);
+
+        // The "Teacher" role was get-or-created with the classroom bundle…
+        var role = await db.Roles.SingleAsync(
+            r => r.TenantId == _fixture.TenantId && r.Name == "Teacher");
+        var permissions = await db.RoleClaims
+            .Where(c => c.RoleId == role.Id)
+            .Select(c => c.ClaimValue)
+            .ToListAsync();
+        permissions.Should().Contain(
+        [
+            "students.view", "attendance.mark", "exams.enter-marks",
+            "homework.manage", "timetable.view",
+        ]);
+
+        // …the account holds it, and the teacher can actually sign in.
+        (await db.UserRoles.AnyAsync(ur => ur.UserId == userId && ur.RoleId == role.Id))
+            .Should().BeTrue();
+        var auth = scope.ServiceProvider
+            .GetRequiredService<SchoolErp.Application.Auth.IAuthService>();
+        var login = await auth.LoginWithPasswordAsync(
+            "STAFF1", "kiran@staff.school", "Teacher@12345", ipAddress: null);
+        login.Succeeded.Should().BeTrue();
+
+        // One login per teacher.
+        var again = () => sender.Send(new CreateTeacherLoginCommand(teacherId, "Other@12345"));
+        await again.Should().ThrowAsync<ConflictException>().WithMessage("*already has a login*");
+    }
 }
