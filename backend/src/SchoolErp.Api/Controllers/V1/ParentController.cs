@@ -15,6 +15,8 @@ using SchoolErp.Application.Exams.Queries;
 using SchoolErp.Application.Fees;
 using SchoolErp.Application.Fees.Queries;
 using SchoolErp.Application.Homework;
+using SchoolErp.Application.Hostel;
+using SchoolErp.Application.Library;
 using SchoolErp.Application.Parent;
 using SchoolErp.Application.Timetable;
 using SchoolErp.Application.Transport;
@@ -147,6 +149,26 @@ public sealed class ParentController : ControllerBase
     {
         await EnsureChildAsync(studentId, ct);
         return Ok(await _sender.Send(new GetStudentTimetableQuery(studentId), ct));
+    }
+
+    /// <summary>A child's library loans (history; open loans first by recency).</summary>
+    [HttpGet("children/{studentId:guid}/library")]
+    [ProducesResponseType(typeof(IReadOnlyList<BookLoanDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildLibrary(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(new GetLoansQuery(studentId), ct));
+    }
+
+    /// <summary>A child's hostel stay (204 for day scholars).</summary>
+    [HttpGet("children/{studentId:guid}/hostel")]
+    [ProducesResponseType(typeof(ChildHostelDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> GetChildHostel(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        var stay = await _sender.Send(new GetStudentHostelQuery(studentId), ct);
+        return stay is null ? NoContent() : Ok(stay);
     }
 
     /// <summary>A child's report card for a published exam, as a PDF.</summary>

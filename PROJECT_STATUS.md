@@ -35,8 +35,10 @@ Monorepo layout is described in `README.md`.
 | Audit trail: every command logged (user, tenant, IP), portal viewer | ✅ | ✅ | ✅ | — |
 | Device sessions: UA-labelled sign-ins, "My devices" list + revoke | ✅ | ✅ | ✅ | — |
 | MFA: TOTP enrollment, login gate, recovery codes, Security page | ✅ | ✅ | ✅ | — |
+| Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
+| Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 37 unit + 66 integration = **103 green** (`dotnet test` from `school-erp/`).
+Test suite: 37 unit + 69 integration = **106 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)

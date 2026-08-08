@@ -10,6 +10,8 @@ using SchoolErp.Domain.Auth;
 using SchoolErp.Domain.Common;
 using SchoolErp.Domain.Communication;
 using SchoolErp.Domain.Homework;
+using SchoolErp.Domain.Hostel;
+using SchoolErp.Domain.Library;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Outbox;
@@ -125,6 +127,21 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     /// <summary>Timetable entries (tenant-scoped).</summary>
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
+
+    /// <summary>Library books (tenant-scoped).</summary>
+    public DbSet<Book> Books => Set<Book>();
+
+    /// <summary>Book loans (tenant-scoped).</summary>
+    public DbSet<BookLoan> BookLoans => Set<BookLoan>();
+
+    /// <summary>Hostel buildings (tenant-scoped).</summary>
+    public DbSet<HostelBuilding> Hostels => Set<HostelBuilding>();
+
+    /// <summary>Hostel rooms (tenant-scoped).</summary>
+    public DbSet<HostelRoom> HostelRooms => Set<HostelRoom>();
+
+    /// <summary>Hostel stays (tenant-scoped).</summary>
+    public DbSet<HostelAllocation> HostelAllocations => Set<HostelAllocation>();
 
     /// <summary>Action audit trail (platform-scoped, nullable tenant column).</summary>
     public DbSet<AuditEvent> AuditEvents => Set<AuditEvent>();

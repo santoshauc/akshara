@@ -63,6 +63,12 @@ public static class Permissions
         public const string Manage = "library.manage";
     }
 
+    public static class Hostel
+    {
+        public const string View = "hostel.view";
+        public const string Manage = "hostel.manage";
+    }
+
     public static class Communication
     {
         public const string View = "communication.view";

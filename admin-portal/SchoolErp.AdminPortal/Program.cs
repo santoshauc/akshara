@@ -54,5 +54,7 @@ builder.Services.AddScoped<StaffClient>();
 builder.Services.AddScoped<AuditClient>();
 builder.Services.AddScoped<SessionsClient>();
 builder.Services.AddScoped<MfaClient>();
+builder.Services.AddScoped<LibraryClient>();
+builder.Services.AddScoped<HostelClient>();
 
 await builder.Build().RunAsync();

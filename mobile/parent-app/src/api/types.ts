@@ -140,6 +140,26 @@ export interface ChildTransport {
   vehicleRegistration: string | null;
 }
 
+/** One library loan of the child. */
+export interface BookLoan {
+  id: string;
+  bookTitle: string;
+  author: string;
+  issuedOn: string;
+  dueOn: string;
+  returnedOn: string | null;
+  overdue: boolean;
+}
+
+/** The child's hostel stay. */
+export interface ChildHostel {
+  hostelName: string;
+  roomNumber: string;
+  wardenName: string | null;
+  wardenPhone: string | null;
+  allocatedOn: string;
+}
+
 export interface FeeSummary {
   studentId: string;
   dueLines: FeeDueLine[];

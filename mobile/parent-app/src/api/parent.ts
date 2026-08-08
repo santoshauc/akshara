@@ -2,8 +2,10 @@ import { API_BASE_URL } from '../config';
 import { ApiError, request, requestBytes, tokenStore } from './client';
 import {
   AuthTokens,
+  BookLoan,
   BusLocation,
   Child,
+  ChildHostel,
   ChildTransport,
   Exam,
   FeeSummary,
@@ -103,4 +105,13 @@ export const parentApi = {
   /** The published report card as PDF bytes. 404 until the exam is published. */
   getReportCard: (studentId: string, examId: string) =>
     requestBytes(`/api/v1/parent/children/${studentId}/exams/${examId}/report-card`),
+
+  getLibrary: (studentId: string) =>
+    request<BookLoan[]>(`/api/v1/parent/children/${studentId}/library`),
+
+  /** Returns null for day scholars (204). */
+  getHostel: (studentId: string) =>
+    request<ChildHostel | undefined>(`/api/v1/parent/children/${studentId}/hostel`).then(
+      (h) => h ?? null,
+    ),
 };

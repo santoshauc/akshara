@@ -10,7 +10,9 @@ import {
 } from 'react-native';
 import { logout, parentApi } from '../api/parent';
 import {
+  BookLoan,
   Child,
+  ChildHostel,
   ChildTransport,
   Exam,
   FeeSummary,
@@ -25,6 +27,8 @@ import { BRAND } from '../config';
 import { useI18n } from '../i18n';
 import AttendanceCard from './cards/AttendanceCard';
 import BusLiveCard from './cards/BusLiveCard';
+import HostelCard from './cards/HostelCard';
+import LibraryCard from './cards/LibraryCard';
 import FeesCard from './cards/FeesCard';
 import HomeworkCard from './cards/HomeworkCard';
 import NoticesCard from './cards/NoticesCard';
@@ -52,6 +56,8 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [homework, setHomework] = useState<Homework[]>([]);
   const [transport, setTransport] = useState<ChildTransport | null>(null);
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
+  const [libraryLoans, setLibraryLoans] = useState<BookLoan[]>([]);
+  const [hostel, setHostel] = useState<ChildHostel | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -69,7 +75,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
   const loadChildData = useCallback(async (child: Child) => {
     const now = new Date();
-    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData] =
+    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData, libraryData, hostelData] =
       await Promise.all([
         parentApi
           .getAttendance(child.studentId, now.getFullYear(), now.getMonth() + 1)
@@ -80,6 +86,8 @@ export default function HomeScreen({ onSignedOut }: Props) {
         parentApi.getHomework(child.studentId).catch(() => [] as Homework[]),
         parentApi.getTransport(child.studentId).catch(() => null),
         parentApi.getTimetable(child.studentId).catch(() => [] as TimetableEntry[]),
+        parentApi.getLibrary(child.studentId).catch(() => [] as BookLoan[]),
+        parentApi.getHostel(child.studentId).catch(() => null),
       ]);
     setAttendance(attendanceData);
     setFees(feesData);
@@ -88,6 +96,8 @@ export default function HomeScreen({ onSignedOut }: Props) {
     setHomework(homeworkList);
     setTransport(transportData);
     setTimetable(timetableData);
+    setLibraryLoans(libraryData);
+    setHostel(hostelData);
     const latest = examList[examList.length - 1];
     setResult(
       latest
@@ -175,6 +185,8 @@ export default function HomeScreen({ onSignedOut }: Props) {
           <AttendanceCard attendance={attendance} />
           <TransportCard transport={transport} />
           {transport && <BusLiveCard studentId={selected.studentId} />}
+          {hostel && <HostelCard hostel={hostel} />}
+          <LibraryCard loans={libraryLoans} />
           <TimetableCard entries={timetable} />
           <HomeworkCard homework={homework} />
           <ResultCard result={result} examCount={exams.length} />

@@ -104,6 +104,20 @@ export const en = {
   noticesEmpty: 'No notices right now.',
   yourClass: 'your class',
   wholeSchool: 'whole school',
+
+  // Library
+  libraryTitle: 'Library books',
+  libraryEmpty: 'No books borrowed right now.',
+  dueBack: 'Due back {date}',
+  overdueBook: 'Overdue since {date}',
+  returned: 'Returned {date}',
+
+  // Hostel
+  hostelTitle: 'Hostel',
+  hostelRoom: 'Room {room}',
+  hostelSince: 'since {date}',
+  warden: 'Warden',
+  callWarden: 'Call warden ({phone})',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -209,4 +223,18 @@ export const te: Record<TranslationKey, string> = {
   noticesEmpty: 'ప్రస్తుతం ప్రకటనలు లేవు.',
   yourClass: 'మీ తరగతి',
   wholeSchool: 'మొత్తం స్కూల్',
+
+  // Library
+  libraryTitle: 'లైబ్రరీ పుస్తకాలు',
+  libraryEmpty: 'ప్రస్తుతం తీసుకున్న పుస్తకాలు లేవు.',
+  dueBack: 'తిరిగి ఇవ్వాల్సిన తేదీ {date}',
+  overdueBook: '{date} నుంచి గడువు దాటింది',
+  returned: '{date} న తిరిగి ఇచ్చారు',
+
+  // Hostel
+  hostelTitle: 'హాస్టల్',
+  hostelRoom: 'గది {room}',
+  hostelSince: '{date} నుంచి',
+  warden: 'వార్డెన్',
+  callWarden: 'వార్డెన్‌కు కాల్ చేయండి ({phone})',
 };

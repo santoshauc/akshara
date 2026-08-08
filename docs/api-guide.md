@@ -67,6 +67,8 @@ Requirements shown as `permission`.
 | Transport | vehicles, routes, stops, student assignments | `transport.view/manage` |
 | Timetable | `GET/PUT timetable` (define = full replace, drafts), `POST timetable/publish` | `timetable.view/manage` |
 | Teachers | `teachers` CRUD, `teachers/{id}/schedule`; define-time clash detection lives on timetable PUT | `staff.view/manage` |
+| Library | `library/books` (catalog + add), `library/loans` (issue, `loans/{id}/return`, open/overdue lists) | `library.view/manage` |
+| Hostel | `hostel` (+ `/{id}/rooms`), `hostel/allocations` (allocate, `/{id}/vacate`) | `hostel.view/manage` |
 | Audit | `GET audit?search&from&to` — latest 200, school-scoped | `audit.view` |
 
 ## Parent app API (identity-scoped, no permission claims)
@@ -85,6 +87,9 @@ GET parent/children/{id}/homework
 GET parent/children/{id}/timetable        → published entries only
 GET parent/children/{id}/transport        → 204 when no allocation
 GET parent/children/{id}/bus              → live trip + last GPS fix; 204 when idle
+GET parent/children/{id}/library          → book loans (open + history)
+GET parent/children/{id}/hostel           → stay + warden contact; 204 for day scholars
+GET parent/children/{id}/exams/{examId}/report-card → PDF (published only)
 ```
 
 ## Driver app API (identity-scoped)

@@ -6,6 +6,8 @@ using SchoolErp.Domain.Communication;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Homework;
+using SchoolErp.Domain.Hostel;
+using SchoolErp.Domain.Library;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Staff;
 using SchoolErp.Domain.Students;
@@ -77,6 +79,16 @@ public interface IApplicationDbContext
     DbSet<Teacher> Teachers { get; }
 
     DbSet<TimetableEntry> TimetableEntries { get; }
+
+    DbSet<Book> Books { get; }
+
+    DbSet<BookLoan> BookLoans { get; }
+
+    DbSet<HostelBuilding> Hostels { get; }
+
+    DbSet<HostelRoom> HostelRooms { get; }
+
+    DbSet<HostelAllocation> HostelAllocations { get; }
 
     DbSet<AuditEvent> AuditEvents { get; }
 

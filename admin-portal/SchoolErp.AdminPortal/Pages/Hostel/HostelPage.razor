@@ -1,0 +1,332 @@
+@page "/hostel"
+@attribute [Authorize]
+@inject HostelClient Client
+@inject StudentsClient StudentsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Hostel — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Hostel</MudText>
+
+<MudGrid>
+    <MudItem xs="12" md="5">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Hostels</MudText>
+            <MudTable Items="_hostels" Dense="true" Hover="true" Loading="_loading"
+                      RowClass="cursor-pointer"
+                      OnRowClick="@((TableRowClickEventArgs<HostelDto> args) => SelectHostelAsync(args.Item))">
+                <HeaderContent>
+                    <MudTh>Name</MudTh>
+                    <MudTh>Warden</MudTh>
+                    <MudTh>Occupancy</MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>@context.Name</MudTd>
+                    <MudTd>
+                        <MudText Typo="Typo.body2">@(context.WardenName ?? "—")</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.WardenPhone</MudText>
+                    </MudTd>
+                    <MudTd>
+                        <MudChip Size="Size.Small"
+                                 Color="@(context.Occupied < context.Capacity ? Color.Success : Color.Warning)">
+                            @context.Occupied / @context.Capacity
+                        </MudChip>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="mud-text-secondary pa-4">No hostels yet.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+
+            <MudDivider Class="my-4" />
+            <MudText Typo="Typo.subtitle2" Class="mb-2">Add a hostel</MudText>
+            <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+                <MudTextField @bind-Value="_newName" Label="Name" Style="min-width: 150px;" Dense="true" />
+                <MudTextField @bind-Value="_newWarden" Label="Warden" Style="min-width: 130px;" Dense="true" />
+                <MudTextField @bind-Value="_newWardenPhone" Label="Warden phone" Style="width: 150px;" Dense="true" />
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                           OnClick="CreateHostelAsync">
+                    Add
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+
+        @if (_selected is not null)
+        {
+            <MudPaper Elevation="2" Class="pa-4 mt-4">
+                <MudText Typo="Typo.h6" Class="mb-3">@_selected.Name — rooms</MudText>
+                <MudTable Items="_rooms" Dense="true" Hover="true">
+                    <HeaderContent>
+                        <MudTh>Room</MudTh>
+                        <MudTh>Beds</MudTh>
+                        <MudTh />
+                    </HeaderContent>
+                    <RowTemplate>
+                        <MudTd>@context.RoomNumber</MudTd>
+                        <MudTd>
+                            <MudChip Size="Size.Small"
+                                     Color="@(context.Occupied < context.Capacity ? Color.Success : Color.Warning)">
+                                @context.Occupied / @context.Capacity
+                            </MudChip>
+                        </MudTd>
+                        <MudTd>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       Disabled="@(context.Occupied >= context.Capacity)"
+                                       OnClick="@(() => OpenAllocate(context))">
+                                Allocate
+                            </MudButton>
+                        </MudTd>
+                    </RowTemplate>
+                </MudTable>
+                <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center">
+                    <MudTextField @bind-Value="_newRoom" Label="Room no" Style="width: 100px;" Dense="true" />
+                    <MudNumericField @bind-Value="_newCapacity" Label="Beds" Min="1" Max="20"
+                                     Style="width: 90px;" Dense="true" />
+                    <MudButton Variant="Variant.Outlined" Disabled="_busy" OnClick="AddRoomAsync">
+                        Add room
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudItem>
+
+    <MudItem xs="12" md="7">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Current residents</MudText>
+            <MudTable Items="_allocations" Dense="true" Hover="true">
+                <HeaderContent>
+                    <MudTh>Student</MudTh>
+                    <MudTh>Hostel · room</MudTh>
+                    <MudTh>Since</MudTh>
+                    <MudTh />
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd>
+                        <MudText Typo="Typo.body2">@context.StudentName</MudText>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.AdmissionNumber</MudText>
+                    </MudTd>
+                    <MudTd>@context.HostelName · @context.RoomNumber</MudTd>
+                    <MudTd>@context.AllocatedOn.ToString("dd MMM yyyy")</MudTd>
+                    <MudTd>
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Error"
+                                   OnClick="@(() => VacateAsync(context))">
+                            Vacate
+                        </MudButton>
+                    </MudTd>
+                </RowTemplate>
+                <NoRecordsContent>
+                    <MudText Class="mud-text-secondary pa-4">No residents yet.</MudText>
+                </NoRecordsContent>
+            </MudTable>
+        </MudPaper>
+
+        @if (_allocateRoom is not null)
+        {
+            <MudPaper Elevation="2" Class="pa-6 mt-4">
+                <MudText Typo="Typo.h6" Class="mb-2">Allocate room @_allocateRoom.RoomNumber</MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                    <MudTextField @bind-Value="_studentSearch" Label="Student name / admission no"
+                                  Style="min-width: 220px;" Dense="true"
+                                  OnKeyUp="@(e => e.Key == "Enter" ? SearchStudentsAsync() : Task.CompletedTask)" />
+                    <MudButton Variant="Variant.Outlined" OnClick="SearchStudentsAsync">Find</MudButton>
+                </MudStack>
+                @foreach (var student in _studentMatches)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mt-2">
+                        <MudText Typo="Typo.body2">
+                            @student.FirstName @student.LastName · @student.AdmissionNumber
+                        </MudText>
+                        <MudSpacer />
+                        <MudButton Size="Size.Small" Variant="Variant.Filled" Color="Color.Primary"
+                                   Disabled="_busy" OnClick="@(() => AllocateAsync(student.Id))">
+                            Allocate
+                        </MudButton>
+                    </MudStack>
+                }
+                <MudStack Row="true" Class="mt-3">
+                    <MudSpacer />
+                    <MudButton OnClick="@(() => _allocateRoom = null)">Close</MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<HostelDto> _hostels = [];
+    private List<HostelRoomDto> _rooms = [];
+    private List<HostelAllocationDto> _allocations = [];
+    private List<StudentListItemDto> _studentMatches = [];
+    private HostelDto? _selected;
+    private HostelRoomDto? _allocateRoom;
+    private string _newName = "";
+    private string? _newWarden;
+    private string? _newWardenPhone;
+    private string _newRoom = "";
+    private int _newCapacity = 2;
+    private string? _studentSearch;
+    private bool _loading = true;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _hostels = await Client.GetHostelsAsync();
+            _allocations = await Client.GetAllocationsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task SelectHostelAsync(HostelDto hostel)
+    {
+        _selected = hostel;
+        _rooms = await Client.GetRoomsAsync(hostel.Id);
+    }
+
+    private async Task CreateHostelAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            Snackbar.Add("Hostel name is required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateHostelAsync(new CreateHostelRequest(
+                _newName.Trim(),
+                string.IsNullOrWhiteSpace(_newWarden) ? null : _newWarden.Trim(),
+                string.IsNullOrWhiteSpace(_newWardenPhone) ? null : _newWardenPhone.Trim()));
+            if (error is null)
+            {
+                Snackbar.Add("Hostel added.", Severity.Success);
+                _newName = "";
+                _newWarden = null;
+                _newWardenPhone = null;
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task AddRoomAsync()
+    {
+        if (_selected is null || string.IsNullOrWhiteSpace(_newRoom))
+        {
+            Snackbar.Add("Select a hostel and enter a room number.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.AddRoomAsync(
+                _selected.Id, new AddHostelRoomRequest(_newRoom.Trim(), _newCapacity));
+            if (error is null)
+            {
+                Snackbar.Add("Room added.", Severity.Success);
+                _newRoom = "";
+                await SelectHostelAsync(_selected);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OpenAllocate(HostelRoomDto room)
+    {
+        _allocateRoom = room;
+        _studentMatches = [];
+        _studentSearch = null;
+    }
+
+    private async Task SearchStudentsAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_studentSearch))
+        {
+            return;
+        }
+
+        var result = await StudentsApi.GetStudentsAsync(_studentSearch.Trim(), null, null, null, 1, 5);
+        _studentMatches = result.Items.ToList();
+    }
+
+    private async Task AllocateAsync(Guid studentId)
+    {
+        if (_allocateRoom is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.AllocateAsync(new AllocateRequest(_allocateRoom.Id, studentId));
+            if (error is null)
+            {
+                Snackbar.Add("Room allocated.", Severity.Success);
+                _allocateRoom = null;
+                await LoadAsync();
+                if (_selected is not null)
+                {
+                    await SelectHostelAsync(_selected);
+                }
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task VacateAsync(HostelAllocationDto allocation)
+    {
+        var error = await Client.VacateAsync(allocation.Id);
+        if (error is null)
+        {
+            Snackbar.Add($"{allocation.StudentName} vacated.", Severity.Success);
+            await LoadAsync();
+            if (_selected is not null)
+            {
+                await SelectHostelAsync(_selected);
+            }
+        }
+        else
+        {
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
+}
