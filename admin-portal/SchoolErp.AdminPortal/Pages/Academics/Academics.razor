@@ -1,6 +1,7 @@
 @page "/academics"
 @attribute [Authorize]
 @inject AcademicsClient Client
+@inject StudentsClient StudentsApi
 @inject ISnackbar Snackbar
 
 <PageTitle>Academics — SchoolErp</PageTitle>
@@ -114,6 +115,118 @@
             }
         </MudPaper>
     </MudItem>
+
+    <MudItem xs="12">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudText Typo="Typo.h6" Class="mb-1">Year-end promotion</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+                Moves a section's active students into the next year. Untick students
+                who repeat the year — they keep their current enrollment. Running it
+                twice is safe: students already placed in the target year are skipped.
+            </MudText>
+
+            <MudGrid Spacing="3">
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">From</MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                        <MudSelect T="Guid?" @bind-Value="_fromYearId" Label="Year" Dense="true"
+                                   Style="min-width: 140px;" ToStringFunc="@YearName">
+                            @foreach (var year in _years)
+                            {
+                                <MudSelectItem T="Guid?" Value="@year.Id">@year.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="Guid?" @bind-Value="_fromClassId" Label="Class" Dense="true"
+                                   Style="min-width: 140px;"
+                                   SelectedValuesChanged="@(_ => { _fromSectionId = null; _promoStudents = null; })">
+                            @foreach (var cls in _classes)
+                            {
+                                <MudSelectItem T="Guid?" Value="@cls.Id">@cls.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="Guid?" @bind-Value="_fromSectionId" Label="Section" Dense="true"
+                                   Style="min-width: 120px;" Disabled="@(_fromClassId is null)"
+                                   SelectedValuesChanged="@(_ => _promoStudents = null)">
+                            @foreach (var sec in SectionsOf(_fromClassId))
+                            {
+                                <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+                </MudItem>
+
+                <MudItem xs="12" md="6">
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">To</MudText>
+                    <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                        <MudSelect T="Guid?" @bind-Value="_toYearId" Label="Year" Dense="true"
+                                   Style="min-width: 140px;" ToStringFunc="@YearName">
+                            @foreach (var year in _years)
+                            {
+                                <MudSelectItem T="Guid?" Value="@year.Id">@year.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="Guid?" @bind-Value="_toClassId" Label="Class" Dense="true"
+                                   Style="min-width: 140px;"
+                                   SelectedValuesChanged="@(_ => _toSectionId = null)">
+                            @foreach (var cls in _classes)
+                            {
+                                <MudSelectItem T="Guid?" Value="@cls.Id">@cls.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                        <MudSelect T="Guid?" @bind-Value="_toSectionId" Label="Section" Dense="true"
+                                   Style="min-width: 120px;" Disabled="@(_toClassId is null)">
+                            @foreach (var sec in SectionsOf(_toClassId))
+                            {
+                                <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
+                            }
+                        </MudSelect>
+                    </MudStack>
+                </MudItem>
+            </MudGrid>
+
+            <MudStack Row="true" Spacing="2" Class="mt-4" AlignItems="AlignItems.Center">
+                <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                           Disabled="@(_fromClassId is null || _fromSectionId is null || _busy)"
+                           OnClick="LoadPromotionStudentsAsync">
+                    Load students
+                </MudButton>
+                @if (_promoStudents is { Count: > 0 })
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        @_promoTicked.Count of @_promoStudents.Count selected to promote
+                    </MudText>
+                }
+            </MudStack>
+
+            @if (_promoStudents is { } students)
+            {
+                @if (students.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary mt-3">No active students in that section.</MudText>
+                }
+                else
+                {
+                    <MudPaper Outlined="true" Class="pa-3 mt-3" Style="max-height: 260px; overflow-y: auto;">
+                        @foreach (var student in students)
+                        {
+                            <MudCheckBox T="bool"
+                                         Value="@_promoTicked.Contains(student.Id)"
+                                         ValueChanged="@(on => TogglePromotion(student.Id, on))"
+                                         Dense="true"
+                                         Label="@($"{student.FirstName} {student.LastName} · {student.AdmissionNumber}{(student.RollNumber is { } r ? $" · Roll {r}" : "")}")" />
+                        }
+                    </MudPaper>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+                               Disabled="@(_busy || _toYearId is null || _toClassId is null ||
+                                           _toSectionId is null || _promoTicked.Count == 0)"
+                               StartIcon="@Icons.Material.Filled.TrendingUp"
+                               OnClick="PromoteAsync">
+                        @(_busy ? "Promoting…" : $"Promote {_promoTicked.Count} students")
+                    </MudButton>
+                }
+            }
+        </MudPaper>
+    </MudItem>
 </MudGrid>
 
 @code {
@@ -132,6 +245,21 @@
     private int _classOrder;
     private string _classSections = "A";
 
+    private Guid? _fromYearId;
+    private Guid? _fromClassId;
+    private Guid? _fromSectionId;
+    private Guid? _toYearId;
+    private Guid? _toClassId;
+    private Guid? _toSectionId;
+    private List<StudentListItemDto>? _promoStudents;
+    private readonly HashSet<Guid> _promoTicked = [];
+
+    private IEnumerable<SectionDto> SectionsOf(Guid? classId) =>
+        _classes.FirstOrDefault(c => c.Id == classId)?.Sections ?? [];
+
+    private string YearName(Guid? id) =>
+        _years.FirstOrDefault(y => y.Id == id)?.Name ?? string.Empty;
+
     protected override Task OnInitializedAsync() => ReloadAsync();
 
     private async Task ReloadAsync()
@@ -140,10 +268,86 @@
         {
             _years = await Client.GetYearsAsync();
             _classes = await Client.GetClassesAsync();
+            _fromYearId ??= _years.FirstOrDefault(y => y.IsCurrent)?.Id;
         }
         catch (HttpRequestException)
         {
             Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task LoadPromotionStudentsAsync()
+    {
+        try
+        {
+            var page = await StudentsApi.GetStudentsAsync(
+                null, _fromClassId, _fromSectionId, StudentStatus.Active, 1, 100);
+            _promoStudents = page.Items.ToList();
+            _promoTicked.Clear();
+            foreach (var student in _promoStudents)
+            {
+                _promoTicked.Add(student.Id); // promote everyone by default
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private void TogglePromotion(Guid studentId, bool promote)
+    {
+        if (promote)
+        {
+            _promoTicked.Add(studentId);
+        }
+        else
+        {
+            _promoTicked.Remove(studentId);
+        }
+    }
+
+    private async Task PromoteAsync()
+    {
+        if (_fromYearId == _toYearId)
+        {
+            Snackbar.Add("Promotion must target a different academic year.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var excluded = _promoStudents!
+                .Where(s => !_promoTicked.Contains(s.Id))
+                .Select(s => s.Id)
+                .ToList();
+            var (result, error) = await Client.PromoteAsync(new PromoteClassRequest(
+                _fromYearId!.Value, _fromClassId!.Value, _fromSectionId!.Value,
+                _toYearId!.Value, _toClassId!.Value, _toSectionId!.Value, excluded));
+            if (result is not null)
+            {
+                Snackbar.Add(
+                    $"Promoted {result.Promoted} students" +
+                    (result.Excluded > 0 ? $", {result.Excluded} held back" : "") +
+                    (result.AlreadyEnrolled > 0
+                        ? $", {result.AlreadyEnrolled} already in the target year" : "") + ".",
+                    Severity.Success);
+                _promoStudents = null;
+                _promoTicked.Clear();
+            }
+            else
+            {
+                Snackbar.Add(error ?? "Promotion failed.", Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 

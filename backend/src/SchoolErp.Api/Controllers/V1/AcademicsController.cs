@@ -47,6 +47,22 @@ public sealed class AcademicsController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>
+    /// Year-end promotion: moves a section's active enrollments into the
+    /// target year/class/section, skipping the opt-out list. Idempotent —
+    /// students already placed in the target year are left alone.
+    /// </summary>
+    [HttpPost("promotions")]
+    [HasPermission(Permissions.Students.Manage)]
+    [ProducesResponseType(typeof(Application.Students.Commands.PromotionResult),
+        StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> PromoteClass(
+        [FromBody] Application.Students.Commands.PromoteClassCommand command,
+        CancellationToken ct) =>
+        Ok(await _sender.Send(command, ct));
+
     /// <summary>Lists classes with their sections.</summary>
     [HttpGet("classes")]
     [HasPermission(Permissions.Academics.View)]

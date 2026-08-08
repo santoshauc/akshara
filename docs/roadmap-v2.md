@@ -20,7 +20,7 @@ as items land.
 
 | # | Item | Acceptance criteria | Status |
 |---|---|---|---|
-| B1 | Year-end promotion | Bulk promote a class's active enrollments into the next year/class (per-student opt-out list); creates new enrollments, marks old ones Promoted; portal action on Academics. | |
+| B1 | Year-end promotion | Bulk promote a class's active enrollments into the next year/class (per-student opt-out list); creates new enrollments, marks old ones Promoted; portal action on Academics. | DONE |
 | B2 | Teacher logins | "Teacher" seeded role (attendance.mark, exams.enter-marks, homework.manage, timetable.view, students.view); one-click "create login" from the Teachers page linking Teacher→user; teacher can sign in and do those tasks. | |
 | B3 | Leave management | Parent submits a student leave request from the app; staff approve/reject in portal (approval marks attendance Leave for the range); staff leave requests with the same flow. | |
 | B4 | School documents | Transfer Certificate + bonafide certificate + student ID card as PDFs (extend the QuestPDF renderer); buttons on the student profile. | |

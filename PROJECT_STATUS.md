@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 79 integration = **127 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 80 integration = **128 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -166,6 +166,18 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   - 5 integration tests (metering + dead-letter, expiry lockout for both
     login paths, gate blocks/allows/skips-platform); all E2E-verified live
     (403 message, 423 message, restore).
+- B1 Year-end promotion — DONE. PromoteClassCommand closes a section's
+  Active enrollments as Promoted and creates Active ones in the target
+  year/class/section; per-student opt-out list; idempotent (students
+  already in the target year are skipped); roll numbers don't carry.
+  POST academics/promotions (students.manage). Portal: "Year-end
+  promotion" panel on Academics (from/to pickers with ToStringFunc so a
+  preset year renders its name, student checkbox list defaulting to all,
+  result snackbar). 1 integration test (promote/opt-out/idempotent/
+  opt-out-lifted); E2E-verified in the browser ("Promoted 1 students" —
+  demo data then reverted via SQL so Ananya stays in Grade 5 A).
+  NOTE: portal student list for the opt-out picker caps at 100 (the
+  GetStudents pageSize limit) — fine for real section sizes.
 
 ## How to run (Windows dev box)
 

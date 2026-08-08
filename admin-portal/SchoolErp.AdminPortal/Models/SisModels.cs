@@ -20,6 +20,19 @@ public sealed record CreateAcademicYearRequest(
 /// <summary>Create-class payload (mirrors CreateClassCommand).</summary>
 public sealed record CreateClassRequest(string Name, int DisplayOrder, List<string> Sections);
 
+/// <summary>Year-end promotion payload (mirrors PromoteClassCommand).</summary>
+public sealed record PromoteClassRequest(
+    Guid FromAcademicYearId,
+    Guid FromClassId,
+    Guid FromSectionId,
+    Guid ToAcademicYearId,
+    Guid ToClassId,
+    Guid ToSectionId,
+    List<Guid> ExcludedStudentIds);
+
+/// <summary>Outcome of a promotion run.</summary>
+public sealed record PromotionResultDto(int Promoted, int Excluded, int AlreadyEnrolled);
+
 /// <summary>Student list row.</summary>
 public sealed record StudentListItemDto(
     Guid Id,

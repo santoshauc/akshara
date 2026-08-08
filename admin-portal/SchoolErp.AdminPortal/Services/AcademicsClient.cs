@@ -33,4 +33,18 @@ public sealed class AcademicsClient
         var response = await _http.PostAsJsonAsync("api/v1/academics/classes", request, ct);
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
+
+    /// <summary>Runs a year-end promotion; returns the result or the problem message.</summary>
+    public async Task<(PromotionResultDto? Result, string? Error)> PromoteAsync(
+        PromoteClassRequest request, CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync("api/v1/academics/promotions", request, ct);
+        if (response.IsSuccessStatusCode)
+        {
+            return (await response.Content.ReadFromJsonAsync<PromotionResultDto>(
+                cancellationToken: ct), null);
+        }
+
+        return (null, await ProblemResponse.ReadTitleAsync(response, ct));
+    }
 }

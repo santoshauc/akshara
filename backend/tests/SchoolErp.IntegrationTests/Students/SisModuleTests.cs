@@ -107,7 +107,9 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
         var years = await sender.Send(new GetAcademicYearsQuery());
         var classes = await sender.Send(new GetClassesQuery());
         var grade5 = classes.Single(c => c.Name == "Grade 5");
-        return (years.Single().Id, grade5.Id, grade5.Sections.Single(s => s.Name == "A").Id);
+        // By name, not Single(): the promotion test adds a second year.
+        return (years.Single(y => y.Name == "2026-27").Id,
+            grade5.Id, grade5.Sections.Single(s => s.Name == "A").Id);
     }
 
     private static AdmitStudentCommand NewAdmission(
@@ -234,5 +236,63 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
             with { AdmissionNumber = "CUSTOM-1" };
         var act = () => sender.Send(duplicate);
         await act.Should().ThrowAsync<ConflictException>().WithMessage("*CUSTOM-1*");
+    }
+
+    [Fact]
+    public async Task Promotion_moves_active_enrollments_skips_optouts_and_is_idempotent()
+    {
+        await using var scope = _fixture.CreateScope(_fixture.SchoolB);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Dedicated structure so parallel tests in this class can't interfere.
+        var years = await sender.Send(new GetAcademicYearsQuery());
+        var fromYear = years.Single(y => y.Name == "2026-27").Id;
+        var toYear = (await sender.Send(new CreateAcademicYearCommand(
+            "2027-28", new DateOnly(2027, 6, 1), new DateOnly(2028, 4, 30), MakeCurrent: false))).Id;
+        var fromClass = await sender.Send(new CreateClassCommand("Promo 5", 5, ["A"]));
+        var toClass = await sender.Send(new CreateClassCommand("Promo 6", 6, ["A"]));
+        var fromSection = fromClass.Sections.Single().Id;
+        var toSection = toClass.Sections.Single().Id;
+
+        var moving = await sender.Send(NewAdmission(
+            fromYear, fromClass.Id, fromSection, "Meera", "+919899000077"));
+        var repeating = await sender.Send(NewAdmission(
+            fromYear, fromClass.Id, fromSection, "Rahul", "+919899000088"));
+
+        var result = await sender.Send(new PromoteClassCommand(
+            fromYear, fromClass.Id, fromSection, toYear, toClass.Id, toSection,
+            ExcludedStudentIds: [repeating]));
+
+        result.Should().Be(new PromotionResult(Promoted: 1, Excluded: 1, AlreadyEnrolled: 0));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var meera = await db.Enrollments.Where(e => e.StudentId == moving).ToListAsync();
+        meera.Should().HaveCount(2);
+        meera.Single(e => e.AcademicYearId == fromYear).Status
+            .Should().Be(EnrollmentStatus.Promoted);
+        var promoted = meera.Single(e => e.AcademicYearId == toYear);
+        promoted.Status.Should().Be(EnrollmentStatus.Active);
+        promoted.SchoolClassId.Should().Be(toClass.Id);
+        promoted.RollNumber.Should().BeNull("roll numbers must not carry over");
+
+        // The opt-out stays exactly as it was.
+        var rahul = await db.Enrollments.Where(e => e.StudentId == repeating).ToListAsync();
+        rahul.Should().ContainSingle().Which.Status.Should().Be(EnrollmentStatus.Active);
+
+        // Re-running must not duplicate: Meera's source row is no longer
+        // Active, Rahul is still excluded.
+        var again = await sender.Send(new PromoteClassCommand(
+            fromYear, fromClass.Id, fromSection, toYear, toClass.Id, toSection,
+            ExcludedStudentIds: [repeating]));
+        again.Promoted.Should().Be(0);
+
+        // Promoting Rahul later (opt-out lifted) works and Meera is skipped
+        // as already enrolled if her row were still active — here the guard
+        // simply finds nothing new beyond Rahul.
+        var lifted = await sender.Send(new PromoteClassCommand(
+            fromYear, fromClass.Id, fromSection, toYear, toClass.Id, toSection,
+            ExcludedStudentIds: []));
+        lifted.Promoted.Should().Be(1);
+        (await db.Enrollments.CountAsync(e => e.StudentId == repeating)).Should().Be(2);
     }
 }
