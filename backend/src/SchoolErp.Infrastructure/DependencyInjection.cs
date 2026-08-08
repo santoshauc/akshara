@@ -85,7 +85,23 @@ public static class DependencyInjection
         services.AddSingleton<JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<Application.Users.IUserAdminService, UserAdminService>();
-        services.AddScoped<ISmsSender, DevSmsSender>();
+        // MSG91 goes live when Sms:Provider says so; otherwise SMS is logged.
+        services.AddOptions<Notifications.SmsOptions>()
+            .Bind(configuration.GetSection(Notifications.SmsOptions.SectionName));
+        services.AddHttpClient<Notifications.Msg91SmsSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://api.msg91.com/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        if (string.Equals(configuration["Sms:Provider"], "msg91", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<ISmsSender>(
+                sp => sp.GetRequiredService<Notifications.Msg91SmsSender>());
+        }
+        else
+        {
+            services.AddScoped<ISmsSender, DevSmsSender>();
+        }
 
         // Outbox delivery core; the polling BackgroundService is registered by
         // the API host so tests can drive the processor synchronously.
