@@ -130,6 +130,9 @@ public static class DependencyInjection
 
         services.AddScoped<Payments.GatewayWebhookProcessor>();
 
+        // --- Files ---------------------------------------------------------
+        services.AddScoped<IFileStorage, Storage.LocalDiskFileStorage>();
+
         // --- Reports -------------------------------------------------------
         services.AddSingleton<Application.Exams.Queries.IReportCardRenderer,
             Reports.QuestPdfReportCardRenderer>();

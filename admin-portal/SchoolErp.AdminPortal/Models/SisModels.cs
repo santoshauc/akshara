@@ -73,7 +73,8 @@ public sealed record StudentDetailDto(
     DateOnly AdmissionDate,
     StudentStatus Status,
     List<GuardianDto> Guardians,
-    EnrollmentDto? CurrentEnrollment);
+    EnrollmentDto? CurrentEnrollment,
+    string? PhotoUrl);
 
 /// <summary>Guardian input inside an admission (mirrors GuardianInput).</summary>
 public sealed record GuardianInputModel

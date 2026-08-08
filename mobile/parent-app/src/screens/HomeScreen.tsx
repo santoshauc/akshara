@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -23,7 +24,7 @@ import {
   TimetableEntry,
 } from '../api/types';
 import LanguageToggle from '../components/LanguageToggle';
-import { BRAND } from '../config';
+import { API_BASE_URL, BRAND } from '../config';
 import { useI18n } from '../i18n';
 import AttendanceCard from './cards/AttendanceCard';
 import BusLiveCard from './cards/BusLiveCard';
@@ -168,13 +169,27 @@ export default function HomeScreen({ onSignedOut }: Props) {
               style={[styles.childChip, active && styles.childChipActive]}
               onPress={() => setSelected(child)}
             >
-              <Text style={[styles.childName, active && styles.childNameActive]}>
-                {child.fullName}
-              </Text>
-              <Text style={[styles.childMeta, active && styles.childNameActive]}>
-                {child.className ?? '—'} {child.sectionName ?? ''}
-                {child.rollNumber ? ` · ${t('roll')} ${child.rollNumber}` : ''}
-              </Text>
+              {child.photoUrl ? (
+                <Image
+                  source={{ uri: `${API_BASE_URL}${child.photoUrl}` }}
+                  style={styles.childPhoto}
+                />
+              ) : (
+                <View style={[styles.childPhoto, styles.childPhotoFallback]}>
+                  <Text style={[styles.childInitial, active && styles.childNameActive]}>
+                    {child.fullName.charAt(0)}
+                  </Text>
+                </View>
+              )}
+              <View>
+                <Text style={[styles.childName, active && styles.childNameActive]}>
+                  {child.fullName}
+                </Text>
+                <Text style={[styles.childMeta, active && styles.childNameActive]}>
+                  {child.className ?? '—'} {child.sectionName ?? ''}
+                  {child.rollNumber ? ` · ${t('roll')} ${child.rollNumber}` : ''}
+                </Text>
+              </View>
             </TouchableOpacity>
           );
         })}
@@ -221,7 +236,17 @@ const styles = StyleSheet.create({
     marginHorizontal: 4,
     borderWidth: 1,
     borderColor: '#E1E5EC',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
   },
+  childPhoto: { width: 36, height: 36, borderRadius: 18 },
+  childPhotoFallback: {
+    backgroundColor: '#E1E5EC',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  childInitial: { fontSize: 16, fontWeight: '700', color: '#556' },
   childChipActive: { backgroundColor: BRAND, borderColor: BRAND },
   childName: { fontSize: 15, fontWeight: '600', color: '#223' },
   childMeta: { fontSize: 12, color: '#667' },

@@ -20,7 +20,8 @@ else if (_student is { } student)
     <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
         <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
                        OnClick="@(() => Navigation.NavigateTo("students"))" />
-        <MudAvatar Color="Color.Primary" Size="Size.Large">
+        <MudAvatar Color="Color.Primary" Size="Size.Large"
+                   Image="@Client.FileUrl(student.PhotoUrl)">
             @student.FirstName[0]@(student.LastName.Length > 0 ? student.LastName[0] : ' ')
         </MudAvatar>
         <div>
@@ -29,6 +30,13 @@ else if (_student is { } student)
                 @student.AdmissionNumber · admitted @student.AdmissionDate.ToString("dd MMM yyyy")
             </MudText>
         </div>
+        <InputFile id="student-photo-input" OnChange="UploadPhotoAsync"
+                   accept=".jpg,.jpeg,.png,.webp" hidden />
+        <MudButton HtmlTag="label" for="student-photo-input" Size="Size.Small"
+                   Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PhotoCamera"
+                   Disabled="@_photoBusy">
+            @(_photoBusy ? "Uploading…" : "Photo")
+        </MudButton>
         <MudSpacer />
         <MudChip Color="@(student.Status == StudentStatus.Active ? Color.Success : Color.Warning)">
             @student.Status
@@ -301,6 +309,7 @@ else if (_student is { } student)
     private PaymentMode _payMode = PaymentMode.Cash;
     private string? _payReference;
     private bool _payBusy;
+    private bool _photoBusy;
     private bool _loading = true;
 
     protected override async Task OnParametersSetAsync()
@@ -332,6 +341,41 @@ else if (_student is { } student)
         finally
         {
             _loading = false;
+        }
+    }
+
+    private async Task UploadPhotoAsync(InputFileChangeEventArgs e)
+    {
+        const long maxBytes = 2 * 1024 * 1024;
+        if (e.File.Size > maxBytes)
+        {
+            Snackbar.Add("Photo must be 2 MB or smaller.", Severity.Warning);
+            return;
+        }
+
+        _photoBusy = true;
+        try
+        {
+            await using var content = e.File.OpenReadStream(maxBytes);
+            var (photoUrl, error) = await Client.UploadPhotoAsync(
+                Id, e.File.Name, content, e.File.ContentType);
+            if (photoUrl is not null && _student is not null)
+            {
+                _student = _student with { PhotoUrl = photoUrl };
+                Snackbar.Add("Photo updated. Parents see it in the app.", Severity.Success);
+            }
+            else
+            {
+                Snackbar.Add(error ?? "Upload failed.", Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _photoBusy = false;
         }
     }
 

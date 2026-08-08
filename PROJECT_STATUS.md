@@ -4,7 +4,7 @@
 > zero conversation history. Keep this file updated at the end of every
 > working session.
 
-Last updated: 2026-08-07.
+Last updated: 2026-08-08.
 
 ## What this is
 
@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 37 unit + 69 integration = **106 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 74 integration = **122 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -126,6 +126,27 @@ docker-compose "full" profile that builds and runs the API container against
 the data services (`docker compose --profile full up -d --build`).
 Remaining backlog: portal/SMS localization only. (AutoMapper is REMOVED —
 hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
+
+## Roadmap v2 (gap closure — see docs/roadmap-v2.md for the full plan)
+
+- A1 Staff & role administration — DONE (Users page: staff accounts +
+  role permission editor; tenant-resolved role IDs, never names).
+- A2 Production SMS (MSG91) — DONE (Msg91SmsSender activates on
+  Sms:Provider=msg91; DLT template config; dev fallback logs).
+- A3 Real online payments — DONE (RazorpayGateway activates on
+  Razorpay:KeyId; hosted checkout page + dev-simulate flow; parent
+  "Pay now" opens checkout, webhook completes, receipt SMS).
+- A4 File storage + student photos — DONE. IFileStorage →
+  LocalDiskFileStorage (keys `{tenant:N}/{category}/{guid:N}{ext}`,
+  regex-validated + path-prefix check, extension allowlist).
+  POST students/{id}/photo (students.manage, 2 MB, jpg/png/webp) swaps
+  the photo and deletes the orphaned file; GET files/{**key} serves
+  anonymously (unguessable double-GUID keys) with 1h response cache.
+  Portal profile shows the photo avatar + "Photo" upload button
+  (InputFile + label pattern); parent app child switcher shows the
+  avatar (falls back to initial). 6 unit tests (roundtrip, traversal,
+  bad extension/category). E2E-verified in portal + parent app.
+- A5 Plan enforcement — NEXT.
 
 ## How to run (Windows dev box)
 

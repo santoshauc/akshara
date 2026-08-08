@@ -32,3 +32,6 @@ Thumbs.db
 logs/
 *.log
 coverage/
+
+# Runtime file storage (LocalDiskFileStorage)
+backend/src/SchoolErp.Api/data/

@@ -2,6 +2,7 @@ using Asp.Versioning;
 using MediatR;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
+using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Students;
 using SchoolErp.Application.Students.Commands;
 using SchoolErp.Application.Students.Queries;
@@ -59,5 +60,36 @@ public sealed class StudentsController : ControllerBase
     {
         var id = await _sender.Send(command, ct);
         return CreatedAtAction(nameof(GetStudent), new { id, version = "1" }, id);
+    }
+
+    /// <summary>Uploads/replaces the student photo (jpeg/png/webp, max 2 MB).</summary>
+    [HttpPost("{id:guid}/photo")]
+    [HasPermission(Permissions.Students.Manage)]
+    [RequestSizeLimit(2 * 1024 * 1024)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UploadPhoto(
+        Guid id, IFormFile file, [FromServices] IFileStorage storage, CancellationToken ct)
+    {
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (file.Length == 0 || extension is not (".jpg" or ".jpeg" or ".png" or ".webp"))
+        {
+            return Problem(
+                title: "Upload a .jpg, .png or .webp image (max 2 MB).",
+                statusCode: StatusCodes.Status400BadRequest);
+        }
+
+        await using var content = file.OpenReadStream();
+        var key = await storage.SaveAsync("student-photos", extension, content, ct);
+        var photoUrl = $"/api/v1/files/{key}";
+
+        var previousUrl = await _sender.Send(new SetStudentPhotoCommand(id, photoUrl), ct);
+        if (previousUrl is not null &&
+            previousUrl.StartsWith("/api/v1/files/", StringComparison.Ordinal))
+        {
+            await storage.DeleteAsync(previousUrl["/api/v1/files/".Length..], ct);
+        }
+
+        return Ok(photoUrl);
     }
 }

@@ -48,6 +48,7 @@ public sealed record StudentDetailDto
     public string? MedicalNotes { get; init; }
     public DateOnly AdmissionDate { get; init; }
     public StudentStatus Status { get; init; }
+    public string? PhotoUrl { get; init; }
     public IReadOnlyList<GuardianDto> Guardians { get; init; } = [];
     public EnrollmentDto? CurrentEnrollment { get; init; }
 }

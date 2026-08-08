@@ -58,4 +58,26 @@ public sealed class StudentsClient
 
         return (null, await ProblemResponse.ReadTitleAsync(response, ct));
     }
+
+    /// <summary>Uploads a student photo; returns the served URL or the problem message.</summary>
+    public async Task<(string? PhotoUrl, string? Error)> UploadPhotoAsync(
+        Guid id, string fileName, Stream content, string contentType, CancellationToken ct = default)
+    {
+        using var form = new MultipartFormDataContent();
+        using var file = new StreamContent(content);
+        file.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(contentType);
+        form.Add(file, "file", fileName);
+
+        var response = await _http.PostAsync($"api/v1/students/{id}/photo", form, ct);
+        if (response.IsSuccessStatusCode)
+        {
+            return (await response.Content.ReadFromJsonAsync<string>(cancellationToken: ct), null);
+        }
+
+        return (null, await ProblemResponse.ReadTitleAsync(response, ct));
+    }
+
+    /// <summary>Turns a server-relative file URL into an absolute one on the API host.</summary>
+    public string? FileUrl(string? relativeUrl) =>
+        relativeUrl is null ? null : new Uri(_http.BaseAddress!, relativeUrl).ToString();
 }

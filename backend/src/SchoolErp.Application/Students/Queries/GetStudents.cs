@@ -157,6 +157,7 @@ public sealed class GetStudentByIdQueryHandler : IRequestHandler<GetStudentByIdQ
             MedicalNotes = student.MedicalNotes,
             AdmissionDate = student.AdmissionDate,
             Status = student.Status,
+            PhotoUrl = student.PhotoUrl,
             Guardians = student.Guardians
                 .Where(sg => sg.Guardian is not null)
                 .Select(sg => new GuardianDto
