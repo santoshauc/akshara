@@ -1,0 +1,428 @@
+@page "/users"
+@attribute [Authorize]
+@inject UserAdminClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Users &amp; roles — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Users &amp; roles</MudText>
+
+<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-4">
+    <MudTabPanel Text="Staff accounts">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudTextField @bind-Value="_search" Label="Search name / email / phone" Clearable="true"
+                          Dense="true" Adornment="Adornment.End"
+                          AdornmentIcon="@Icons.Material.Filled.Search"
+                          OnAdornmentClick="LoadUsersAsync"
+                          OnKeyUp="@(e => e.Key == "Enter" ? LoadUsersAsync() : Task.CompletedTask)"
+                          Style="max-width: 320px;" />
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="@(() => OpenUserEditor(null))">
+                Add staff account
+            </MudButton>
+        </MudStack>
+
+        <MudTable Items="_users" Dense="true" Hover="true" Loading="_loading">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Sign-in</MudTh>
+                <MudTh>Roles</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh />
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>@context.FullName</MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.body2">@(context.Email ?? "—")</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Phone</MudText>
+                </MudTd>
+                <MudTd>
+                    @foreach (var role in context.Roles)
+                    {
+                        <MudChip Size="Size.Small" Class="mr-1">@role</MudChip>
+                    }
+                </MudTd>
+                <MudTd>
+                    <MudChip Size="Size.Small" Color="@(context.IsActive ? Color.Success : Color.Default)">
+                        @(context.IsActive ? "Active" : "Disabled")
+                    </MudChip>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   OnClick="@(() => OpenUserEditor(context))" />
+                    <MudIconButton Icon="@Icons.Material.Filled.LockReset" Size="Size.Small"
+                                   title="Reset password"
+                                   OnClick="@(() => OpenReset(context))" />
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="mud-text-secondary pa-4">No staff accounts yet.</MudText>
+            </NoRecordsContent>
+        </MudTable>
+
+        @if (_userEditorOpen)
+        {
+            <MudPaper Outlined="true" Class="pa-4 mt-4">
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    @(_editingUser is null ? "Add staff account" : $"Edit {_editingUser.FullName}")
+                </MudText>
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap" AlignItems="AlignItems.Center">
+                    <MudTextField @bind-Value="_userName" Label="Full name" Style="min-width: 200px;" />
+                    @if (_editingUser is null)
+                    {
+                        <MudTextField @bind-Value="_userEmail" Label="Email" Style="min-width: 200px;" />
+                        <MudTextField @bind-Value="_userPhone" Label="Phone (+91…)" Style="width: 160px;" />
+                        <MudTextField @bind-Value="_userPassword" Label="Temporary password"
+                                      InputType="InputType.Password" Style="width: 180px;" />
+                    }
+                    else
+                    {
+                        <MudSwitch @bind-Value="_userActive" Color="Color.Success" Label="Active" />
+                    }
+                </MudStack>
+                <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1">Roles</MudText>
+                <MudStack Row="true" Spacing="1" Wrap="Wrap.Wrap">
+                    @foreach (var role in _roles)
+                    {
+                        var name = role.Name;
+                        <MudCheckBox T="bool"
+                                     Value="@_userRoles.Contains(name)"
+                                     ValueChanged="@(v => ToggleUserRole(name, v))"
+                                     Label="@name" Dense="true" />
+                    }
+                </MudStack>
+                <MudStack Row="true" Class="mt-3">
+                    <MudSpacer />
+                    <MudButton OnClick="@(() => _userEditorOpen = false)">Cancel</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                               OnClick="SaveUserAsync">
+                        @(_editingUser is null ? "Create account" : "Save changes")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+
+        @if (_resetUser is not null)
+        {
+            <MudPaper Outlined="true" Class="pa-4 mt-4" Style="max-width: 480px;">
+                <MudText Typo="Typo.h6" Class="mb-2">Reset password — @_resetUser.FullName</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                    This signs the user out everywhere. Share the new password securely.
+                </MudText>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudTextField @bind-Value="_resetPassword" Label="New temporary password"
+                                  InputType="InputType.Password" Style="min-width: 220px;" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning" Disabled="_busy"
+                               OnClick="ResetPasswordAsync">
+                        Reset
+                    </MudButton>
+                    <MudButton OnClick="@(() => _resetUser = null)">Cancel</MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="Roles">
+        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                Roles are named permission bundles. SchoolAdmin is system-managed.
+            </MudText>
+            <MudSpacer />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                       StartIcon="@Icons.Material.Filled.Add" OnClick="@(() => OpenRoleEditor(null))">
+                Add role
+            </MudButton>
+        </MudStack>
+
+        <MudTable Items="_roles" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Role</MudTh>
+                <MudTh>Permissions</MudTh>
+                <MudTh />
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    <MudText Typo="Typo.body2">@context.Name</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">@context.Description</MudText>
+                </MudTd>
+                <MudTd>
+                    <MudText Typo="Typo.caption">
+                        @(context.IsSystem ? "All permissions (system)" : string.Join(", ", context.Permissions))
+                    </MudText>
+                </MudTd>
+                <MudTd>
+                    <MudIconButton Icon="@Icons.Material.Filled.Edit" Size="Size.Small"
+                                   Disabled="@context.IsSystem"
+                                   OnClick="@(() => OpenRoleEditor(context))" />
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+
+        @if (_roleEditorOpen)
+        {
+            <MudPaper Outlined="true" Class="pa-4 mt-4">
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    @(_editingRole is null ? "Add role" : $"Edit {_editingRole.Name}")
+                </MudText>
+                <MudStack Row="true" Spacing="2" Wrap="Wrap.Wrap">
+                    @if (_editingRole is null)
+                    {
+                        <MudTextField @bind-Value="_roleName" Label="Role name" Style="min-width: 180px;" />
+                    }
+                    <MudTextField @bind-Value="_roleDescription" Label="Description"
+                                  Style="min-width: 260px;" />
+                </MudStack>
+                <MudText Typo="Typo.subtitle2" Class="mt-3 mb-1">Permissions</MudText>
+                <MudGrid Spacing="0">
+                    @foreach (var group in _permissionCatalog.GroupBy(p => p.Split('.')[0]).OrderBy(g => g.Key))
+                    {
+                        <MudItem xs="12" sm="6" md="4">
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary mt-2">
+                                @group.Key.ToUpperInvariant()
+                            </MudText>
+                            @foreach (var permission in group.OrderBy(p => p))
+                            {
+                                var value = permission;
+                                <MudCheckBox T="bool"
+                                             Value="@_rolePermissions.Contains(value)"
+                                             ValueChanged="@(v => ToggleRolePermission(value, v))"
+                                             Label="@value" Dense="true" />
+                            }
+                        </MudItem>
+                    }
+                </MudGrid>
+                <MudStack Row="true" Class="mt-3">
+                    <MudSpacer />
+                    <MudButton OnClick="@(() => _roleEditorOpen = false)">Cancel</MudButton>
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                               OnClick="SaveRoleAsync">
+                        @(_editingRole is null ? "Create role" : "Save changes")
+                    </MudButton>
+                </MudStack>
+            </MudPaper>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private List<StaffUserDto> _users = [];
+    private List<RoleDto> _roles = [];
+    private List<string> _permissionCatalog = [];
+    private StaffUserDto? _editingUser;
+    private StaffUserDto? _resetUser;
+    private RoleDto? _editingRole;
+    private readonly HashSet<string> _userRoles = new(StringComparer.Ordinal);
+    private readonly HashSet<string> _rolePermissions = new(StringComparer.Ordinal);
+    private string? _search;
+    private string _userName = "";
+    private string? _userEmail;
+    private string? _userPhone;
+    private string _userPassword = "";
+    private bool _userActive = true;
+    private string _roleName = "";
+    private string? _roleDescription;
+    private string _resetPassword = "";
+    private bool _userEditorOpen;
+    private bool _roleEditorOpen;
+    private bool _loading = true;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _permissionCatalog = await Client.GetPermissionCatalogAsync();
+            _roles = await Client.GetRolesAsync();
+            await LoadUsersAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            _loading = false;
+        }
+    }
+
+    private async Task LoadUsersAsync()
+    {
+        _loading = true;
+        try
+        {
+            _users = await Client.GetUsersAsync(_search);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void ToggleUserRole(string role, bool selected)
+    {
+        if (selected)
+        {
+            _userRoles.Add(role);
+        }
+        else
+        {
+            _userRoles.Remove(role);
+        }
+    }
+
+    private void ToggleRolePermission(string permission, bool selected)
+    {
+        if (selected)
+        {
+            _rolePermissions.Add(permission);
+        }
+        else
+        {
+            _rolePermissions.Remove(permission);
+        }
+    }
+
+    private void OpenUserEditor(StaffUserDto? user)
+    {
+        _editingUser = user;
+        _userName = user?.FullName ?? "";
+        _userEmail = null;
+        _userPhone = null;
+        _userPassword = "";
+        _userActive = user?.IsActive ?? true;
+        _userRoles.Clear();
+        foreach (var role in user?.Roles ?? [])
+        {
+            _userRoles.Add(role);
+        }
+
+        _userEditorOpen = true;
+        _resetUser = null;
+    }
+
+    private async Task SaveUserAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_userName) || _userRoles.Count == 0)
+        {
+            Snackbar.Add("Name and at least one role are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            string? error;
+            if (_editingUser is null)
+            {
+                error = await Client.CreateUserAsync(new CreateStaffUserRequest(
+                    _userName.Trim(),
+                    string.IsNullOrWhiteSpace(_userEmail) ? null : _userEmail.Trim(),
+                    string.IsNullOrWhiteSpace(_userPhone) ? null : _userPhone.Trim(),
+                    _userPassword,
+                    [.. _userRoles]));
+            }
+            else
+            {
+                error = await Client.UpdateUserAsync(new UpdateStaffUserRequest(
+                    _editingUser.Id, _userName.Trim(), _userActive, [.. _userRoles]));
+            }
+
+            if (error is null)
+            {
+                Snackbar.Add(_editingUser is null ? "Account created." : "Account updated.",
+                    Severity.Success);
+                _userEditorOpen = false;
+                await LoadUsersAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OpenReset(StaffUserDto user)
+    {
+        _resetUser = user;
+        _resetPassword = "";
+        _userEditorOpen = false;
+    }
+
+    private async Task ResetPasswordAsync()
+    {
+        if (_resetUser is null || _resetPassword.Length < 8)
+        {
+            Snackbar.Add("Enter a password of at least 8 characters.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.ResetPasswordAsync(_resetUser.Id, _resetPassword);
+            if (error is null)
+            {
+                Snackbar.Add($"Password reset for {_resetUser.FullName}.", Severity.Success);
+                _resetUser = null;
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OpenRoleEditor(RoleDto? role)
+    {
+        _editingRole = role;
+        _roleName = role?.Name ?? "";
+        _roleDescription = role?.Description;
+        _rolePermissions.Clear();
+        foreach (var permission in role?.Permissions ?? [])
+        {
+            _rolePermissions.Add(permission);
+        }
+
+        _roleEditorOpen = true;
+    }
+
+    private async Task SaveRoleAsync()
+    {
+        if ((_editingRole is null && string.IsNullOrWhiteSpace(_roleName)) ||
+            _rolePermissions.Count == 0)
+        {
+            Snackbar.Add("Name and at least one permission are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = _editingRole is null
+                ? await Client.CreateRoleAsync(new CreateRoleRequest(
+                    _roleName.Trim(), _roleDescription, [.. _rolePermissions]))
+                : await Client.UpdateRoleAsync(new UpdateRoleRequest(
+                    _editingRole.Id, _roleDescription, [.. _rolePermissions]));
+            if (error is null)
+            {
+                Snackbar.Add(_editingRole is null ? "Role created." : "Role updated.", Severity.Success);
+                _roleEditorOpen = false;
+                _roles = await Client.GetRolesAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

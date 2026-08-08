@@ -75,6 +75,50 @@ public sealed class AuthController : ControllerBase
         return NoContent();
     }
 
+    /// <summary>Self-service password change.</summary>
+    [HttpPost("password/change")]
+    [Authorize]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ChangePassword(
+        [FromBody] ChangePasswordRequest request, CancellationToken ct)
+    {
+        if (CurrentUserId is not { } userId)
+        {
+            return Unauthorized();
+        }
+
+        var error = await _authService.ChangePasswordAsync(
+            userId, request.CurrentPassword, request.NewPassword, ct);
+        return error is null
+            ? NoContent()
+            : Problem(title: error, statusCode: StatusCodes.Status400BadRequest);
+    }
+
+    /// <summary>Starts a forgot-password flow (SMS code). Always 202.</summary>
+    [HttpPost("password/forgot")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    public async Task<IActionResult> ForgotPassword(
+        [FromBody] ForgotPasswordRequest request, CancellationToken ct)
+    {
+        await _authService.RequestPasswordResetAsync(request.SchoolCode, request.Login, ct);
+        return Accepted();
+    }
+
+    /// <summary>Completes a forgot-password flow with the SMS code.</summary>
+    [HttpPost("password/reset")]
+    [AllowAnonymous]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> ResetPassword(
+        [FromBody] ResetPasswordRequest request, CancellationToken ct) =>
+        await _authService.ResetForgottenPasswordAsync(
+            request.SchoolCode, request.Login, request.Code, request.NewPassword, ct)
+            ? NoContent()
+            : Problem(title: "The code is invalid or expired.",
+                statusCode: StatusCodes.Status400BadRequest);
+
     /// <summary>Finishes an MFA-gated login with a TOTP or recovery code.</summary>
     [HttpPost("mfa/verify")]
     [AllowAnonymous]
@@ -283,3 +327,20 @@ public sealed record MfaCodeRequest([Required][StringLength(32)] string Code);
 
 /// <summary>Caller's MFA state.</summary>
 public sealed record MfaStatusResponse(bool Enabled);
+
+/// <summary>Self-service password change payload.</summary>
+public sealed record ChangePasswordRequest(
+    [Required][StringLength(128)] string CurrentPassword,
+    [Required][StringLength(128, MinimumLength = 8)] string NewPassword);
+
+/// <summary>Forgot-password start payload.</summary>
+public sealed record ForgotPasswordRequest(
+    [Required][StringLength(16)] string SchoolCode,
+    [Required][StringLength(320)] string Login);
+
+/// <summary>Forgot-password completion payload.</summary>
+public sealed record ResetPasswordRequest(
+    [Required][StringLength(16)] string SchoolCode,
+    [Required][StringLength(320)] string Login,
+    [Required][StringLength(6, MinimumLength = 6)] string Code,
+    [Required][StringLength(128, MinimumLength = 8)] string NewPassword);

@@ -54,6 +54,10 @@
                            FullWidth="true" Disabled="@_busy" OnClick="SignInAsync">
                     @(_busy ? "Signing in…" : "Sign in")
                 </MudButton>
+                <MudButton Variant="Variant.Text" FullWidth="true"
+                           OnClick="@(() => Navigation.NavigateTo("forgot-password"))">
+                    Forgot password?
+                </MudButton>
             }
             else
             {

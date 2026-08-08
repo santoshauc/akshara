@@ -84,6 +84,7 @@ public static class DependencyInjection
 
         services.AddSingleton<JwtTokenService>();
         services.AddScoped<IAuthService, AuthService>();
+        services.AddScoped<Application.Users.IUserAdminService, UserAdminService>();
         services.AddScoped<ISmsSender, DevSmsSender>();
 
         // Outbox delivery core; the polling BackgroundService is registered by

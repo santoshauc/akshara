@@ -110,6 +110,21 @@ public interface IAuthService
     /// <summary>Turns MFA off (requires a current TOTP code). Resets the key.</summary>
     Task<bool> DisableMfaAsync(Guid userId, string code, CancellationToken ct = default);
 
+    /// <summary>Self-service password change. Returns null on success, else a
+    /// human-readable reason (wrong current password, policy failure).</summary>
+    Task<string?> ChangePasswordAsync(
+        Guid userId, string currentPassword, string newPassword, CancellationToken ct = default);
+
+    /// <summary>Starts a forgot-password flow: an OTP is sent to the account's
+    /// phone. Always silent — callers must not learn which logins exist.</summary>
+    Task RequestPasswordResetAsync(string schoolCode, string login, CancellationToken ct = default);
+
+    /// <summary>Completes a forgot-password flow with the SMS code. Sessions
+    /// are revoked on success.</summary>
+    Task<bool> ResetForgottenPasswordAsync(
+        string schoolCode, string login, string code, string newPassword,
+        CancellationToken ct = default);
+
     /// <summary>The user's active sessions (devices), newest sign-in first.</summary>
     Task<IReadOnlyList<SessionDto>> GetSessionsAsync(Guid userId, CancellationToken ct = default);
 

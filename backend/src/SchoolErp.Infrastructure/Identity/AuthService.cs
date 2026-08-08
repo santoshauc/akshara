@@ -412,6 +412,128 @@ public sealed partial class AuthService : IAuthService
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
     }
 
+    // ----- Passwords -------------------------------------------------------
+
+    public async Task<string?> ChangePasswordAsync(
+        Guid userId, string currentPassword, string newPassword, CancellationToken ct = default)
+    {
+        var user = await _userManager.FindByIdAsync(userId.ToString()).ConfigureAwait(false);
+        if (user is null || !user.IsActive)
+        {
+            return "Account not found.";
+        }
+
+        var result = await _userManager
+            .ChangePasswordAsync(user, currentPassword, newPassword)
+            .ConfigureAwait(false);
+        return result.Succeeded
+            ? null
+            : string.Join(" ", result.Errors.Select(e => e.Description));
+    }
+
+    public async Task RequestPasswordResetAsync(
+        string schoolCode, string login, CancellationToken ct = default)
+    {
+        var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
+        if (tenant is null || !tenant.IsActive)
+        {
+            return; // Silent: callers must not learn which schools/logins exist.
+        }
+
+        var user = await FindTenantUserAsync(tenant.Id, login, ct).ConfigureAwait(false);
+        if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.PhoneNumber))
+        {
+            return;
+        }
+
+        // Reuses the OTP store — same hashing, expiry and throttling story.
+        var now = _clock.GetUtcNow();
+        var recent = await _db.Set<OtpCode>()
+            .IgnoreQueryFilters()
+            .CountAsync(o => o.TenantId == tenant.Id && o.Phone == user.PhoneNumber &&
+                             o.CreatedAt > now.AddMinutes(-15), ct)
+            .ConfigureAwait(false);
+        if (recent >= 3)
+        {
+            LogOtpThrottled(_logger, tenant.Id);
+            return;
+        }
+
+        var code = RandomNumberGenerator.GetInt32(100_000, 1_000_000)
+            .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        _db.Set<OtpCode>().Add(new OtpCode
+        {
+            TenantId = tenant.Id,
+            Phone = user.PhoneNumber,
+            CodeHash = JwtTokenService.Hash(code),
+            ExpiresAt = now.Add(OtpLifetime),
+        });
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+
+        await _smsSender.SendAsync(
+            user.PhoneNumber,
+            $"{code} is your {tenant.Name} password reset code. Valid for 5 minutes.",
+            ct).ConfigureAwait(false);
+    }
+
+    public async Task<bool> ResetForgottenPasswordAsync(
+        string schoolCode, string login, string code, string newPassword,
+        CancellationToken ct = default)
+    {
+        var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
+        if (tenant is null || !tenant.IsActive)
+        {
+            return false;
+        }
+
+        var user = await FindTenantUserAsync(tenant.Id, login, ct).ConfigureAwait(false);
+        if (user is null || !user.IsActive || string.IsNullOrWhiteSpace(user.PhoneNumber))
+        {
+            return false;
+        }
+
+        var now = _clock.GetUtcNow();
+        var otp = await _db.Set<OtpCode>()
+            .IgnoreQueryFilters()
+            .Where(o => o.TenantId == tenant.Id && o.Phone == user.PhoneNumber &&
+                        o.ConsumedAt == null)
+            .OrderByDescending(o => o.CreatedAt)
+            .FirstOrDefaultAsync(ct)
+            .ConfigureAwait(false);
+        if (otp is null || !otp.IsUsable(now) ||
+            !CryptographicOperations.FixedTimeEquals(
+                Convert.FromBase64String(otp.CodeHash),
+                Convert.FromBase64String(JwtTokenService.Hash(code))))
+        {
+            if (otp is not null)
+            {
+                otp.Attempts++;
+                await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+            }
+
+            return false;
+        }
+
+        otp.ConsumedAt = now;
+
+        var removed = await _userManager.RemovePasswordAsync(user).ConfigureAwait(false);
+        if (!removed.Succeeded)
+        {
+            return false;
+        }
+
+        var added = await _userManager.AddPasswordAsync(user, newPassword).ConfigureAwait(false);
+        if (!added.Succeeded)
+        {
+            return false;
+        }
+
+        // A reset from "I forgot" is a credential event: kill open sessions.
+        await RevokeAllActiveAsync(user.Id, null, "password-reset", now, ct).ConfigureAwait(false);
+        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        return true;
+    }
+
     // ----- Sessions (devices) ----------------------------------------------
 
     public async Task<IReadOnlyList<SessionDto>> GetSessionsAsync(
