@@ -238,6 +238,80 @@ public sealed class FeesModuleTests : IClassFixture<FeesModuleFixture>
     }
 
     [Fact]
+    public async Task Fines_concessions_receipt_and_reminders_work_end_to_end()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Own class + heads so the shared plan's totals stay untouched.
+        var polishClass = await sender.Send(new CreateClassCommand("Polish 9", 9, ["A"]));
+        var flatHead = await sender.Send(new CreateFeeHeadCommand(
+            "PolishTuition", LateFineType.Flat, 200));
+        var percentHead = await sender.Send(new CreateFeeHeadCommand(
+            "PolishLab", LateFineType.Percent, 10));
+        await sender.Send(new DefineFeeStructureCommand(_fixture.YearId, polishClass.Id,
+        [
+            new FeeStructureItemInput(flatHead.Id, 10_000, new DateOnly(2026, 7, 1)),
+            new FeeStructureItemInput(percentHead.Id, 2_000, new DateOnly(2026, 7, 1)),
+            new FeeStructureItemInput(flatHead.Id, 5_000, new DateOnly(2027, 1, 10)),
+        ]));
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Pia", "Polish", new DateOnly(2017, 5, 5), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), _fixture.YearId, polishClass.Id,
+            polishClass.Sections.Single().Id, 1,
+            [new GuardianInput("Rima", "Polish", GuardianRelation.Mother, "+919500000777", null, null, true)]));
+
+        // Overdue lines accrue their fines: flat 200 + 10% of 2000 = 400 total.
+        var summary = await sender.Send(new GetStudentFeeSummaryQuery(studentId, _fixture.YearId));
+        summary.TotalLateFine.Should().Be(400);
+        summary.TotalDue.Should().Be(17_000 + 400);
+
+        // A concession and a payment both reduce the balance.
+        var concessionId = await sender.Send(new GrantConcessionCommand(
+            studentId, _fixture.YearId, null, 1_000, "Sibling discount"));
+        var receipt = await sender.Send(new RecordPaymentCommand(
+            studentId, _fixture.YearId, 5_000,
+            new DateOnly(2026, 8, 8), PaymentMode.Cash, null, null));
+
+        summary = await sender.Send(new GetStudentFeeSummaryQuery(studentId, _fixture.YearId));
+        summary.TotalConcession.Should().Be(1_000);
+        summary.Balance.Should().Be(17_400 - 1_000 - 5_000);
+
+        // The payment's receipt renders as a real PDF.
+        var pdf = await sender.Send(new GetReceiptPdfQuery(receipt.PaymentId));
+        System.Text.Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
+
+        // Revoking the concession restores the balance.
+        await sender.Send(new RevokeConcessionCommand(concessionId));
+        (await sender.Send(new GetStudentFeeSummaryQuery(studentId, _fixture.YearId)))
+            .Balance.Should().Be(17_400 - 5_000);
+
+        // The nightly job queues one reminder SMS for the overdue balance —
+        // and re-running within 6 days does not queue a duplicate.
+        var job = scope.ServiceProvider
+            .GetRequiredService<SchoolErp.Infrastructure.Notifications.FeeReminderJob>();
+        await job.RunAsync(CancellationToken.None);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        async Task<List<string>> PiaRemindersAsync() =>
+            (await db.OutboxMessages.AsNoTracking()
+                .Where(m => m.TenantId == _fixture.TenantId)
+                .Select(m => m.Payload)
+                .ToListAsync())
+            .Where(p => p.Contains("Fee reminder") && p.Contains("+919500000777"))
+            .ToList();
+
+        (await PiaRemindersAsync()).Should().ContainSingle()
+            .Which.Should().Contain("Pia Polish");
+
+        await job.RunAsync(CancellationToken.None);
+        (await PiaRemindersAsync())
+            .Should().HaveCount(1, "a guardian is reminded at most once per 6 days");
+    }
+
+    [Fact]
     public async Task Manual_online_mode_is_rejected_and_unknown_student_404s()
     {
         await using var scope = _fixture.CreateScope();

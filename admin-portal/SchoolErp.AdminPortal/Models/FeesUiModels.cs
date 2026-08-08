@@ -3,7 +3,16 @@ using SchoolErp.Domain.Fees;
 namespace SchoolErp.AdminPortal.Models;
 
 /// <summary>Fee head (mirrors FeeHeadDto).</summary>
-public sealed record FeeHeadDto(Guid Id, string Name);
+public sealed record FeeHeadDto(
+    Guid Id, string Name, LateFineType LateFineType, decimal LateFineValue);
+
+/// <summary>Concession row (mirrors FeeConcessionDto).</summary>
+public sealed record FeeConcessionDto(
+    Guid Id, string? FeeHeadName, decimal Amount, string Reason);
+
+/// <summary>Grant-concession payload (mirrors GrantConcessionCommand).</summary>
+public sealed record GrantConcessionRequest(
+    Guid StudentId, Guid AcademicYearId, Guid? FeeHeadId, decimal Amount, string Reason);
 
 /// <summary>Installment line of a class plan (mirrors FeeStructureItemDto).</summary>
 public sealed record FeeStructureItemDto(
@@ -17,7 +26,8 @@ public sealed record DefineFeeStructureRequest(
     Guid AcademicYearId, Guid SchoolClassId, List<FeeStructureItemInput> Items);
 
 /// <summary>Due line (mirrors FeeDueLineDto).</summary>
-public sealed record FeeDueLineDto(string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue);
+public sealed record FeeDueLineDto(
+    string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue, decimal LateFine);
 
 /// <summary>Payment row (mirrors FeePaymentDto).</summary>
 public sealed record FeePaymentDto(
@@ -29,7 +39,10 @@ public sealed record StudentFeeSummaryDto(
     Guid AcademicYearId,
     List<FeeDueLineDto> DueLines,
     List<FeePaymentDto> Payments,
+    List<FeeConcessionDto> Concessions,
     decimal TotalDue,
+    decimal TotalLateFine,
+    decimal TotalConcession,
     decimal TotalPaid,
     decimal Balance);
 

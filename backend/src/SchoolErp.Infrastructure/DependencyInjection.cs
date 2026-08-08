@@ -107,6 +107,7 @@ public static class DependencyInjection
         // the API host so tests can drive the processor synchronously.
         services.AddScoped<Notifications.OutboxProcessor>();
         services.AddScoped<Notifications.OutboxDispatchJob>();
+        services.AddScoped<Notifications.FeeReminderJob>();
 
         // --- Payments ------------------------------------------------------
         // Razorpay goes live the moment credentials are configured; without
@@ -138,6 +139,8 @@ public static class DependencyInjection
             Reports.QuestPdfReportCardRenderer>();
         services.AddSingleton<Application.Students.Queries.IStudentDocumentRenderer,
             Reports.QuestPdfStudentDocumentRenderer>();
+        services.AddSingleton<Application.Fees.Queries.IReceiptRenderer,
+            Reports.QuestPdfReceiptRenderer>();
 
         return services;
     }

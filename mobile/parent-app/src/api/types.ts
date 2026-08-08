@@ -81,6 +81,8 @@ export interface FeeDueLine {
   amount: number;
   dueDate: string;
   overdue: boolean;
+  /** Accrued once the line is past due (per the head's fine rule). */
+  lateFine: number;
 }
 
 export interface FeePayment {
@@ -183,6 +185,8 @@ export interface FeeSummary {
   studentId: string;
   dueLines: FeeDueLine[];
   payments: FeePayment[];
+  totalLateFine: number;
+  totalConcession: number;
   totalDue: number;
   totalPaid: number;
   balance: number;

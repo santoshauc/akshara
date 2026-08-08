@@ -12,14 +12,34 @@
     <MudItem xs="12" md="4">
         <MudPaper Elevation="2" Class="pa-6">
             <MudText Typo="Typo.h6" Class="mb-4">Fee heads</MudText>
-            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-3">
+            <MudStack Spacing="2" Class="mb-3">
                 <MudTextField @bind-Value="_newHeadName" Label="New head (e.g. Tuition)" />
-                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
-                           OnClick="CreateHeadAsync">Add</MudButton>
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
+                    <MudSelect T="LateFineType" @bind-Value="_newHeadFineType" Label="Late fine"
+                               Dense="true" Style="width: 130px;">
+                        <MudSelectItem Value="LateFineType.None">None</MudSelectItem>
+                        <MudSelectItem Value="LateFineType.Flat">Flat ₹</MudSelectItem>
+                        <MudSelectItem Value="LateFineType.Percent">Percent</MudSelectItem>
+                    </MudSelect>
+                    @if (_newHeadFineType != LateFineType.None)
+                    {
+                        <MudNumericField T="decimal" @bind-Value="_newHeadFineValue"
+                                         Label="@(_newHeadFineType == LateFineType.Flat ? "₹" : "%")"
+                                         Min="0" Style="width: 100px;" HideSpinButtons="true" />
+                    }
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                               OnClick="CreateHeadAsync">Add</MudButton>
+                </MudStack>
             </MudStack>
             @foreach (var head in _heads)
             {
-                <MudChip Size="Size.Small" Variant="Variant.Outlined" Class="ma-1">@head.Name</MudChip>
+                <MudChip Size="Size.Small" Variant="Variant.Outlined" Class="ma-1">
+                    @head.Name@(head.LateFineType == LateFineType.Flat
+                        ? $" (+₹{head.LateFineValue:N0} late)"
+                        : head.LateFineType == LateFineType.Percent
+                            ? $" (+{head.LateFineValue:0.#}% late)"
+                            : "")
+                </MudChip>
             }
         </MudPaper>
     </MudItem>
@@ -94,6 +114,8 @@
     private Guid? _classId;
     private List<PlanRow> _rows = [];
     private string _newHeadName = string.Empty;
+    private LateFineType _newHeadFineType = LateFineType.None;
+    private decimal _newHeadFineValue;
     private bool _busy;
 
     protected override async Task OnInitializedAsync()
@@ -121,10 +143,13 @@
         _busy = true;
         try
         {
-            var error = await Client.CreateHeadAsync(_newHeadName.Trim());
+            var error = await Client.CreateHeadAsync(
+                _newHeadName.Trim(), _newHeadFineType, _newHeadFineValue);
             if (error is null)
             {
                 _newHeadName = string.Empty;
+                _newHeadFineType = LateFineType.None;
+                _newHeadFineValue = 0;
                 _heads = await Client.GetHeadsAsync();
             }
             else

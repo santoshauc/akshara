@@ -7,8 +7,11 @@ using SchoolErp.Domain.Fees;
 
 namespace SchoolErp.Application.Fees.Commands;
 
-/// <summary>Creates a fee head (Tuition, Transport…).</summary>
-public sealed record CreateFeeHeadCommand(string Name) : IRequest<FeeHeadDto>;
+/// <summary>Creates a fee head (Tuition, Transport…) with its late-fine rule.</summary>
+public sealed record CreateFeeHeadCommand(
+    string Name,
+    LateFineType LateFineType = LateFineType.None,
+    decimal LateFineValue = 0) : IRequest<FeeHeadDto>;
 
 /// <summary>Fee-head shape rules.</summary>
 public sealed class CreateFeeHeadCommandValidator : AbstractValidator<CreateFeeHeadCommand>
@@ -16,6 +19,14 @@ public sealed class CreateFeeHeadCommandValidator : AbstractValidator<CreateFeeH
     public CreateFeeHeadCommandValidator()
     {
         RuleFor(c => c.Name).NotEmpty().MaximumLength(64);
+        RuleFor(c => c.LateFineValue)
+            .GreaterThan(0).When(c => c.LateFineType != LateFineType.None)
+            .WithMessage("Set a fine amount for the chosen fine type.");
+        RuleFor(c => c.LateFineValue)
+            .LessThanOrEqualTo(100).When(c => c.LateFineType == LateFineType.Percent)
+            .WithMessage("A percentage fine cannot exceed 100.");
+        RuleFor(c => c.LateFineValue)
+            .LessThanOrEqualTo(100_000).When(c => c.LateFineType == LateFineType.Flat);
     }
 }
 
@@ -34,10 +45,15 @@ public sealed class CreateFeeHeadCommandHandler : IRequestHandler<CreateFeeHeadC
             throw new ConflictException($"Fee head '{name}' already exists.");
         }
 
-        var head = new FeeHead { Name = name };
+        var head = new FeeHead
+        {
+            Name = name,
+            LateFineType = request.LateFineType,
+            LateFineValue = request.LateFineType == LateFineType.None ? 0 : request.LateFineValue,
+        };
         _db.FeeHeads.Add(head);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
-        return new FeeHeadDto(head.Id, head.Name);
+        return new FeeHeadDto(head.Id, head.Name, head.LateFineType, head.LateFineValue);
     }
 }
 
@@ -55,7 +71,7 @@ public sealed class GetFeeHeadsQueryHandler : IRequestHandler<GetFeeHeadsQuery, 
         GetFeeHeadsQuery request, CancellationToken cancellationToken) =>
         await _db.FeeHeads.AsNoTracking()
             .OrderBy(h => h.Name)
-            .Select(h => new FeeHeadDto(h.Id, h.Name))
+            .Select(h => new FeeHeadDto(h.Id, h.Name, h.LateFineType, h.LateFineValue))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 }
@@ -140,6 +156,82 @@ public sealed class DefineFeeStructureCommandHandler : IRequestHandler<DefineFee
             });
         }
 
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+}
+
+/// <summary>Grants a per-student concession for one year.</summary>
+public sealed record GrantConcessionCommand(
+    Guid StudentId,
+    Guid AcademicYearId,
+    Guid? FeeHeadId,
+    decimal Amount,
+    string Reason) : IRequest<Guid>;
+
+/// <summary>Concession shape rules.</summary>
+public sealed class GrantConcessionCommandValidator : AbstractValidator<GrantConcessionCommand>
+{
+    public GrantConcessionCommandValidator()
+    {
+        RuleFor(c => c.Amount).GreaterThan(0).LessThanOrEqualTo(10_00_000);
+        RuleFor(c => c.Reason).NotEmpty().MaximumLength(256);
+    }
+}
+
+/// <summary>Validates references, then records the concession.</summary>
+public sealed class GrantConcessionCommandHandler : IRequestHandler<GrantConcessionCommand, Guid>
+{
+    private readonly IApplicationDbContext _db;
+
+    public GrantConcessionCommandHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task<Guid> Handle(GrantConcessionCommand request, CancellationToken cancellationToken)
+    {
+        if (!await _db.Students.AnyAsync(s => s.Id == request.StudentId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            throw new NotFoundException("Student", request.StudentId);
+        }
+
+        if (request.FeeHeadId is { } headId &&
+            !await _db.FeeHeads.AnyAsync(h => h.Id == headId, cancellationToken)
+                .ConfigureAwait(false))
+        {
+            throw new NotFoundException("FeeHead", headId);
+        }
+
+        var concession = new FeeConcession
+        {
+            StudentId = request.StudentId,
+            AcademicYearId = request.AcademicYearId,
+            FeeHeadId = request.FeeHeadId,
+            Amount = request.Amount,
+            Reason = request.Reason.Trim(),
+        };
+        _db.FeeConcessions.Add(concession);
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+        return concession.Id;
+    }
+}
+
+/// <summary>Withdraws a concession (audited like every command).</summary>
+public sealed record RevokeConcessionCommand(Guid ConcessionId) : IRequest;
+
+/// <summary>Deletes the row; the ledger recomputes on the next read.</summary>
+public sealed class RevokeConcessionCommandHandler : IRequestHandler<RevokeConcessionCommand>
+{
+    private readonly IApplicationDbContext _db;
+
+    public RevokeConcessionCommandHandler(IApplicationDbContext db) => _db = db;
+
+    public async Task Handle(RevokeConcessionCommand request, CancellationToken cancellationToken)
+    {
+        var concession = await _db.FeeConcessions
+            .FirstOrDefaultAsync(c => c.Id == request.ConcessionId, cancellationToken)
+            .ConfigureAwait(false)
+            ?? throw new NotFoundException("FeeConcession", request.ConcessionId);
+
+        _db.FeeConcessions.Remove(concession);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

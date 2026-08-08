@@ -200,7 +200,7 @@ else if (_student is { } student)
 
                     <MudSimpleTable Dense="true" Class="mb-3">
                         <thead>
-                            <tr><th>Head</th><th>Amount</th><th>Due date</th></tr>
+                            <tr><th>Head</th><th>Amount</th><th>Late fine</th><th>Due date</th></tr>
                         </thead>
                         <tbody>
                             @foreach (var line in fees.DueLines)
@@ -208,6 +208,7 @@ else if (_student is { } student)
                                 <tr>
                                     <td>@line.FeeHeadName</td>
                                     <td>₹@line.Amount.ToString("N0")</td>
+                                    <td>@(line.LateFine > 0 ? $"₹{line.LateFine:N0}" : "—")</td>
                                     <td>
                                         @line.DueDate.ToString("dd MMM yyyy")
                                         @if (line.Overdue)
@@ -219,6 +220,27 @@ else if (_student is { } student)
                             }
                         </tbody>
                     </MudSimpleTable>
+
+                    @if (fees.Concessions.Count > 0)
+                    {
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">Concessions</MudText>
+                        @foreach (var concession in fees.Concessions)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudIcon Icon="@Icons.Material.Filled.Discount" Size="Size.Small"
+                                         Color="Color.Success" />
+                                <MudText Typo="Typo.body2">
+                                    −₹@concession.Amount.ToString("N0")
+                                    @(concession.FeeHeadName is { } headName ? $" on {headName}" : "")
+                                    · @concession.Reason
+                                </MudText>
+                                <MudSpacer />
+                                <MudIconButton Icon="@Icons.Material.Filled.Close" Size="Size.Small"
+                                               title="Revoke concession"
+                                               OnClick="@(() => RevokeConcessionAsync(concession.Id))" />
+                            </MudStack>
+                        }
+                    }
 
                     @if (fees.Payments.Count > 0)
                     {
@@ -232,9 +254,26 @@ else if (_student is { } student)
                                     @payment.ReceiptNumber · ₹@payment.Amount.ToString("N0")
                                     · @payment.Mode · @payment.PaidOn.ToString("dd MMM yyyy")
                                 </MudText>
+                                <MudSpacer />
+                                <MudIconButton Icon="@Icons.Material.Filled.Download" Size="Size.Small"
+                                               title="Download receipt PDF"
+                                               OnClick="@(() => DownloadReceiptAsync(payment))" />
                             </MudStack>
                         }
                     }
+
+                    <MudDivider Class="my-3" />
+                    <MudText Typo="Typo.subtitle2" Class="mb-2">Grant concession</MudText>
+                    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+                        <MudNumericField T="decimal" @bind-Value="_concessionAmount" Label="Amount (₹)"
+                                         Min="1" Style="width: 130px;" HideSpinButtons="true" />
+                        <MudTextField @bind-Value="_concessionReason" Label="Reason (e.g. Sibling discount)"
+                                      Style="min-width: 220px;" />
+                        <MudButton Variant="Variant.Outlined" Color="Color.Success" Disabled="@_payBusy"
+                                   OnClick="GrantConcessionAsync">
+                            Grant
+                        </MudButton>
+                    </MudStack>
 
                     <MudDivider Class="my-3" />
                     <MudText Typo="Typo.subtitle2" Class="mb-2">Record payment</MudText>
@@ -367,6 +406,83 @@ else if (_student is { } student)
     }
 
     private string? _documentBusy;
+    private decimal _concessionAmount = 1000;
+    private string? _concessionReason;
+
+    private async Task DownloadReceiptAsync(FeePaymentDto payment)
+    {
+        try
+        {
+            var pdf = await FeesApi.GetReceiptAsync(payment.Id);
+            if (pdf is null)
+            {
+                Snackbar.Add("Could not generate the receipt.", Severity.Error);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("schoolErpDownload",
+                $"receipt-{payment.ReceiptNumber}.pdf", "application/pdf",
+                Convert.ToBase64String(pdf));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task GrantConcessionAsync()
+    {
+        if (_currentYearId is null || _concessionAmount <= 0 ||
+            string.IsNullOrWhiteSpace(_concessionReason))
+        {
+            Snackbar.Add("Amount and reason are required.", Severity.Warning);
+            return;
+        }
+
+        _payBusy = true;
+        try
+        {
+            var error = await FeesApi.GrantConcessionAsync(new GrantConcessionRequest(
+                Id, _currentYearId.Value, null, _concessionAmount, _concessionReason.Trim()));
+            if (error is null)
+            {
+                Snackbar.Add("Concession granted.", Severity.Success);
+                _concessionReason = null;
+                _fees = await FeesApi.GetStudentSummaryAsync(Id, _currentYearId.Value);
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _payBusy = false;
+        }
+    }
+
+    private async Task RevokeConcessionAsync(Guid concessionId)
+    {
+        if (_currentYearId is null)
+        {
+            return;
+        }
+
+        var error = await FeesApi.RevokeConcessionAsync(concessionId);
+        if (error is null)
+        {
+            Snackbar.Add("Concession revoked.", Severity.Info);
+            _fees = await FeesApi.GetStudentSummaryAsync(Id, _currentYearId.Value);
+        }
+        else
+        {
+            Snackbar.Add(error, Severity.Error);
+        }
+    }
 
     private async Task DownloadDocumentAsync(string type)
     {

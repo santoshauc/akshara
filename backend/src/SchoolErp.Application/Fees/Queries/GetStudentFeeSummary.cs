@@ -39,14 +39,38 @@ public sealed class GetStudentFeeSummaryQueryHandler
 
         var today = DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
 
-        var dueLines = await _db.FeeStructureItems.AsNoTracking()
+        var planLines = await _db.FeeStructureItems.AsNoTracking()
             .Where(i => i.AcademicYearId == request.AcademicYearId &&
                         i.SchoolClassId == enrollment.SchoolClassId)
             .OrderBy(i => i.DueDate)
-            .Select(i => new FeeDueLineDto(
-                i.FeeHead!.Name, i.Amount, i.DueDate, i.DueDate < today))
+            .Select(i => new
+            {
+                HeadName = i.FeeHead!.Name,
+                i.Amount,
+                i.DueDate,
+                i.FeeHead!.LateFineType,
+                i.FeeHead!.LateFineValue,
+            })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
+
+        // A line past its due date accrues the head's fine once (flat INR or
+        // percent of the line), rounded to the rupee.
+        var dueLines = planLines.Select(line =>
+        {
+            var overdue = line.DueDate < today;
+            var fine = overdue
+                ? line.LateFineType switch
+                {
+                    Domain.Fees.LateFineType.Flat => line.LateFineValue,
+                    Domain.Fees.LateFineType.Percent =>
+                        Math.Round(line.Amount * line.LateFineValue / 100m,
+                            0, MidpointRounding.AwayFromZero),
+                    _ => 0m,
+                }
+                : 0m;
+            return new FeeDueLineDto(line.HeadName, line.Amount, line.DueDate, overdue, fine);
+        }).ToList();
 
         var payments = await _db.FeePayments.AsNoTracking()
             .Where(p => p.StudentId == request.StudentId &&
@@ -57,7 +81,18 @@ public sealed class GetStudentFeeSummaryQueryHandler
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
-        var totalDue = dueLines.Sum(l => l.Amount);
+        var concessions = await _db.FeeConcessions.AsNoTracking()
+            .Where(c => c.StudentId == request.StudentId &&
+                        c.AcademicYearId == request.AcademicYearId)
+            .OrderBy(c => c.CreatedAt)
+            .Select(c => new FeeConcessionDto(
+                c.Id, c.FeeHead != null ? c.FeeHead.Name : null, c.Amount, c.Reason))
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var totalLateFine = dueLines.Sum(l => l.LateFine);
+        var totalDue = dueLines.Sum(l => l.Amount) + totalLateFine;
+        var totalConcession = concessions.Sum(c => c.Amount);
         var totalPaid = payments.Sum(p => p.Amount);
 
         return new StudentFeeSummaryDto
@@ -66,9 +101,12 @@ public sealed class GetStudentFeeSummaryQueryHandler
             AcademicYearId = request.AcademicYearId,
             DueLines = dueLines,
             Payments = payments,
+            Concessions = concessions,
             TotalDue = totalDue,
+            TotalLateFine = totalLateFine,
+            TotalConcession = totalConcession,
             TotalPaid = totalPaid,
-            Balance = totalDue - totalPaid,
+            Balance = Math.Max(0, totalDue - totalConcession - totalPaid),
         };
     }
 }

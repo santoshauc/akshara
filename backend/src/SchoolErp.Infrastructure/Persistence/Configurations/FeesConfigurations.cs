@@ -15,6 +15,19 @@ public sealed class FeeHeadConfiguration : IEntityTypeConfiguration<FeeHead>
     }
 }
 
+/// <summary>Mapping for per-student concessions.</summary>
+public sealed class FeeConcessionConfiguration : IEntityTypeConfiguration<FeeConcession>
+{
+    public void Configure(EntityTypeBuilder<FeeConcession> builder)
+    {
+        builder.ToTable("fee_concessions");
+        builder.Property(c => c.Reason).HasMaxLength(256).IsRequired();
+        builder.HasIndex(c => new { c.TenantId, c.StudentId, c.AcademicYearId });
+        builder.HasOne(c => c.FeeHead).WithMany()
+            .HasForeignKey(c => c.FeeHeadId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
 /// <summary>Mapping for fee structure items.</summary>
 public sealed class FeeStructureItemConfiguration : IEntityTypeConfiguration<FeeStructureItem>
 {

@@ -91,6 +91,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     /// <summary>Fee payments (tenant-scoped).</summary>
     public DbSet<FeePayment> FeePayments => Set<FeePayment>();
 
+    public DbSet<FeeConcession> FeeConcessions => Set<FeeConcession>();
+
     /// <summary>Online payment orders (platform-scoped, webhook-read).</summary>
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
 

@@ -93,6 +93,37 @@ public sealed class FeesController : ControllerBase
     public async Task<IActionResult> GetStudentSummary(
         Guid studentId, [FromQuery] Guid academicYearId, CancellationToken ct) =>
         Ok(await _sender.Send(new GetStudentFeeSummaryQuery(studentId, academicYearId), ct));
+
+    /// <summary>Grants a per-student concession.</summary>
+    [HttpPost("concessions")]
+    [HasPermission(Permissions.Fees.Configure)]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GrantConcession(
+        [FromBody] GrantConcessionCommand command, CancellationToken ct) =>
+        Ok(await _sender.Send(command, ct));
+
+    /// <summary>Withdraws a concession.</summary>
+    [HttpDelete("concessions/{id:guid}")]
+    [HasPermission(Permissions.Fees.Configure)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> RevokeConcession(Guid id, CancellationToken ct)
+    {
+        await _sender.Send(new RevokeConcessionCommand(id), ct);
+        return NoContent();
+    }
+
+    /// <summary>A payment's receipt as a PDF.</summary>
+    [HttpGet("payments/{id:guid}/receipt")]
+    [HasPermission(Permissions.Fees.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetReceipt(Guid id, CancellationToken ct)
+    {
+        var pdf = await _sender.Send(new GetReceiptPdfQuery(id), ct);
+        return File(pdf, "application/pdf", "receipt.pdf");
+    }
 }
 
 /// <summary>

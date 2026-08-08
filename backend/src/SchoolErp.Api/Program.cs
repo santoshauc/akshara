@@ -173,6 +173,10 @@ try
         jobScope.ServiceProvider.GetRequiredService<IRecurringJobManager>()
             .AddOrUpdate<SchoolErp.Infrastructure.Notifications.OutboxDispatchJob>(
                 "outbox-dispatch", job => job.RunAsync(CancellationToken.None), "*/15 * * * * *");
+        // Nightly fee-due reminders at 03:00 UTC (08:30 IST), before school opens.
+        jobScope.ServiceProvider.GetRequiredService<IRecurringJobManager>()
+            .AddOrUpdate<SchoolErp.Infrastructure.Notifications.FeeReminderJob>(
+                "fee-due-reminders", job => job.RunAsync(CancellationToken.None), "0 3 * * *");
     }
 
     app.UseHttpsRedirection();

@@ -2,8 +2,13 @@ using SchoolErp.Domain.Fees;
 
 namespace SchoolErp.Application.Fees;
 
-/// <summary>Fee head projection.</summary>
-public sealed record FeeHeadDto(Guid Id, string Name);
+/// <summary>Fee head projection with its late-fine rule.</summary>
+public sealed record FeeHeadDto(
+    Guid Id, string Name, LateFineType LateFineType, decimal LateFineValue);
+
+/// <summary>A per-student concession as shown on the ledger.</summary>
+public sealed record FeeConcessionDto(
+    Guid Id, string? FeeHeadName, decimal Amount, string Reason);
 
 /// <summary>One installment line of a class fee plan.</summary>
 public sealed record FeeStructureItemDto(
@@ -12,9 +17,10 @@ public sealed record FeeStructureItemDto(
 /// <summary>Input line when defining a class fee plan.</summary>
 public sealed record FeeStructureItemInput(Guid FeeHeadId, decimal Amount, DateOnly DueDate);
 
-/// <summary>One due line in a student's summary.</summary>
+/// <summary>One due line in a student's summary. LateFine is 0 until overdue.</summary>
 public sealed record FeeDueLineDto(
-    string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue);
+    string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue,
+    decimal LateFine = 0);
 
 /// <summary>One payment in a student's summary.</summary>
 public sealed record FeePaymentDto(
@@ -32,8 +38,15 @@ public sealed record StudentFeeSummaryDto
     public Guid AcademicYearId { get; init; }
     public IReadOnlyList<FeeDueLineDto> DueLines { get; init; } = [];
     public IReadOnlyList<FeePaymentDto> Payments { get; init; } = [];
+    public IReadOnlyList<FeeConcessionDto> Concessions { get; init; } = [];
+
+    /// <summary>Plan amounts plus accrued late fines.</summary>
     public decimal TotalDue { get; init; }
+    public decimal TotalLateFine { get; init; }
+    public decimal TotalConcession { get; init; }
     public decimal TotalPaid { get; init; }
+
+    /// <summary>TotalDue − concessions − payments (never negative).</summary>
     public decimal Balance { get; init; }
 }
 

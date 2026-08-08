@@ -56,6 +56,8 @@ public interface IApplicationDbContext
 
     DbSet<FeePayment> FeePayments { get; }
 
+    DbSet<FeeConcession> FeeConcessions { get; }
+
     DbSet<PaymentOrder> PaymentOrders { get; }
 
     DbSet<Notice> Notices { get; }

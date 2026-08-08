@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 85 integration = **133 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 86 integration = **134 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -217,6 +217,26 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   render real PDFs; unknown student 404); E2E-verified live — all
   three generated for Ananya (TC 29.8KB, bonafide 29.4KB, ID card
   25.2KB with photo) and the portal button downloads.
+- B5 Fee polish — DONE. (1) Late fines: FeeHead.LateFineType
+  (None/Flat/Percent) + LateFineValue; overdue lines accrue the fine
+  once (percent rounds to the rupee); summary carries per-line
+  LateFine + TotalLateFine; head-creation form has fine fields, chips
+  show "(+₹200 late)". (2) Concessions: FeeConcession entity (RLS'd,
+  optional per-head, flat INR); Grant/RevokeConcession commands +
+  endpoints (fees.configure); profile ledger shows/grants/revokes;
+  Balance = max(0, due − concessions − paid). (3) Receipt PDFs:
+  IReceiptRenderer QuestPDF A5-landscape receipt (amount, mode/ref,
+  balance-after); GET fees/payments/{id}/receipt; download icons per
+  payment row. (4) FeeReminderJob nightly at 03:00 UTC via Hangfire:
+  per-tenant scoped (RLS-safe), computes overdue balances, queues
+  guardian SMS via outbox (credit metering applies), ≤1 reminder per
+  guardian+child per 6 days (jsonb payload → client-side dedupe).
+  Migration AddFeePolish. 1 big integration test (fines, concession
+  math, receipt PDF, reminder queue + dedupe); portal E2E-verified.
+  GOTCHA: outbox payload is jsonb — string Contains doesn't translate;
+  fetch narrow window and filter client-side.
+  GOTCHA: Blazor dev-server deep links can be HTTP-cached stale after
+  index.html changes — cache-bust with a query string when verifying.
 
 ## How to run (Windows dev box)
 
