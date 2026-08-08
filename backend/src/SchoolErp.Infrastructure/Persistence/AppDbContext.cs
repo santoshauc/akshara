@@ -101,6 +101,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public DbSet<TermStudentInput> TermStudentInputs => Set<TermStudentInput>();
 
+    public DbSet<Domain.Communication.StudentMessage> StudentMessages => Set<Domain.Communication.StudentMessage>();
+
     /// <summary>Online payment orders (platform-scoped, webhook-read).</summary>
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
 

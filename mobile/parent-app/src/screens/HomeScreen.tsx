@@ -20,6 +20,7 @@ import {
   Homework,
   LeaveRequest,
   MonthAttendance,
+  StudentMessage,
   Notice,
   StudentResult,
   TimetableEntry,
@@ -32,6 +33,7 @@ import BusLiveCard from './cards/BusLiveCard';
 import HostelCard from './cards/HostelCard';
 import LeaveCard from './cards/LeaveCard';
 import LibraryCard from './cards/LibraryCard';
+import MessagesCard from './cards/MessagesCard';
 import FeesCard from './cards/FeesCard';
 import HomeworkCard from './cards/HomeworkCard';
 import NoticesCard from './cards/NoticesCard';
@@ -62,6 +64,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [libraryLoans, setLibraryLoans] = useState<BookLoan[]>([]);
   const [hostel, setHostel] = useState<ChildHostel | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
+  const [chatMessages, setChatMessages] = useState<StudentMessage[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +82,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
   const loadChildData = useCallback(async (child: Child) => {
     const now = new Date();
-    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData, libraryData, hostelData, leaveData] =
+    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData, libraryData, hostelData, leaveData, messageData] =
       await Promise.all([
         parentApi
           .getAttendance(child.studentId, now.getFullYear(), now.getMonth() + 1)
@@ -93,6 +96,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
         parentApi.getLibrary(child.studentId).catch(() => [] as BookLoan[]),
         parentApi.getHostel(child.studentId).catch(() => null),
         parentApi.getLeaveRequests(child.studentId).catch(() => [] as LeaveRequest[]),
+        parentApi.getMessages(child.studentId).catch(() => [] as StudentMessage[]),
       ]);
     setAttendance(attendanceData);
     setFees(feesData);
@@ -104,6 +108,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
     setLibraryLoans(libraryData);
     setHostel(hostelData);
     setLeaveRequests(leaveData);
+    setChatMessages(messageData);
     const latest = examList[examList.length - 1];
     setResult(
       latest
@@ -215,6 +220,8 @@ export default function HomeScreen({ onSignedOut }: Props) {
           <FeesCard fees={fees} studentId={selected.studentId}
             onPaymentStarted={() => { setTimeout(() => void loadChildData(selected), 8000); setTimeout(() => void loadChildData(selected), 20000); }} />
           <NoticesCard notices={notices} />
+          <MessagesCard messages={chatMessages} studentId={selected.studentId}
+            onSent={() => void loadChildData(selected)} />
         </View>
       )}
     </ScrollView>

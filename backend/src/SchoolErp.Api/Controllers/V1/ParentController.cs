@@ -211,6 +211,28 @@ public sealed class ParentController : ControllerBase
         return File(pdf, "application/pdf", "report-card.pdf");
     }
 
+    /// <summary>The child's conversation with the school (marks staff messages read).</summary>
+    [HttpGet("children/{studentId:guid}/messages")]
+    [ProducesResponseType(typeof(IReadOnlyList<StudentMessageDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildMessages(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(
+            new GetStudentMessagesQuery(studentId, AsStaff: false), ct));
+    }
+
+    /// <summary>Sends a parent message on the child's thread.</summary>
+    [HttpPost("children/{studentId:guid}/messages")]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SendChildMessage(
+        Guid studentId, [FromBody] SendMessageRequest request, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(new SendStudentMessageCommand(
+            studentId, request.Body, SentByStaff: false), ct));
+    }
+
     /// <summary>Term report definitions for the child's current year.</summary>
     [HttpGet("children/{studentId:guid}/term-reports")]
     [ProducesResponseType(typeof(IReadOnlyList<TermReportDto>), StatusCodes.Status200OK)]

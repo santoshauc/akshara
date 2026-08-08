@@ -34,3 +34,16 @@ public sealed class HomeworkAssignmentConfiguration : IEntityTypeConfiguration<H
             .HasForeignKey(h => h.SubjectId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+/// <summary>Mapping for parent↔school messages.</summary>
+public sealed class StudentMessageConfiguration
+    : IEntityTypeConfiguration<Domain.Communication.StudentMessage>
+{
+    public void Configure(EntityTypeBuilder<Domain.Communication.StudentMessage> builder)
+    {
+        builder.ToTable("student_messages");
+        builder.Property(m => m.SenderName).HasMaxLength(128).IsRequired();
+        builder.Property(m => m.Body).HasMaxLength(2048).IsRequired();
+        builder.HasIndex(m => new { m.TenantId, m.StudentId, m.CreatedAt });
+    }
+}

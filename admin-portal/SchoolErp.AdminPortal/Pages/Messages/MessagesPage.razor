@@ -1,0 +1,160 @@
+@page "/messages"
+@attribute [Authorize]
+@inject MessagesClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Messages — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">Parent messages</MudText>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="4">
+        <MudPaper Elevation="2" Class="pa-4">
+            <MudText Typo="Typo.h6" Class="mb-3">Conversations</MudText>
+            @if (_threads.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">No messages yet.</MudText>
+            }
+            <MudList T="MessageThreadDto" Dense="true">
+                @foreach (var thread in _threads)
+                {
+                    <MudListItem T="MessageThreadDto"
+                                 OnClick="@(() => OpenThreadAsync(thread))">
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudBadge Content="@thread.UnreadForStaff" Color="Color.Error"
+                                      Visible="@(thread.UnreadForStaff > 0)" Overlap="true">
+                                <MudAvatar Size="Size.Small" Color="Color.Primary">
+                                    @thread.StudentName[0]
+                                </MudAvatar>
+                            </MudBadge>
+                            <div style="min-width: 0;">
+                                <MudText Typo="Typo.body1">
+                                    @thread.StudentName
+                                    @if (thread.ClassName is { } className)
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary"
+                                                 Inline="true"> · @className</MudText>
+                                    }
+                                </MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary"
+                                         Style="white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block; max-width: 220px;">
+                                    @thread.LastMessage
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    </MudListItem>
+                }
+            </MudList>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="8">
+        <MudPaper Elevation="2" Class="pa-4" Style="min-height: 420px; display: flex; flex-direction: column;">
+            @if (_openThread is null)
+            {
+                <MudText Class="mud-text-secondary ma-auto">
+                    Pick a conversation to read and reply.
+                </MudText>
+            }
+            else
+            {
+                <MudText Typo="Typo.h6" Class="mb-3">@_openThread.StudentName</MudText>
+                <div style="flex: 1; overflow-y: auto; max-height: 420px;">
+                    @foreach (var message in _conversation)
+                    {
+                        <MudStack Row="true" Class="mb-2"
+                                  Justify="@(message.SentByStaff ? Justify.FlexEnd : Justify.FlexStart)">
+                            <MudPaper Class="pa-3" Elevation="0"
+                                      Style="@(message.SentByStaff
+                                          ? "background:#E3F2FD; max-width:70%; border-radius:12px;"
+                                          : "background:#F4F6FA; max-width:70%; border-radius:12px;")">
+                                <MudText Typo="Typo.body2">@message.Body</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @message.SenderName · @message.SentAt.ToLocalTime().ToString("dd MMM HH:mm")
+                                    @(message.SentByStaff && message.Read ? " · Seen" : "")
+                                </MudText>
+                            </MudPaper>
+                        </MudStack>
+                    }
+                </div>
+                <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center">
+                    <MudTextField @bind-Value="_reply" Label="Reply"
+                                  Style="flex: 1;" Immediate="true"
+                                  OnKeyUp="@(e => e.Key == "Enter" ? SendAsync() : Task.CompletedTask)" />
+                    <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                               StartIcon="@Icons.Material.Filled.Send" OnClick="SendAsync">
+                        Send
+                    </MudButton>
+                </MudStack>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<MessageThreadDto> _threads = [];
+    private List<StudentMessageDto> _conversation = [];
+    private MessageThreadDto? _openThread;
+    private string _reply = string.Empty;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => LoadThreadsAsync();
+
+    private async Task LoadThreadsAsync()
+    {
+        try
+        {
+            _threads = await Client.GetThreadsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task OpenThreadAsync(MessageThreadDto thread)
+    {
+        _openThread = thread;
+        try
+        {
+            _conversation = await Client.GetConversationAsync(thread.StudentId);
+            await LoadThreadsAsync(); // unread badge clears after reading
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task SendAsync()
+    {
+        if (_openThread is null || string.IsNullOrWhiteSpace(_reply))
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.SendAsync(_openThread.StudentId, _reply.Trim());
+            if (error is null)
+            {
+                _reply = string.Empty;
+                _conversation = await Client.GetConversationAsync(_openThread.StudentId);
+                await LoadThreadsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

@@ -136,6 +136,14 @@ export const en = {
   leavePending: 'Pending',
   leaveApproved: 'Approved',
   leaveRejected: 'Rejected',
+
+  // Messages
+  messagesTitle: 'Messages',
+  messagesEmpty: 'No messages yet. Say hello to the school!',
+  messagePlaceholder: 'Write a message to the school…',
+  messageSend: 'Send',
+  messageFailed: 'Could not send the message.',
+  you: 'You',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -273,4 +281,12 @@ export const te: Record<TranslationKey, string> = {
   leavePending: 'పరిశీలనలో',
   leaveApproved: 'ఆమోదించారు',
   leaveRejected: 'తిరస్కరించారు',
+
+  // Messages
+  messagesTitle: 'సందేశాలు',
+  messagesEmpty: 'ఇంకా సందేశాలు లేవు. స్కూల్‌కు హలో చెప్పండి!',
+  messagePlaceholder: 'స్కూల్‌కు సందేశం రాయండి…',
+  messageSend: 'పంపండి',
+  messageFailed: 'సందేశం పంపలేకపోయాం.',
+  you: 'మీరు',
 };

@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 88 integration = **136 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 89 integration = **137 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -270,6 +270,20 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   covers weights validation, draft-block for parents, publish-unblock,
   render. E2E live: Annual Report 2026-27 for Ananya (49KB PDF with
   remarks + Art/Sports/Music grades), parent PDF 200 after publish.
+- B8 Parent–teacher messaging — DONE. Phase B COMPLETE. StudentMessage
+  entity (thread = the student; RLS'd AddStudentMessages migration)
+  with per-side read stamps (ReadByParentAt/ReadByStaffAt) and sender
+  name snapshots. Reading a thread as one side marks the OTHER side's
+  messages read. Staff API: messages/threads (unread-first inbox),
+  GET/POST messages/students/{id} (communication.view/send). Parent:
+  GET/POST parent/children/{id}/messages via the family guard;
+  GetUnreadForParentQuery for badges. Bodies are audit-safe (commands
+  audited without payloads). Portal "Messages" page (thread list with
+  unread badges, chat bubbles w/ Seen state, reply box). Parent app
+  MessagesCard (chat bubbles, composer, en/te). Integration test:
+  full loop with unread counts both ways + whitespace-body rejection.
+  E2E live: parent sent from the app → portal badge "1" → staff read +
+  replied → app shows the reply from "Demo School Admin".
 
 ## How to run (Windows dev box)
 

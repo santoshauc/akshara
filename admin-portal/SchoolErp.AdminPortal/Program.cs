@@ -57,6 +57,7 @@ builder.Services.AddScoped<MfaClient>();
 builder.Services.AddScoped<LibraryClient>();
 builder.Services.AddScoped<HostelClient>();
 builder.Services.AddScoped<LeaveClient>();
+builder.Services.AddScoped<MessagesClient>();
 builder.Services.AddScoped<UserAdminClient>();
 
 await builder.Build().RunAsync();

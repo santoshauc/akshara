@@ -66,6 +66,8 @@ public interface IApplicationDbContext
 
     DbSet<TermStudentInput> TermStudentInputs { get; }
 
+    DbSet<Domain.Communication.StudentMessage> StudentMessages { get; }
+
     DbSet<PaymentOrder> PaymentOrders { get; }
 
     DbSet<Notice> Notices { get; }

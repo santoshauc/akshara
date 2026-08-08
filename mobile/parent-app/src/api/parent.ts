@@ -12,6 +12,7 @@ import {
   FeeSummary,
   Homework,
   LeaveRequest,
+  StudentMessage,
   MonthAttendance,
   Notice,
   StudentResult,
@@ -126,6 +127,16 @@ export const parentApi = {
 
   getLeaveRequests: (studentId: string) =>
     request<LeaveRequest[]>(`/api/v1/parent/children/${studentId}/leave-requests`),
+
+  getMessages: (studentId: string) =>
+    request<StudentMessage[]>(`/api/v1/parent/children/${studentId}/messages`),
+
+  /** Sends a message to the school on this child's thread. */
+  sendMessage: (studentId: string, body: string) =>
+    request<string>(`/api/v1/parent/children/${studentId}/messages`, {
+      method: 'POST',
+      body: JSON.stringify({ body }),
+    }),
 
   /** Files a leave request; staff approve it in the school portal. */
   submitLeaveRequest: (studentId: string, fromDate: string, toDate: string, reason: string) =>

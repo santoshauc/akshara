@@ -71,3 +71,21 @@ public sealed record TeacherScheduleItemDto(
     string ClassName,
     string? SectionName,
     bool IsPublished);
+
+/// <summary>Message row (mirrors StudentMessageDto).</summary>
+public sealed record StudentMessageDto(
+    Guid Id,
+    bool SentByStaff,
+    string SenderName,
+    string Body,
+    DateTimeOffset SentAt,
+    bool Read);
+
+/// <summary>Staff inbox row (mirrors MessageThreadDto).</summary>
+public sealed record MessageThreadDto(
+    Guid StudentId,
+    string StudentName,
+    string? ClassName,
+    string LastMessage,
+    DateTimeOffset LastMessageAt,
+    int UnreadForStaff);

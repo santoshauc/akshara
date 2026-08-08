@@ -173,6 +173,16 @@ export interface LeaveRequest {
   requestedAt: string;
 }
 
+/** One message in the parent↔school conversation. */
+export interface StudentMessage {
+  id: string;
+  sentByStaff: boolean;
+  senderName: string;
+  body: string;
+  sentAt: string;
+  read: boolean;
+}
+
 /** Online payment order with its browser checkout URL. */
 export interface FeeOrder {
   orderId: string;
