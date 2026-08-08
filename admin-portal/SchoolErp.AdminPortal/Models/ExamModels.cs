@@ -83,3 +83,16 @@ public sealed record StudentResultDto(
     string OverallGrade,
     int? SectionRank,
     int SectionSize);
+
+/// <summary>Term report definition (mirrors Application TermReportDto).</summary>
+public sealed record TermReportDto(
+    Guid Id,
+    string Name,
+    Guid AcademicYearId,
+    List<TermReportComponentDto> Components);
+
+/// <summary>Weighted exam inside a definition.</summary>
+public sealed record TermReportComponentDto(Guid ExamId, string ExamName, decimal WeightPercent);
+
+/// <summary>Creation input line (mirrors TermReportComponentInput).</summary>
+public sealed record TermReportComponentInput(Guid ExamId, decimal WeightPercent);

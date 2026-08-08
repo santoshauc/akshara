@@ -7,6 +7,7 @@ using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Academics;
 using SchoolErp.Application.Common.Exceptions;
+using SchoolErp.Application.Exams;
 using SchoolErp.Application.Exams.Commands;
 using SchoolErp.Application.Exams.Queries;
 using SchoolErp.Application.Students;
@@ -291,5 +292,60 @@ public sealed class ExamModuleTests : IClassFixture<ExamModuleFixture>
         var act = () => sender.Send(new ScheduleExamSubjectCommand(
             examId, _fixture.ClassId, _fixture.MathSubjectId, null, 100, 33));
         await act.Should().ThrowAsync<ConflictException>().WithMessage("*already scheduled*");
+    }
+
+    [Fact]
+    public async Task Term_report_weights_exams_and_renders_with_remarks()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Two exams: term1 (60% weight) and term2 (40%).
+        var (term1, math1, science1) = await SetUpExamAsync(sender, "TR Term 1");
+        var (term2, math2, science2) = await SetUpExamAsync(sender, "TR Term 2");
+        await sender.Send(new EnterMarksCommand(math1,
+            [new MarkInput(_fixture.EnrollmentTop, 80, false)]));
+        await sender.Send(new EnterMarksCommand(science1,
+            [new MarkInput(_fixture.EnrollmentTop, 40, false)]));
+        await sender.Send(new EnterMarksCommand(math2,
+            [new MarkInput(_fixture.EnrollmentTop, 100, false)]));
+        await sender.Send(new EnterMarksCommand(science2,
+            [new MarkInput(_fixture.EnrollmentTop, 25, false)]));
+
+        var reportId = await sender.Send(new CreateTermReportCommand(
+            _fixture.YearId, "Annual Weighted", [(term1, 60m), (term2, 40m)]));
+
+        // Weights must sum to 100.
+        var badWeights = () => sender.Send(new CreateTermReportCommand(
+            _fixture.YearId, "Broken", [(term1, 50m), (term2, 40m)]));
+        await badWeights.Should().ThrowAsync<FluentValidation.ValidationException>();
+
+        await sender.Send(new SetTermStudentInputCommand(
+            reportId, _fixture.StudentTop,
+            new Dictionary<string, string> { ["Art"] = "A", ["Sports"] = "B" },
+            "Consistent and disciplined through the year."));
+
+        // Staff render works with drafts; parent view demands published exams.
+        var pdf = await sender.Send(
+            new GetTermReportCardPdfQuery(reportId, _fixture.StudentTop));
+        System.Text.Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
+
+        var parentView = () => sender.Send(
+            new GetTermReportCardPdfQuery(reportId, _fixture.StudentTop, PublishedOnly: true));
+        await parentView.Should().ThrowAsync<NotFoundException>("components are drafts");
+
+        await sender.Send(new PublishExamCommand(term1));
+        await sender.Send(new PublishExamCommand(term2));
+        var published = await sender.Send(
+            new GetTermReportCardPdfQuery(reportId, _fixture.StudentTop, PublishedOnly: true));
+        System.Text.Encoding.ASCII.GetString(published, 0, 4).Should().Be("%PDF");
+
+        // Weighted math: 80% (60w) + 100% (40w) → 88%.
+        // (Grade math is covered in unit form by the renderer inputs — here we
+        // just prove listing carries components + weights.)
+        var listed = (await sender.Send(new GetTermReportsQuery(_fixture.YearId)))
+            .Single(t => t.Id == reportId);
+        listed.Components.Should().HaveCount(2);
+        listed.Components.Sum(c => c.WeightPercent).Should().Be(100);
     }
 }

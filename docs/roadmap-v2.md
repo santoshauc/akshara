@@ -26,7 +26,7 @@ as items land.
 | B4 | School documents | Transfer Certificate + bonafide certificate + student ID card as PDFs (extend the QuestPDF renderer); buttons on the student profile. | DONE |
 | B5 | Fee polish | Late fine rule per fee head (flat/percent after due date); per-student concessions; receipt PDF download; nightly Hangfire fee-due reminder SMS. | DONE |
 | B6 | Push notifications | Expo push tokens registered per device; outbox gains a "push" type; absence/result/fee/trip events push as well as SMS; apps register tokens on login. | DONE |
-| B7 | Term-aggregated report cards | Final report card combining selected exams (weighted), co-scholastic grades + teacher remarks entry, rendered on the existing PDF. | |
+| B7 | Term-aggregated report cards | Final report card combining selected exams (weighted), co-scholastic grades + teacher remarks entry, rendered on the existing PDF. | DONE |
 | B8 | Parent–teacher messaging | Per-student conversation thread (parent app ↔ portal), unread counts, audit-safe. | |
 
 ## Phase C — maturity

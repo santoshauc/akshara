@@ -60,6 +60,12 @@ public interface IApplicationDbContext
 
     DbSet<Domain.Notifications.PushToken> PushTokens { get; }
 
+    DbSet<TermReport> TermReports { get; }
+
+    DbSet<TermReportComponent> TermReportComponents { get; }
+
+    DbSet<TermStudentInput> TermStudentInputs { get; }
+
     DbSet<PaymentOrder> PaymentOrders { get; }
 
     DbSet<Notice> Notices { get; }

@@ -74,3 +74,41 @@ public sealed class MarkEntryConfiguration : IEntityTypeConfiguration<MarkEntry>
             .HasForeignKey(m => m.EnrollmentId).OnDelete(DeleteBehavior.Restrict);
     }
 }
+
+/// <summary>Mapping for term report definitions.</summary>
+public sealed class TermReportConfiguration : IEntityTypeConfiguration<TermReport>
+{
+    public void Configure(EntityTypeBuilder<TermReport> builder)
+    {
+        builder.ToTable("term_reports");
+        builder.Property(t => t.Name).HasMaxLength(128).IsRequired();
+        builder.HasIndex(t => new { t.TenantId, t.AcademicYearId, t.Name }).IsUnique();
+        builder.HasMany(t => t.Components).WithOne()
+            .HasForeignKey(c => c.TermReportId).OnDelete(DeleteBehavior.Cascade);
+    }
+}
+
+/// <summary>Mapping for weighted exam components.</summary>
+public sealed class TermReportComponentConfiguration
+    : IEntityTypeConfiguration<TermReportComponent>
+{
+    public void Configure(EntityTypeBuilder<TermReportComponent> builder)
+    {
+        builder.ToTable("term_report_components");
+        builder.HasIndex(c => new { c.TenantId, c.TermReportId, c.ExamId }).IsUnique();
+        builder.HasOne(c => c.Exam).WithMany()
+            .HasForeignKey(c => c.ExamId).OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>Mapping for per-student term inputs (co-scholastic + remarks).</summary>
+public sealed class TermStudentInputConfiguration : IEntityTypeConfiguration<TermStudentInput>
+{
+    public void Configure(EntityTypeBuilder<TermStudentInput> builder)
+    {
+        builder.ToTable("term_student_inputs");
+        builder.Property(t => t.CoScholasticJson).HasMaxLength(2048);
+        builder.Property(t => t.Remarks).HasMaxLength(1024);
+        builder.HasIndex(t => new { t.TenantId, t.TermReportId, t.StudentId }).IsUnique();
+    }
+}

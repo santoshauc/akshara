@@ -211,6 +211,37 @@ public sealed class ParentController : ControllerBase
         return File(pdf, "application/pdf", "report-card.pdf");
     }
 
+    /// <summary>Term report definitions for the child's current year.</summary>
+    [HttpGet("children/{studentId:guid}/term-reports")]
+    [ProducesResponseType(typeof(IReadOnlyList<TermReportDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildTermReports(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        var yearId = await _db.AcademicYears.AsNoTracking()
+            .Where(y => y.IsCurrent)
+            .Select(y => (Guid?)y.Id)
+            .FirstOrDefaultAsync(ct);
+        if (yearId is null)
+        {
+            return Ok(Array.Empty<TermReportDto>());
+        }
+
+        return Ok(await _sender.Send(new GetTermReportsQuery(yearId.Value), ct));
+    }
+
+    /// <summary>The weighted term report card PDF (published components only).</summary>
+    [HttpGet("children/{studentId:guid}/term-reports/{termReportId:guid}/pdf")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChildTermReportCard(
+        Guid studentId, Guid termReportId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        var pdf = await _sender.Send(
+            new GetTermReportCardPdfQuery(termReportId, studentId, PublishedOnly: true), ct);
+        return File(pdf, "application/pdf", "term-report.pdf");
+    }
+
     /// <summary>A child's leave requests, newest first.</summary>
     [HttpGet("children/{studentId:guid}/leave-requests")]
     [ProducesResponseType(typeof(IReadOnlyList<LeaveRequestDto>), StatusCodes.Status200OK)]

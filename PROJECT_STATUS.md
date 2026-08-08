@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 87 integration = **135 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 88 integration = **136 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -254,6 +254,22 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   dispatcher delivers to RecordingPushSender); E2E-verified live:
   parent OTP login → token registered → absence marked → API logged
   "[DEV PUSH] to ExponentPushToken[priya-phone-1]: Absence noted…".
+- B7 Term report cards — DONE. TermReport + TermReportComponent
+  (weighted exams, weights must sum to 100) + TermStudentInput
+  (co-scholastic JSON + remarks), all RLS'd (AddTermReports migration).
+  GetTermReportCardPdfQuery reuses the per-exam result pipeline per
+  component: per-subject percent per exam, weighted total renormalized
+  over components that carry the subject, same A1–E grade bands;
+  ITermReportRenderer QuestPDF A4 card (per-component columns,
+  weighted %, co-scholastic table, remarks, signatures). Staff API
+  under exams/term-reports (view/manage/enter-marks split); parent
+  endpoints require EVERY component exam published (and the family
+  guard 404s non-guardians — verified live). Portal Exams page grew a
+  "Term reports" panel (create with weights, per-student remarks +
+  "Area:Grade" co-scholastic entry, PDF download). Integration test
+  covers weights validation, draft-block for parents, publish-unblock,
+  render. E2E live: Annual Report 2026-27 for Ananya (49KB PDF with
+  remarks + Art/Sports/Music grades), parent PDF 200 after publish.
 
 ## How to run (Windows dev box)
 

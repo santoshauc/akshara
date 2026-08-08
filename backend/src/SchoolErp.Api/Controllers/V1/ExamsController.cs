@@ -123,7 +123,66 @@ public sealed class ExamsController : ControllerBase
         var pdf = await _sender.Send(new GetReportCardPdfQuery(studentId, examId), ct);
         return File(pdf, "application/pdf", $"report-card-{studentId:N}.pdf");
     }
+
+    /// <summary>Term report definitions of a year.</summary>
+    [HttpGet("term-reports")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(typeof(IReadOnlyList<TermReportDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTermReports(
+        [FromQuery] Guid academicYearId, CancellationToken ct) =>
+        Ok(await _sender.Send(new GetTermReportsQuery(academicYearId), ct));
+
+    /// <summary>Creates a term report from weighted exams (weights sum to 100).</summary>
+    [HttpPost("term-reports")]
+    [HasPermission(Permissions.Examinations.Manage)]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> CreateTermReport(
+        [FromBody] CreateTermReportRequest request, CancellationToken ct) =>
+        Ok(await _sender.Send(new CreateTermReportCommand(
+            request.AcademicYearId,
+            request.Name,
+            request.Components.Select(c => (c.ExamId, c.WeightPercent)).ToList()), ct));
+
+    /// <summary>Upserts a student's co-scholastic grades and remarks.</summary>
+    [HttpPut("term-reports/{id:guid}/students/{studentId:guid}")]
+    [HasPermission(Permissions.Examinations.EnterMarks)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetTermStudentInput(
+        Guid id, Guid studentId, [FromBody] TermStudentInputRequest request, CancellationToken ct)
+    {
+        await _sender.Send(new SetTermStudentInputCommand(
+            id, studentId, request.CoScholastic, request.Remarks), ct);
+        return NoContent();
+    }
+
+    /// <summary>The weighted term report card as a PDF (drafts allowed for staff).</summary>
+    [HttpGet("term-reports/{id:guid}/students/{studentId:guid}/pdf")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetTermReportCard(
+        Guid id, Guid studentId, CancellationToken ct)
+    {
+        var pdf = await _sender.Send(new GetTermReportCardPdfQuery(id, studentId), ct);
+        return File(pdf, "application/pdf", "term-report.pdf");
+    }
 }
+
+/// <summary>Term report creation payload.</summary>
+public sealed record CreateTermReportRequest(
+    Guid AcademicYearId,
+    string Name,
+    IReadOnlyList<TermReportComponentInput> Components);
+
+/// <summary>One weighted exam in the creation payload.</summary>
+public sealed record TermReportComponentInput(Guid ExamId, decimal WeightPercent);
+
+/// <summary>Co-scholastic + remarks payload.</summary>
+public sealed record TermStudentInputRequest(
+    Dictionary<string, string> CoScholastic, string? Remarks);
 
 /// <summary>Paper-scheduling payload.</summary>
 public sealed record SchedulePaperRequest(

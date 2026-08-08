@@ -2,9 +2,11 @@
 @attribute [Authorize]
 @inject ExamsClient Client
 @inject AcademicsClient AcademicsApi
+@inject StudentsClient StudentsApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
+@inject IJSRuntime Js
 
 <PageTitle>Exams — SchoolErp</PageTitle>
 
@@ -157,6 +159,80 @@ else
     }
 }
 
+<MudPaper Elevation="2" Class="pa-6 mt-4">
+    <MudText Typo="Typo.h6" Class="mb-1">Term reports</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
+        Combine exams with weights into a final report card. Enter co-scholastic
+        grades and remarks per student, then download the weighted PDF.
+    </MudText>
+
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-3">
+        <MudTextField @bind-Value="_termName" Label="Name (e.g. Annual 2026-27)"
+                      Style="min-width: 220px;" />
+        @foreach (var (component, index) in _termComponents.Select((c, i) => (c, i)))
+        {
+            <MudSelect T="Guid?" @bind-Value="component.ExamId" Label="Exam" Dense="true"
+                       Style="min-width: 160px;">
+                @foreach (var exam in _exams)
+                {
+                    <MudSelectItem T="Guid?" Value="@exam.Id">@exam.Name</MudSelectItem>
+                }
+            </MudSelect>
+            <MudNumericField T="decimal" @bind-Value="component.Weight" Label="Weight %"
+                             Min="1" Max="100" Style="width: 100px;" HideSpinButtons="true" />
+        }
+        <MudIconButton Icon="@Icons.Material.Filled.Add" Size="Size.Small"
+                       OnClick="@(() => _termComponents.Add(new TermComponentRow()))" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                   OnClick="CreateTermReportAsync">
+            Create term report
+        </MudButton>
+    </MudStack>
+
+    @foreach (var report in _termReports)
+    {
+        <MudPaper Outlined="true" Class="pa-4 mb-3">
+            <MudStack Row="true" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Spacing="2">
+                <MudText Typo="Typo.subtitle1">@report.Name</MudText>
+                @foreach (var component in report.Components)
+                {
+                    <MudChip Size="Size.Small" Variant="Variant.Outlined">
+                        @component.ExamName (@component.WeightPercent.ToString("0.#")%)
+                    </MudChip>
+                }
+            </MudStack>
+
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mt-3">
+                <MudSelect T="Guid?" @bind-Value="_termStudentId" Label="Student" Dense="true"
+                           Style="min-width: 200px;">
+                    @foreach (var student in _termStudents)
+                    {
+                        <MudSelectItem T="Guid?" Value="@student.Id">
+                            @student.FirstName @student.LastName
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                <MudTextField @bind-Value="_termRemarks" Label="Teacher's remarks"
+                              Style="min-width: 260px;" />
+                <MudTextField @bind-Value="_termCoScholastic"
+                              Label="Co-scholastic (Area:Grade, comma-separated)"
+                              HelperText="e.g. Art:A, Sports:B"
+                              Style="min-width: 240px;" />
+                <MudButton Variant="Variant.Outlined" Disabled="@(_busy || _termStudentId is null)"
+                           OnClick="@(() => SaveTermInputAsync(report.Id))">
+                    Save
+                </MudButton>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                           StartIcon="@Icons.Material.Filled.Download"
+                           Disabled="@(_busy || _termStudentId is null)"
+                           OnClick="@(() => DownloadTermPdfAsync(report.Id))">
+                    Report card PDF
+                </MudButton>
+            </MudStack>
+        </MudPaper>
+    }
+</MudPaper>
+
 @code {
     private List<ExamDto> _exams = [];
     private List<SubjectDto> _subjects = [];
@@ -190,6 +266,9 @@ else
             _subjects = await Client.GetSubjectsAsync();
             _classes = await AcademicsApi.GetClassesAsync();
             await ReloadExamsAsync();
+            await ReloadTermReportsAsync();
+            _termStudents = (await StudentsApi.GetStudentsAsync(
+                null, null, null, StudentStatus.Active, 1, 100)).Items.ToList();
         }
         catch (HttpRequestException)
         {
@@ -206,6 +285,128 @@ else
         if (_currentYearId is { } yearId)
         {
             _exams = await Client.GetExamsAsync(yearId);
+        }
+    }
+
+    private sealed class TermComponentRow
+    {
+        public Guid? ExamId { get; set; }
+        public decimal Weight { get; set; } = 50;
+    }
+
+    private List<TermReportDto> _termReports = [];
+    private List<StudentListItemDto> _termStudents = [];
+    private readonly List<TermComponentRow> _termComponents = [new(), new()];
+    private string _termName = string.Empty;
+    private Guid? _termStudentId;
+    private string? _termRemarks;
+    private string? _termCoScholastic;
+
+    private async Task ReloadTermReportsAsync()
+    {
+        if (_currentYearId is { } yearId)
+        {
+            _termReports = await Client.GetTermReportsAsync(yearId);
+        }
+    }
+
+    private async Task CreateTermReportAsync()
+    {
+        var components = _termComponents
+            .Where(c => c.ExamId is not null)
+            .Select(c => new TermReportComponentInput(c.ExamId!.Value, c.Weight))
+            .ToList();
+        if (_currentYearId is null || string.IsNullOrWhiteSpace(_termName) || components.Count == 0)
+        {
+            Snackbar.Add("Name and at least one weighted exam are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateTermReportAsync(
+                _currentYearId.Value, _termName.Trim(), components);
+            if (error is null)
+            {
+                Snackbar.Add("Term report created.", Severity.Success);
+                _termName = string.Empty;
+                await ReloadTermReportsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SaveTermInputAsync(Guid termReportId)
+    {
+        if (_termStudentId is null)
+        {
+            return;
+        }
+
+        // "Art:A, Sports:B" → area/grade pairs; malformed chunks are skipped.
+        var coScholastic = (_termCoScholastic ?? "")
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(pair => pair.Split(':', 2, StringSplitOptions.TrimEntries))
+            .Where(parts => parts.Length == 2 && parts[0].Length > 0 && parts[1].Length > 0)
+            .ToDictionary(parts => parts[0], parts => parts[1]);
+
+        _busy = true;
+        try
+        {
+            var error = await Client.SetTermStudentInputAsync(
+                termReportId, _termStudentId.Value, coScholastic,
+                string.IsNullOrWhiteSpace(_termRemarks) ? null : _termRemarks.Trim());
+            Snackbar.Add(error ?? "Saved.", error is null ? Severity.Success : Severity.Error);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DownloadTermPdfAsync(Guid termReportId)
+    {
+        if (_termStudentId is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var pdf = await Client.GetTermReportPdfAsync(termReportId, _termStudentId.Value);
+            if (pdf is null)
+            {
+                Snackbar.Add("Could not generate the report card.", Severity.Error);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("schoolErpDownload",
+                "term-report.pdf", "application/pdf", Convert.ToBase64String(pdf));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 

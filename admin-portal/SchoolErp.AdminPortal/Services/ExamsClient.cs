@@ -63,4 +63,41 @@ public sealed class ExamsClient
 
         return await response.Content.ReadFromJsonAsync<StudentResultDto>(cancellationToken: ct);
     }
+
+    public async Task<List<TermReportDto>> GetTermReportsAsync(
+        Guid academicYearId, CancellationToken ct = default) =>
+        await _http.GetFromJsonAsync<List<TermReportDto>>(
+            $"api/v1/exams/term-reports?academicYearId={academicYearId}", ct) ?? [];
+
+    /// <summary>Creates a term report definition; null on success.</summary>
+    public async Task<string?> CreateTermReportAsync(
+        Guid academicYearId, string name,
+        List<TermReportComponentInput> components, CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync("api/v1/exams/term-reports",
+            new { academicYearId, name, components }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
+    /// <summary>Saves a student's co-scholastic grades + remarks; null on success.</summary>
+    public async Task<string?> SetTermStudentInputAsync(
+        Guid termReportId, Guid studentId,
+        Dictionary<string, string> coScholastic, string? remarks, CancellationToken ct = default)
+    {
+        var response = await _http.PutAsJsonAsync(
+            $"api/v1/exams/term-reports/{termReportId}/students/{studentId}",
+            new { coScholastic, remarks }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
+    /// <summary>Fetches a student's term report PDF; null when unavailable.</summary>
+    public async Task<byte[]?> GetTermReportPdfAsync(
+        Guid termReportId, Guid studentId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync(
+            $"api/v1/exams/term-reports/{termReportId}/students/{studentId}/pdf", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
 }

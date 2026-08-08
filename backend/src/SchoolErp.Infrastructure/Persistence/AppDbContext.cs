@@ -95,6 +95,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public DbSet<Domain.Notifications.PushToken> PushTokens => Set<Domain.Notifications.PushToken>();
 
+    public DbSet<TermReport> TermReports => Set<TermReport>();
+
+    public DbSet<TermReportComponent> TermReportComponents => Set<TermReportComponent>();
+
+    public DbSet<TermStudentInput> TermStudentInputs => Set<TermStudentInput>();
+
     /// <summary>Online payment orders (platform-scoped, webhook-read).</summary>
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
 
