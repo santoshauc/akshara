@@ -116,12 +116,16 @@ Integration tests use Testcontainers (needs Docker running).
    Integration test covers draft-hiding + valid PDF output; E2E-verified
    with a real 39KB PDF for Ananya's Mid-Term 1.
 
-ALL originally-scoped roadmap items are now complete. Parent app also has a
-report-card download button on the result card (web: blob open; device:
-expo-file-system File + expo-sharing share sheet; localized en/te).
-Remaining backlog is polish only: task #4 local-infra extras, portal/SMS
-localization. (AutoMapper is REMOVED — hand-written mappings; the High
-advisory GHSA-rvv3-g6hj-g44x is resolved.)
+ALL originally-scoped roadmap items are now complete, including Library and
+Hostel modules. Parent app also has a report-card download button on the
+result card (web: blob open; device: expo-file-system File + expo-sharing
+share sheet; localized en/te). Local infra (task #4) is DONE: real
+liveness/readiness split (live = process only; ready = tagged postgres+redis
+checks; verified live — killing redis 503s ready while live stays 200) and a
+docker-compose "full" profile that builds and runs the API container against
+the data services (`docker compose --profile full up -d --build`).
+Remaining backlog: portal/SMS localization only. (AutoMapper is REMOVED —
+hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
 
 ## How to run (Windows dev box)
 

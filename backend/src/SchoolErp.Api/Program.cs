@@ -3,6 +3,7 @@ using System.Text;
 using Asp.Versioning;
 using Hangfire;
 using Hangfire.PostgreSql;
+using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.RateLimiting;
@@ -131,6 +132,10 @@ try
         .AddNpgSql(
             builder.Configuration.GetConnectionString("Postgres")!,
             name: "postgres",
+            tags: ["ready"])
+        .AddRedis(
+            builder.Configuration.GetConnectionString("Redis")!,
+            name: "redis",
             tags: ["ready"]);
 
     var app = builder.Build();
@@ -179,8 +184,13 @@ try
     app.UseAuthorization();
 
     app.MapControllers().RequireRateLimiting("global");
-    app.MapHealthChecks("/health/live");
-    app.MapHealthChecks("/health/ready");
+    // Liveness must not depend on downstream services — a database blip should
+    // fail READINESS (stop routing traffic), not get the process restarted.
+    app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
+    app.MapHealthChecks("/health/ready", new HealthCheckOptions
+    {
+        Predicate = check => check.Tags.Contains("ready"),
+    });
 
     // The API serves no UI at "/" — send humans to the docs (dev) or identify
     // the service instead of showing a blank 404.

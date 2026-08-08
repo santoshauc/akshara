@@ -30,5 +30,28 @@ services:
       timeout: 3s
       retries: 10
 
+  # Full-stack profile: `docker compose --profile full up -d --build` also
+  # builds and runs the API container. The default `up -d` starts only the
+  # data services — the usual dev flow runs the API via `dotnet run`.
+  api:
+    build:
+      context: ..
+      dockerfile: deployment/Dockerfile.api
+    container_name: schoolerp-api
+    profiles: ["full"]
+    ports:
+      - "8080:8080"
+    environment:
+      ASPNETCORE_ENVIRONMENT: Development
+      ConnectionStrings__Postgres: Host=postgres;Port=5432;Database=schoolerp;Username=schoolerp_app;Password=schoolerp_app_dev_only
+      ConnectionStrings__PostgresMigrations: Host=postgres;Port=5432;Database=schoolerp;Username=schoolerp;Password=schoolerp_dev_only
+      ConnectionStrings__Redis: redis:6379
+      Jwt__SigningKey: local-compose-signing-key-0123456789abcdef
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
 volumes:
   postgres-data:
