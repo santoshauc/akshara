@@ -47,6 +47,7 @@ public sealed class TenantModuleFixture : IAsyncLifetime
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddApplication();
         services.AddInfrastructure(configuration);
         services.AddScoped<ICurrentUser, StubCurrentUser>();

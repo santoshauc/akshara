@@ -54,6 +54,7 @@ public sealed class SisModuleFixture : IAsyncLifetime
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddApplication();
         services.AddInfrastructure(configuration);
         services.AddScoped<ICurrentUser, StubCurrentUser>();
@@ -236,6 +237,32 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
             with { AdmissionNumber = "CUSTOM-1" };
         var act = () => sender.Send(duplicate);
         await act.Should().ThrowAsync<ConflictException>().WithMessage("*CUSTOM-1*");
+    }
+
+    [Fact]
+    public async Task Official_documents_render_as_pdfs_for_an_enrolled_student()
+    {
+        await using var scope = _fixture.CreateScope(_fixture.SchoolA);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var (yearId, classId, sectionId) = await GetStructureAsync(sender);
+        var studentId = await sender.Send(
+            NewAdmission(yearId, classId, sectionId, "Docu", "+919899000099"));
+
+        foreach (var type in new[]
+                 {
+                     StudentDocumentType.TransferCertificate,
+                     StudentDocumentType.BonafideCertificate,
+                     StudentDocumentType.IdCard,
+                 })
+        {
+            var pdf = await sender.Send(new GetStudentDocumentPdfQuery(studentId, type));
+            pdf.Length.Should().BeGreaterThan(1_000, $"{type} must be a real document");
+            System.Text.Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
+        }
+
+        var missing = () => sender.Send(new GetStudentDocumentPdfQuery(
+            Guid.NewGuid(), StudentDocumentType.IdCard));
+        await missing.Should().ThrowAsync<NotFoundException>();
     }
 
     [Fact]

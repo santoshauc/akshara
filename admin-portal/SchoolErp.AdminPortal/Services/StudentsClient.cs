@@ -77,6 +77,17 @@ public sealed class StudentsClient
         return (null, await ProblemResponse.ReadTitleAsync(response, ct));
     }
 
+    /// <summary>Fetches an official document PDF (transfer-certificate,
+    /// bonafide-certificate or id-card); null when unavailable.</summary>
+    public async Task<byte[]?> GetDocumentAsync(
+        Guid id, string type, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"api/v1/students/{id}/documents/{type}", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
+
     /// <summary>Turns a server-relative file URL into an absolute one on the API host.</summary>
     public string? FileUrl(string? relativeUrl) =>
         relativeUrl is null ? null : new Uri(_http.BaseAddress!, relativeUrl).ToString();

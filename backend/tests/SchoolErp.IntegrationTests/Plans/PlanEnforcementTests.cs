@@ -64,6 +64,7 @@ public sealed class PlanEnforcementFixture : IAsyncLifetime
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddInfrastructure(configuration);
         services.AddScoped<ICurrentUser, StubCurrentUser>();
         services.AddSingleton<ISmsSender>(SmsSender);

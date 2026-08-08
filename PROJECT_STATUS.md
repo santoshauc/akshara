@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 84 integration = **132 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 85 integration = **133 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -204,6 +204,19 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   Attendance % now excludes Leave days from the denominator (excused).
   3 integration tests + E2E: parent filed 12–13 Aug for Ananya,
   admin approved in portal, app shows Approved + Leave days at 100%.
+- B4 School documents — DONE. IStudentDocumentRenderer +
+  QuestPdfStudentDocumentRenderer: Transfer Certificate and bonafide
+  (A4, school header w/ affiliation, ref no, formal body with
+  gender-aware pronouns, signature blocks) and a CR80-ratio student ID
+  card that embeds the stored photo via IFileStorage (placeholder when
+  none). GET students/{id}/documents/{transfer-certificate|
+  bonafide-certificate|id-card} (students.view). Portal profile has
+  three download buttons (bytes → window.schoolErpDownload data-URI
+  helper added to index.html). Fixtures now register IConfiguration
+  (LocalDiskFileStorage resolves it). 1 integration test (all 3 types
+  render real PDFs; unknown student 404); E2E-verified live — all
+  three generated for Ananya (TC 29.8KB, bonafide 29.4KB, ID card
+  25.2KB with photo) and the portal button downloads.
 
 ## How to run (Windows dev box)
 

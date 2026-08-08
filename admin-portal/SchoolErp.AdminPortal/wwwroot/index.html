@@ -43,6 +43,14 @@
                 window.location.reload();
             }
         });
+
+        // Saves API-fetched bytes (PDFs) as a browser download.
+        window.schoolErpDownload = (fileName, contentType, base64) => {
+            const link = document.createElement('a');
+            link.href = `data:${contentType};base64,${base64}`;
+            link.download = fileName;
+            link.click();
+        };
     </script>
 </body>
 

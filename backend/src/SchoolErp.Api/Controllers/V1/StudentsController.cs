@@ -62,6 +62,33 @@ public sealed class StudentsController : ControllerBase
         return CreatedAtAction(nameof(GetStudent), new { id, version = "1" }, id);
     }
 
+    /// <summary>
+    /// An official document PDF: transfer-certificate, bonafide-certificate
+    /// or id-card.
+    /// </summary>
+    [HttpGet("{id:guid}/documents/{type}")]
+    [HasPermission(Permissions.Students.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetDocument(Guid id, string type, CancellationToken ct)
+    {
+        StudentDocumentType? documentType = type.ToLowerInvariant() switch
+        {
+            "transfer-certificate" => StudentDocumentType.TransferCertificate,
+            "bonafide-certificate" => StudentDocumentType.BonafideCertificate,
+            "id-card" => StudentDocumentType.IdCard,
+            _ => null,
+        };
+        if (documentType is null)
+        {
+            return NotFound();
+        }
+
+        var pdf = await _sender.Send(
+            new GetStudentDocumentPdfQuery(id, documentType.Value), ct);
+        return File(pdf, "application/pdf", $"{type}.pdf");
+    }
+
     /// <summary>Uploads/replaces the student photo (jpeg/png/webp, max 2 MB).</summary>
     [HttpPost("{id:guid}/photo")]
     [HasPermission(Permissions.Students.Manage)]

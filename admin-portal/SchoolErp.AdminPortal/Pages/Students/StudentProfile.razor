@@ -8,6 +8,7 @@
 @inject TransportClient TransportApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IJSRuntime Js
 
 <PageTitle>Student — SchoolErp</PageTitle>
 
@@ -41,6 +42,27 @@ else if (_student is { } student)
         <MudChip Color="@(student.Status == StudentStatus.Active ? Color.Success : Color.Warning)">
             @student.Status
         </MudChip>
+    </MudStack>
+
+    <MudStack Row="true" Spacing="2" Class="mb-4" Wrap="Wrap.Wrap">
+        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Description"
+                   Disabled="@(_documentBusy is not null)"
+                   OnClick="@(() => DownloadDocumentAsync("bonafide-certificate"))">
+            @(_documentBusy == "bonafide-certificate" ? "Preparing…" : "Bonafide certificate")
+        </MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Badge"
+                   Disabled="@(_documentBusy is not null)"
+                   OnClick="@(() => DownloadDocumentAsync("id-card"))">
+            @(_documentBusy == "id-card" ? "Preparing…" : "ID card")
+        </MudButton>
+        <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Warning"
+                   StartIcon="@Icons.Material.Filled.TransferWithinAStation"
+                   Disabled="@(_documentBusy is not null)"
+                   OnClick="@(() => DownloadDocumentAsync("transfer-certificate"))">
+            @(_documentBusy == "transfer-certificate" ? "Preparing…" : "Transfer certificate")
+        </MudButton>
     </MudStack>
 
     <MudGrid Spacing="4">
@@ -341,6 +363,35 @@ else if (_student is { } student)
         finally
         {
             _loading = false;
+        }
+    }
+
+    private string? _documentBusy;
+
+    private async Task DownloadDocumentAsync(string type)
+    {
+        _documentBusy = type;
+        try
+        {
+            var pdf = await Client.GetDocumentAsync(Id, type);
+            if (pdf is null)
+            {
+                Snackbar.Add("Could not generate the document.", Severity.Error);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("schoolErpDownload",
+                $"{type}-{_student?.AdmissionNumber ?? Id.ToString()}.pdf",
+                "application/pdf",
+                Convert.ToBase64String(pdf));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _documentBusy = null;
         }
     }
 

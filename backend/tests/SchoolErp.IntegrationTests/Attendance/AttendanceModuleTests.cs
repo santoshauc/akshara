@@ -68,6 +68,7 @@ public sealed class AttendanceModuleFixture : IAsyncLifetime
 
         var services = new ServiceCollection();
         services.AddLogging();
+        services.AddSingleton<IConfiguration>(configuration);
         services.AddApplication();
         services.AddInfrastructure(configuration);
         services.AddScoped<ICurrentUser, StubCurrentUser>();
