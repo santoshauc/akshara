@@ -78,6 +78,8 @@ public interface IApplicationDbContext
 
     DbSet<Teacher> Teachers { get; }
 
+    DbSet<Domain.Leave.LeaveRequest> LeaveRequests { get; }
+
     DbSet<TimetableEntry> TimetableEntries { get; }
 
     DbSet<Book> Books { get; }

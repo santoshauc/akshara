@@ -121,6 +121,21 @@ export const en = {
   hostelSince: 'since {date}',
   warden: 'Warden',
   callWarden: 'Call warden ({phone})',
+
+  // Leave
+  leaveTitle: 'Leave',
+  leaveEmpty: 'No leave requests yet.',
+  requestLeave: 'Request leave',
+  leaveFrom: 'From (YYYY-MM-DD)',
+  leaveTo: 'To (YYYY-MM-DD)',
+  leaveReason: 'Reason',
+  leaveSubmit: 'Submit request',
+  leaveSubmitted: 'Leave request sent. The school will review it.',
+  leaveFailed: 'Could not submit the leave request.',
+  leaveInvalid: 'Enter valid dates (YYYY-MM-DD) and a reason.',
+  leavePending: 'Pending',
+  leaveApproved: 'Approved',
+  leaveRejected: 'Rejected',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -243,4 +258,19 @@ export const te: Record<TranslationKey, string> = {
   hostelSince: '{date} నుంచి',
   warden: 'వార్డెన్',
   callWarden: 'వార్డెన్‌కు కాల్ చేయండి ({phone})',
+
+  // Leave
+  leaveTitle: 'సెలవు',
+  leaveEmpty: 'సెలవు అభ్యర్థనలు ఇంకా లేవు.',
+  requestLeave: 'సెలవు అడగండి',
+  leaveFrom: 'నుంచి (YYYY-MM-DD)',
+  leaveTo: 'వరకు (YYYY-MM-DD)',
+  leaveReason: 'కారణం',
+  leaveSubmit: 'అభ్యర్థన పంపండి',
+  leaveSubmitted: 'సెలవు అభ్యర్థన పంపబడింది. స్కూల్ సమీక్షిస్తుంది.',
+  leaveFailed: 'సెలవు అభ్యర్థన పంపలేకపోయాం.',
+  leaveInvalid: 'సరైన తేదీలు (YYYY-MM-DD) మరియు కారణం ఇవ్వండి.',
+  leavePending: 'పరిశీలనలో',
+  leaveApproved: 'ఆమోదించారు',
+  leaveRejected: 'తిరస్కరించారు',
 };

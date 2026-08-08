@@ -26,3 +26,18 @@ internal sealed class StubCurrentUser : ICurrentUser
 
     public bool IsAuthenticated => true;
 }
+
+/// <summary>
+/// Test user with a REAL Guid id, for flows that parse it (leave requests).
+/// Settable so one fixture can act as different people per scope.
+/// </summary>
+internal sealed class GuidCurrentUser : ICurrentUser
+{
+    public Guid Id { get; set; } = Guid.NewGuid();
+
+    public string? UserId => Id.ToString();
+
+    public string? UserName => "Integration Test";
+
+    public bool IsAuthenticated => true;
+}

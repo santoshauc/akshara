@@ -11,6 +11,7 @@ import {
   FeeOrder,
   FeeSummary,
   Homework,
+  LeaveRequest,
   MonthAttendance,
   Notice,
   StudentResult,
@@ -122,4 +123,14 @@ export const parentApi = {
     request<ChildHostel | undefined>(`/api/v1/parent/children/${studentId}/hostel`).then(
       (h) => h ?? null,
     ),
+
+  getLeaveRequests: (studentId: string) =>
+    request<LeaveRequest[]>(`/api/v1/parent/children/${studentId}/leave-requests`),
+
+  /** Files a leave request; staff approve it in the school portal. */
+  submitLeaveRequest: (studentId: string, fromDate: string, toDate: string, reason: string) =>
+    request<string>(`/api/v1/parent/children/${studentId}/leave-requests`, {
+      method: 'POST',
+      body: JSON.stringify({ fromDate, toDate, reason }),
+    }),
 };

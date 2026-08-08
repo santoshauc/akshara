@@ -125,6 +125,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     /// <summary>Teaching staff (tenant-scoped).</summary>
     public DbSet<Teacher> Teachers => Set<Teacher>();
 
+    public DbSet<Domain.Leave.LeaveRequest> LeaveRequests => Set<Domain.Leave.LeaveRequest>();
+
     /// <summary>Timetable entries (tenant-scoped).</summary>
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
 

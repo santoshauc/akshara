@@ -160,6 +160,17 @@ export interface ChildHostel {
   allocatedOn: string;
 }
 
+/** A leave request for a child. Status: 1 pending, 2 approved, 3 rejected. */
+export interface LeaveRequest {
+  id: string;
+  fromDate: string;
+  toDate: string;
+  reason: string;
+  status: number;
+  decisionNote: string | null;
+  requestedAt: string;
+}
+
 /** Online payment order with its browser checkout URL. */
 export interface FeeOrder {
   orderId: string;

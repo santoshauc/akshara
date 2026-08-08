@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 81 integration = **129 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 84 integration = **132 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -190,6 +190,20 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   second). E2E-verified: Anita Rao (EMP-001) login created in the portal,
   signed in via +919888811122/Anita@2026Pass — JWT carries exactly the
   classroom bundle; students.view 200, students.manage 403.
+- B3 Leave management — DONE. LeaveRequest entity (RLS'd
+  AddLeaveRequests migration; leave.view/leave.manage permissions,
+  claims auto-backfilled). Parent app "Leave" card: history with
+  status + a request form (YYYY-MM-DD inputs, en/te localized), via
+  POST/GET parent/children/{id}/leave-requests (EnsureChildAsync
+  guard). Staff: GET/POST leave/mine (any signed-in staff, self-only)
+  and portal "Leave" page (pending inbox filter, approve/reject,
+  "My leave" form). Approving a STUDENT request upserts every day in
+  the range as AttendanceStatus.Leave ("Approved leave" remark) on the
+  current-year enrollment; staff approvals touch nothing. Overlapping
+  non-rejected requests 409; double decisions 409; max 31 days.
+  Attendance % now excludes Leave days from the denominator (excused).
+  3 integration tests + E2E: parent filed 12–13 Aug for Ananya,
+  admin approved in portal, app shows Approved + Leave days at 100%.
 
 ## How to run (Windows dev box)
 

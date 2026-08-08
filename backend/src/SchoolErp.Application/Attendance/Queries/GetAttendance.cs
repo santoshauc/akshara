@@ -118,7 +118,11 @@ public sealed class GetStudentMonthAttendanceQueryHandler
         var present = Count(AttendanceStatus.Present);
         var late = Count(AttendanceStatus.Late);
         var halfDay = Count(AttendanceStatus.HalfDay);
+        var leave = Count(AttendanceStatus.Leave);
         var attended = present + late + halfDay;
+        // Approved leave is excused: it neither counts as attended nor drags
+        // the percentage down — the denominator is the accountable days.
+        var accountable = days.Count - leave;
 
         return new StudentMonthAttendanceDto
         {
@@ -130,9 +134,11 @@ public sealed class GetStudentMonthAttendanceQueryHandler
             AbsentCount = Count(AttendanceStatus.Absent),
             LateCount = late,
             HalfDayCount = halfDay,
-            LeaveCount = Count(AttendanceStatus.Leave),
+            LeaveCount = leave,
             MarkedDays = days.Count,
-            AttendancePercent = days.Count == 0 ? 0 : Math.Round(attended * 100.0 / days.Count, 1),
+            AttendancePercent = accountable == 0
+                ? 0
+                : Math.Round(attended * 100.0 / accountable, 1),
         };
     }
 }

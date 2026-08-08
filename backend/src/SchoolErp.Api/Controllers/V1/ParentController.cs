@@ -17,6 +17,7 @@ using SchoolErp.Application.Fees.Commands;
 using SchoolErp.Application.Fees.Queries;
 using SchoolErp.Application.Homework;
 using SchoolErp.Application.Hostel;
+using SchoolErp.Application.Leave;
 using SchoolErp.Application.Library;
 using SchoolErp.Application.Parent;
 using SchoolErp.Application.Timetable;
@@ -210,6 +211,28 @@ public sealed class ParentController : ControllerBase
         return File(pdf, "application/pdf", "report-card.pdf");
     }
 
+    /// <summary>A child's leave requests, newest first.</summary>
+    [HttpGet("children/{studentId:guid}/leave-requests")]
+    [ProducesResponseType(typeof(IReadOnlyList<LeaveRequestDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetChildLeaveRequests(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(new GetStudentLeaveRequestsQuery(studentId), ct));
+    }
+
+    /// <summary>Submits a leave request for a child (pending staff approval).</summary>
+    [HttpPost("children/{studentId:guid}/leave-requests")]
+    [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> SubmitChildLeaveRequest(
+        Guid studentId, [FromBody] ParentLeaveRequest request, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(new SubmitLeaveRequestCommand(
+            studentId, request.FromDate, request.ToDate, request.Reason), ct));
+    }
+
     /// <summary>Live bus location for a child's route (204 when no active trip).</summary>
     [HttpGet("children/{studentId:guid}/bus")]
     [ProducesResponseType(typeof(BusLocationDto), StatusCodes.Status200OK)]
@@ -259,3 +282,6 @@ public sealed record ParentFeeOrderRequest(
 /// <summary>Order + checkout URL as returned to the parent app.</summary>
 public sealed record ParentPaymentOrderResponse(
     Guid OrderId, string GatewayOrderId, decimal Amount, string CheckoutUrl);
+
+/// <summary>Parent leave-request payload.</summary>
+public sealed record ParentLeaveRequest(DateOnly FromDate, DateOnly ToDate, string Reason);

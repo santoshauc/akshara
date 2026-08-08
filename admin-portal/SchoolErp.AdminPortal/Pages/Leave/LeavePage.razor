@@ -1,0 +1,223 @@
+@page "/leave"
+@attribute [Authorize]
+@inject LeaveClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Leave — SchoolErp</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4">Leave requests</MudText>
+    <MudSpacer />
+    <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Dense="true"
+               Style="width: 150px;" SelectedValuesChanged="@(_ => LoadAsync())">
+        <MudSelectItem T="string" Value="@("Pending")">Pending</MudSelectItem>
+        <MudSelectItem T="string" Value="@("Approved")">Approved</MudSelectItem>
+        <MudSelectItem T="string" Value="@("Rejected")">Rejected</MudSelectItem>
+        <MudSelectItem T="string" Value="@("all")">All</MudSelectItem>
+    </MudSelect>
+</MudStack>
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudTable Items="_requests" Dense="true" Hover="true" Loading="_loading">
+        <HeaderContent>
+            <MudTh>Applicant</MudTh>
+            <MudTh>Type</MudTh>
+            <MudTh>Dates</MudTh>
+            <MudTh>Reason</MudTh>
+            <MudTh>Status</MudTh>
+            <MudTh />
+        </HeaderContent>
+        <RowTemplate>
+            <MudTd>
+                @context.ApplicantName
+                @if (context.ClassName is { } className)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary"> @className</MudText>
+                }
+            </MudTd>
+            <MudTd>@(context.Kind == LeaveApplicantKind.Student ? "Student" : "Staff")</MudTd>
+            <MudTd>
+                @context.FromDate.ToString("dd MMM")–@context.ToDate.ToString("dd MMM yyyy")
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @(context.ToDate.DayNumber - context.FromDate.DayNumber + 1) day(s)
+                </MudText>
+            </MudTd>
+            <MudTd Style="max-width: 260px;">@context.Reason</MudTd>
+            <MudTd>
+                <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">
+                    @context.Status
+                </MudChip>
+                @if (context.DecisionNote is { } note)
+                {
+                    <MudTooltip Text="@note">
+                        <MudIcon Icon="@Icons.Material.Filled.Comment" Size="Size.Small"
+                                 Class="mud-text-secondary ml-1" />
+                    </MudTooltip>
+                }
+            </MudTd>
+            <MudTd>
+                @if (context.Status == LeaveRequestStatus.Pending)
+                {
+                    <MudButton Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined"
+                               Disabled="_busy" OnClick="@(() => DecideAsync(context, true))">
+                        Approve
+                    </MudButton>
+                    <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined"
+                               Class="ml-1" Disabled="_busy"
+                               OnClick="@(() => DecideAsync(context, false))">
+                        Reject
+                    </MudButton>
+                }
+            </MudTd>
+        </RowTemplate>
+        <NoRecordsContent>
+            <MudText Class="mud-text-secondary pa-4">No leave requests.</MudText>
+        </NoRecordsContent>
+    </MudTable>
+</MudPaper>
+
+<MudPaper Elevation="2" Class="pa-6">
+    <MudText Typo="Typo.h6" Class="mb-1">My leave</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+        File your own leave request; an administrator approves it above.
+        Approving a <b>student</b> request marks those dates as Leave in attendance.
+    </MudText>
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudDatePicker @bind-Date="_myFrom" Label="From" Editable="true" Style="width: 160px;" />
+        <MudDatePicker @bind-Date="_myTo" Label="To" Editable="true" Style="width: 160px;" />
+        <MudTextField @bind-Value="_myReason" Label="Reason" Style="min-width: 260px;" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                   OnClick="SubmitMineAsync">
+            Request leave
+        </MudButton>
+    </MudStack>
+
+    @if (_mine.Count > 0)
+    {
+        <MudList T="LeaveRequestDto" Dense="true" Class="mt-3">
+            @foreach (var mine in _mine)
+            {
+                <MudListItem T="LeaveRequestDto">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudChip Size="Size.Small" Color="@StatusColor(mine.Status)">@mine.Status</MudChip>
+                        <MudText Typo="Typo.body2">
+                            @mine.FromDate.ToString("dd MMM")–@mine.ToDate.ToString("dd MMM yyyy")
+                            · @mine.Reason
+                        </MudText>
+                        @if (mine.DecisionNote is { } mineNote)
+                        {
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">(@mineNote)</MudText>
+                        }
+                    </MudStack>
+                </MudListItem>
+            }
+        </MudList>
+    }
+</MudPaper>
+
+@code {
+    private List<LeaveRequestDto> _requests = [];
+    private List<LeaveRequestDto> _mine = [];
+    private string _statusFilter = "Pending";
+    private DateTime? _myFrom;
+    private DateTime? _myTo;
+    private string _myReason = string.Empty;
+    private bool _loading = true;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private static Color StatusColor(LeaveRequestStatus status) => status switch
+    {
+        LeaveRequestStatus.Approved => Color.Success,
+        LeaveRequestStatus.Rejected => Color.Error,
+        _ => Color.Warning,
+    };
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _requests = await Client.GetRequestsAsync(
+                _statusFilter == "all" ? null : _statusFilter);
+            _mine = await Client.GetMineAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task DecideAsync(LeaveRequestDto request, bool approve)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.DecideAsync(request.Id, approve, null);
+            if (error is null)
+            {
+                Snackbar.Add(
+                    approve
+                        ? request.Kind == LeaveApplicantKind.Student
+                            ? $"Approved — {request.ApplicantName}'s attendance is marked Leave for those dates."
+                            : "Approved."
+                        : "Rejected.",
+                    approve ? Severity.Success : Severity.Info);
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SubmitMineAsync()
+    {
+        if (_myFrom is null || _myTo is null || string.IsNullOrWhiteSpace(_myReason))
+        {
+            Snackbar.Add("Dates and a reason are required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.SubmitMineAsync(
+                DateOnly.FromDateTime(_myFrom.Value),
+                DateOnly.FromDateTime(_myTo.Value),
+                _myReason.Trim());
+            if (error is null)
+            {
+                Snackbar.Add("Leave request filed.", Severity.Success);
+                _myReason = string.Empty;
+                await LoadAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

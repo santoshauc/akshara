@@ -34,6 +34,33 @@ public sealed record UpdateTeacherRequest(
     DateOnly? JoinedOn,
     bool IsActive);
 
+/// <summary>Leave request row (mirrors Application LeaveRequestDto).</summary>
+public sealed record LeaveRequestDto(
+    Guid Id,
+    LeaveApplicantKind Kind,
+    Guid? StudentId,
+    string ApplicantName,
+    string? ClassName,
+    DateOnly FromDate,
+    DateOnly ToDate,
+    string Reason,
+    LeaveRequestStatus Status,
+    string? DecisionNote,
+    DateTimeOffset RequestedAt);
+
+public enum LeaveRequestStatus
+{
+    Pending = 1,
+    Approved = 2,
+    Rejected = 3,
+}
+
+public enum LeaveApplicantKind
+{
+    Student = 1,
+    Staff = 2,
+}
+
 /// <summary>One schedule slot (mirrors TeacherScheduleItemDto).</summary>
 public sealed record TeacherScheduleItemDto(
     int DayOfWeek,
