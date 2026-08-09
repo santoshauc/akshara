@@ -68,6 +68,8 @@ public interface IApplicationDbContext
 
     DbSet<Domain.Communication.StudentMessage> StudentMessages { get; }
 
+    DbSet<Domain.Timetable.TimetableSubstitution> TimetableSubstitutions { get; }
+
     DbSet<PaymentOrder> PaymentOrders { get; }
 
     DbSet<Notice> Notices { get; }

@@ -29,4 +29,25 @@ public sealed class TimetableClient
         var response = await _http.PostAsJsonAsync("api/v1/timetable/publish", request, ct);
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
+
+    public async Task<List<SubstitutionSlotDto>> GetSubstitutionPlanAsync(
+        Guid teacherId, DateOnly date, CancellationToken ct = default) =>
+        await _http.GetFromJsonAsync<List<SubstitutionSlotDto>>(
+            $"api/v1/timetable/substitutions/plan?teacherId={teacherId}&date={date:yyyy-MM-dd}",
+            ct) ?? [];
+
+    /// <summary>Publishes the day's covers; null on success.</summary>
+    public async Task<string?> ApplySubstitutionsAsync(
+        Guid absentTeacherId, DateOnly date, List<SubstitutionInput> items,
+        CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync("api/v1/timetable/substitutions",
+            new { absentTeacherId, date, items }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
+    public async Task<List<SubstitutionDto>> GetSubstitutionsAsync(
+        DateOnly date, CancellationToken ct = default) =>
+        await _http.GetFromJsonAsync<List<SubstitutionDto>>(
+            $"api/v1/timetable/substitutions?date={date:yyyy-MM-dd}", ct) ?? [];
 }

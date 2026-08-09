@@ -224,6 +224,51 @@ public sealed class TeacherModuleTests : IClassFixture<TeacherModuleFixture>
     }
 
     [Fact]
+    public async Task Substitution_plan_suggests_only_free_teachers_and_publishes()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        var absent = await sender.Send(new CreateTeacherCommand(
+            "EMP-601", "Absent Anna", "+919200000601", null, null, null, null));
+        var busy = await sender.Send(new CreateTeacherCommand(
+            "EMP-602", "Busy Bela", "+919200000602", null, null, null, null));
+        var free = await sender.Send(new CreateTeacherCommand(
+            "EMP-603", "Free Farah", "+919200000603", null, null, null, null));
+
+        // Wednesday(3) P1 8:00–8:45: Anna teaches Class 9, Bela teaches
+        // Class 10 at the same time; Farah is free.
+        await sender.Send(new DefineTimetableCommand(_fixture.Class9Id, null,
+            [Slot(3, 1, 8, 0, 8, 45, _fixture.MathId, absent)]));
+        await sender.Send(new DefineTimetableCommand(_fixture.Class10Id, null,
+            [Slot(3, 1, 8, 0, 8, 45, _fixture.EnglishId, busy)]));
+        await sender.Send(new PublishTimetableCommand(_fixture.Class9Id, null));
+        await sender.Send(new PublishTimetableCommand(_fixture.Class10Id, null));
+
+        var wednesday = new DateOnly(2026, 8, 12);
+        var plan = await sender.Send(new GetSubstitutionPlanQuery(absent, wednesday));
+        var slot = plan.Should().ContainSingle().Subject;
+        slot.Period.Should().Be(1);
+        slot.FreeTeachers.Should().Contain(t => t.TeacherId == free,
+            "Farah has no class at 8:00");
+        slot.FreeTeachers.Should().NotContain(t => t.TeacherId == busy,
+            "Bela teaches Class 10 at the same time");
+
+        // Publish the cover and read it back.
+        await sender.Send(new ApplySubstitutionsCommand(absent, wednesday,
+            [new SubstitutionInput(slot.TimetableEntryId, free)]));
+        var covers = await sender.Send(new GetSubstitutionsQuery(wednesday));
+        covers.Should().ContainSingle().Which.SubstituteTeacherName.Should().Be("Free Farah");
+
+        // Re-planning shows the slot as covered; self-cover is refused.
+        (await sender.Send(new GetSubstitutionPlanQuery(absent, wednesday)))
+            .Single().AlreadySubstitutedBy.Should().Be(free);
+        var selfCover = () => sender.Send(new ApplySubstitutionsCommand(absent, wednesday,
+            [new SubstitutionInput(slot.TimetableEntryId, absent)]));
+        await selfCover.Should().ThrowAsync<ConflictException>();
+    }
+
+    [Fact]
     public async Task Teacher_login_seeds_role_links_user_and_signs_in()
     {
         await using var scope = _fixture.CreateScope();

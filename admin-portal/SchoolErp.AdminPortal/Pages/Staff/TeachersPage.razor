@@ -1,6 +1,7 @@
 @page "/teachers"
 @attribute [Authorize]
 @inject StaffClient Client
+@inject TimetableClient TimetableApi
 @inject ISnackbar Snackbar
 
 <PageTitle>Teachers — SchoolErp</PageTitle>
@@ -123,6 +124,99 @@
         </MudStack>
     </MudPaper>
 }
+
+<MudPaper Elevation="2" Class="pa-6 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-1">Substitutions</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+        Teacher absent for a day? Load their slots, pick free teachers, publish
+        the cover plan. Suggestions exclude anyone already teaching or covering
+        at the same time.
+    </MudText>
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudSelect T="Guid?" @bind-Value="_subAbsentTeacherId" Label="Absent teacher"
+                   Dense="true" Style="min-width: 190px;"
+                   ToStringFunc="@(id => _teachers.FirstOrDefault(t => t.Id == id)?.FullName ?? "")">
+            @foreach (var teacher in _teachers.Where(t => t.IsActive))
+            {
+                <MudSelectItem T="Guid?" Value="@teacher.Id">@teacher.FullName</MudSelectItem>
+            }
+        </MudSelect>
+        <MudDatePicker @bind-Date="_subDate" Label="Date" Editable="true" Style="width: 160px;" />
+        <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+                   Disabled="@(_busy || _subAbsentTeacherId is null || _subDate is null)"
+                   OnClick="LoadSubstitutionPlanAsync">
+            Load slots
+        </MudButton>
+    </MudStack>
+
+    @if (_subPlan is { } plan)
+    {
+        @if (plan.Count == 0)
+        {
+            <MudText Class="mud-text-secondary mt-3">
+                No published slots for that teacher on that day.
+            </MudText>
+        }
+        else
+        {
+            @foreach (var slot in plan)
+            {
+                <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center"
+                          Wrap="Wrap.Wrap" Class="mt-3">
+                    <MudChip Size="Size.Small" Variant="Variant.Outlined">
+                        P@(slot.Period) · @slot.StartTime.ToString("HH\\:mm")
+                    </MudChip>
+                    <MudText Typo="Typo.body2">
+                        @slot.SubjectName — @slot.ClassName @slot.SectionName
+                    </MudText>
+                    @if (slot.FreeTeachers.Count == 0)
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Warning">No one free</MudChip>
+                    }
+                    else
+                    {
+                        <MudSelect T="Guid?" Label="Cover by" Dense="true"
+                                   Style="min-width: 180px;"
+                                   Value="@GetPick(slot.TimetableEntryId)"
+                                   ValueChanged="@(v => SetPick(slot.TimetableEntryId, v))"
+                                   ToStringFunc="@(id => slot.FreeTeachers.FirstOrDefault(t => t.TeacherId == id)?.FullName ?? "")">
+                            @foreach (var candidate in slot.FreeTeachers)
+                            {
+                                <MudSelectItem T="Guid?" Value="@candidate.TeacherId">
+                                    @candidate.FullName
+                                </MudSelectItem>
+                            }
+                        </MudSelect>
+                    }
+                    @if (slot.AlreadySubstitutedBy is not null)
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Info">Already covered</MudChip>
+                    }
+                </MudStack>
+            }
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Class="mt-3"
+                       Disabled="@(_busy || _subPicks.Count == 0)"
+                       OnClick="PublishSubstitutionsAsync">
+                Publish @_subPicks.Count substitution(s)
+            </MudButton>
+        }
+    }
+
+    @if (_subToday.Count > 0)
+    {
+        <MudDivider Class="my-3" />
+        <MudText Typo="Typo.subtitle2" Class="mb-2">
+            Covers on @(_subDate?.ToString("dd MMM yyyy"))
+        </MudText>
+        @foreach (var cover in _subToday)
+        {
+            <MudText Typo="Typo.body2" Class="mb-1">
+                P@(cover.Period) @cover.SubjectName (@cover.ClassName):
+                @cover.AbsentTeacherName → <b>@cover.SubstituteTeacherName</b>
+            </MudText>
+        }
+    }
+</MudPaper>
 
 @if (_scheduleTeacher is not null)
 {
@@ -273,6 +367,87 @@
             {
                 Snackbar.Add(error, Severity.Error);
             }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private Guid? _subAbsentTeacherId;
+    private DateTime? _subDate = DateTime.Today;
+    private List<SubstitutionSlotDto>? _subPlan;
+    private List<SubstitutionDto> _subToday = [];
+    private readonly Dictionary<Guid, Guid> _subPicks = [];
+
+    private Guid? GetPick(Guid entryId) =>
+        _subPicks.TryGetValue(entryId, out var teacherId) ? teacherId : null;
+
+    private void SetPick(Guid entryId, Guid? teacherId)
+    {
+        if (teacherId is { } picked)
+        {
+            _subPicks[entryId] = picked;
+        }
+        else
+        {
+            _subPicks.Remove(entryId);
+        }
+    }
+
+    private async Task LoadSubstitutionPlanAsync()
+    {
+        if (_subAbsentTeacherId is null || _subDate is null)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var date = DateOnly.FromDateTime(_subDate.Value);
+            _subPicks.Clear();
+            _subPlan = await TimetableApi.GetSubstitutionPlanAsync(
+                _subAbsentTeacherId.Value, date);
+            _subToday = await TimetableApi.GetSubstitutionsAsync(date);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task PublishSubstitutionsAsync()
+    {
+        if (_subAbsentTeacherId is null || _subDate is null || _subPicks.Count == 0)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await TimetableApi.ApplySubstitutionsAsync(
+                _subAbsentTeacherId.Value,
+                DateOnly.FromDateTime(_subDate.Value),
+                _subPicks.Select(p => new SubstitutionInput(p.Key, p.Value)).ToList());
+            if (error is null)
+            {
+                Snackbar.Add("Substitutions published.", Severity.Success);
+                await LoadSubstitutionPlanAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
         }
         finally
         {

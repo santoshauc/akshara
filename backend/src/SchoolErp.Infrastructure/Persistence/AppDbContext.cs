@@ -103,6 +103,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public DbSet<Domain.Communication.StudentMessage> StudentMessages => Set<Domain.Communication.StudentMessage>();
 
+    public DbSet<Domain.Timetable.TimetableSubstitution> TimetableSubstitutions => Set<Domain.Timetable.TimetableSubstitution>();
+
     /// <summary>Online payment orders (platform-scoped, webhook-read).</summary>
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
 

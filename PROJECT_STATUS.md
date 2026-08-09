@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 92 integration = **140 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 93 integration = **141 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -325,6 +325,22 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   guardian scrubbing, audit row; E2E live (export 200 → erase 204 →
   fetch 404 → DB shows Erased/soft-deleted + EraseStudentDataCommand
   audit row).
+- C4 Timetable substitutions — DONE. TimetableSubstitution entity
+  (date-specific overlay; base timetable untouched; RLS migration
+  AddTimetableSubstitutions; unique per date+slot).
+  GetSubstitutionPlanQuery: the absent teacher's published slots that
+  weekday, each listing active teachers with NO overlapping class and
+  NO overlapping cover that date. ApplySubstitutionsCommand upserts
+  per slot (self-cover 409, inactive subs rejected);
+  GetSubstitutionsQuery lists a date's covers with names. Endpoints
+  under timetable/substitutions (manage for plan/apply, view for the
+  list). Portal Teachers page grew a Substitutions panel (absent
+  teacher + date → slots with "Cover by" selects → publish → cover
+  list). Integration test: busy teacher excluded, free suggested,
+  publish + re-plan shows covered, self-cover refused. E2E live:
+  Vikram Sharma (EMP-002, new demo teacher) covers Anita's Monday
+  P1+P2 Mathematics — plan suggested only him, both applied, list
+  reads "Anita Rao → Vikram Sharma".
 
 ## How to run (Windows dev box)
 

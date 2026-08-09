@@ -50,4 +50,31 @@ public sealed class TimetableController : ControllerBase
         await _sender.Send(command, ct);
         return NoContent();
     }
+
+    /// <summary>The cover plan for an absent teacher on a date.</summary>
+    [HttpGet("substitutions/plan")]
+    [HasPermission(Permissions.Timetable.Manage)]
+    [ProducesResponseType(typeof(IReadOnlyList<SubstitutionSlotDto>), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetSubstitutionPlan(
+        [FromQuery] Guid teacherId, [FromQuery] DateOnly date, CancellationToken ct) =>
+        Ok(await _sender.Send(new GetSubstitutionPlanQuery(teacherId, date), ct));
+
+    /// <summary>Publishes (upserts) the day's substitutions.</summary>
+    [HttpPost("substitutions")]
+    [HasPermission(Permissions.Timetable.Manage)]
+    [ProducesResponseType(typeof(int), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> ApplySubstitutions(
+        [FromBody] ApplySubstitutionsCommand command, CancellationToken ct) =>
+        Ok(await _sender.Send(command, ct));
+
+    /// <summary>The cover list for a date.</summary>
+    [HttpGet("substitutions")]
+    [HasPermission(Permissions.Timetable.View)]
+    [ProducesResponseType(typeof(IReadOnlyList<SubstitutionDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetSubstitutions(
+        [FromQuery] DateOnly date, CancellationToken ct) =>
+        Ok(await _sender.Send(new GetSubstitutionsQuery(date), ct));
 }
