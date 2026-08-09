@@ -61,13 +61,15 @@ public sealed class GetSubstitutionPlanQueryHandler
         var day = isoDay == 0 ? 7 : isoDay;
 
         var absentSlots = await _db.TimetableEntries.AsNoTracking()
+            // Only lessons need covering — nobody substitutes for lunch.
             .Where(t => t.TeacherId == request.TeacherId &&
-                        t.DayOfWeek == day && t.IsPublished)
-            .OrderBy(t => t.Period)
+                        t.DayOfWeek == day && t.IsPublished &&
+                        t.SlotKind == TimetableSlotKind.Lesson)
+            .OrderBy(t => t.StartTime)
             .Select(t => new
             {
                 t.Id,
-                t.Period,
+                Period = t.Period!.Value,
                 t.StartTime,
                 t.EndTime,
                 SubjectName = t.Subject!.Name,
@@ -231,11 +233,11 @@ public sealed class GetSubstitutionsQueryHandler
         GetSubstitutionsQuery request, CancellationToken cancellationToken) =>
         await _db.TimetableSubstitutions.AsNoTracking()
             .Where(s => s.Date == request.Date)
-            .OrderBy(s => s.TimetableEntry!.Period)
+            .OrderBy(s => s.TimetableEntry!.StartTime)
             .Select(s => new SubstitutionDto(
                 s.Id,
                 s.Date,
-                s.TimetableEntry!.Period,
+                s.TimetableEntry!.Period!.Value,
                 s.TimetableEntry.Subject!.Name,
                 _db.SchoolClasses
                     .Where(c => c.Id == s.TimetableEntry.SchoolClassId)

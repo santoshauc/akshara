@@ -6,12 +6,14 @@ using Microsoft.Extensions.DependencyInjection;
 using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Academics;
+using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Application.Exams.Commands;
 using SchoolErp.Application.Students;
 using SchoolErp.Application.Students.Commands;
 using SchoolErp.Application.Timetable;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
+using SchoolErp.Domain.Timetable;
 using SchoolErp.Infrastructure;
 using SchoolErp.Infrastructure.Persistence;
 using SchoolErp.Infrastructure.Tenancy;
@@ -205,5 +207,103 @@ public sealed class TimetableModuleTests : IClassFixture<TimetableModuleFixture>
 
         var visible = await sender.Send(new GetStudentTimetableQuery(_fixture.StudentId));
         visible.Should().NotContain(e => e.DayOfWeek == 4, "redefined entries return to draft");
+    }
+
+    [Fact]
+    public async Task Recess_and_lunch_sit_between_the_periods_they_separate()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // A real Indian morning: two periods, recess, one more, lunch.
+        // Deliberately submitted out of order — the day is ordered by clock.
+        await sender.Send(new DefineTimetableCommand(_fixture.ClassId, null,
+        [
+            new TimetableEntryInput(5, null, new TimeOnly(11, 20), new TimeOnly(12, 0),
+                null, null, null, TimetableSlotKind.Lunch, null),
+            new TimetableEntryInput(5, 1, new TimeOnly(8, 0), new TimeOnly(8, 45),
+                _fixture.MathId, null, null),
+            new TimetableEntryInput(5, 3, new TimeOnly(9, 50), new TimeOnly(10, 35),
+                _fixture.EnglishId, null, null),
+            new TimetableEntryInput(5, null, new TimeOnly(9, 30), new TimeOnly(9, 50),
+                null, null, null, TimetableSlotKind.Break, "Tiffin break"),
+            new TimetableEntryInput(5, 2, new TimeOnly(8, 45), new TimeOnly(9, 30),
+                _fixture.EnglishId, null, null),
+        ]));
+        await sender.Send(new PublishTimetableCommand(_fixture.ClassId, null));
+
+        var day = (await sender.Send(new GetStudentTimetableQuery(_fixture.StudentId)))
+            .Where(e => e.DayOfWeek == 5)
+            .ToList();
+
+        day.Select(e => e.SlotKind).Should().Equal(
+            TimetableSlotKind.Lesson,
+            TimetableSlotKind.Lesson,
+            TimetableSlotKind.Break,
+            TimetableSlotKind.Lesson,
+            TimetableSlotKind.Lunch);
+
+        var recess = day[2];
+        recess.Label.Should().Be("Tiffin break", "the school's own wording reaches the parent");
+        recess.Period.Should().BeNull("a break is not a numbered period");
+        recess.SubjectId.Should().BeNull();
+        recess.SubjectName.Should().BeNull();
+        recess.TeacherId.Should().BeNull();
+
+        // Lesson numbering is untouched by the breaks around it — period-wise
+        // attendance stores these numbers.
+        day.Where(e => e.SlotKind == TimetableSlotKind.Lesson)
+            .Select(e => e.Period).Should().Equal(1, 2, 3);
+
+        // A break with no label still renders; the apps supply the default.
+        day[4].Label.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_break_cannot_be_taught_and_cannot_overlap_a_period()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        var taughtLunch = () => sender.Send(new DefineTimetableCommand(
+            _fixture.ClassId, _fixture.SectionAId,
+            [
+                new TimetableEntryInput(6, null, new TimeOnly(11, 0), new TimeOnly(11, 30),
+                    _fixture.MathId, null, null, TimetableSlotKind.Lunch, null),
+            ]));
+        await taughtLunch.Should().ThrowAsync<FluentValidation.ValidationException>(
+            "nobody teaches lunch");
+
+        var numberedBreak = () => sender.Send(new DefineTimetableCommand(
+            _fixture.ClassId, _fixture.SectionAId,
+            [
+                new TimetableEntryInput(6, 5, new TimeOnly(11, 0), new TimeOnly(11, 30),
+                    null, null, null, TimetableSlotKind.Break, null),
+            ]));
+        await numberedBreak.Should().ThrowAsync<FluentValidation.ValidationException>(
+            "a break is not a numbered period");
+
+        // Lunch laid over a period. A ConflictException, not a validation
+        // error: it is checked in the handler AFTER the teacher clash, so a
+        // double-booked teacher still gets the message that names them.
+        var overlapping = () => sender.Send(new DefineTimetableCommand(
+            _fixture.ClassId, _fixture.SectionAId,
+            [
+                new TimetableEntryInput(6, 1, new TimeOnly(11, 0), new TimeOnly(11, 45),
+                    _fixture.MathId, null, null),
+                new TimetableEntryInput(6, null, new TimeOnly(11, 30), new TimeOnly(12, 0),
+                    null, null, null, TimetableSlotKind.Lunch, null),
+            ]));
+        await overlapping.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*11:00*11:45*11:30*12:00*");
+
+        // A lesson with no subject is still refused, breaks or not.
+        var subjectless = () => sender.Send(new DefineTimetableCommand(
+            _fixture.ClassId, _fixture.SectionAId,
+            [
+                new TimetableEntryInput(6, 1, new TimeOnly(11, 0), new TimeOnly(11, 45),
+                    null, null, null),
+            ]));
+        await subjectless.Should().ThrowAsync<FluentValidation.ValidationException>();
     }
 }

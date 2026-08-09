@@ -116,14 +116,22 @@ export interface Homework {
   dueDate: string;
 }
 
+/** Lesson = 1, Break (recess) = 2, Lunch = 3. */
+export type TimetableSlotKind = 1 | 2 | 3;
+
 export interface TimetableEntry {
   id: string;
   dayOfWeek: number; // 1 = Monday … 7 = Sunday
-  period: number;
+  /** Null for breaks — recess and lunch are not numbered periods. */
+  period: number | null;
   startTime: string; // HH:mm:ss
   endTime: string;
-  subjectName: string;
+  /** Null for breaks. */
+  subjectName: string | null;
   teacherName: string | null;
+  slotKind: TimetableSlotKind;
+  /** What the school calls the break ("Tiffin break"); null for lessons. */
+  label: string | null;
 }
 
 /** Live bus state while a trip is running on the child's route. */
