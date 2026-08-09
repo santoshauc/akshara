@@ -19,9 +19,39 @@ public sealed class StudentsClient
         StudentStatus? status,
         int page,
         int pageSize,
+        string? sortBy = null,
+        bool sortDesc = false,
         CancellationToken ct = default)
     {
         var query = new List<string> { $"page={page}", $"pageSize={pageSize}" };
+        AddFilters(query, search, classId, sectionId, status, sortBy, sortDesc);
+        return (await _http.GetFromJsonAsync<PagedResult<StudentListItemDto>>(
+            $"api/v1/students?{string.Join('&', query)}", ct))!;
+    }
+
+    /// <summary>The grid as an Excel file (same filters/sort); null when unavailable.</summary>
+    public async Task<byte[]?> ExportAsync(
+        string? search,
+        Guid? classId,
+        Guid? sectionId,
+        StudentStatus? status,
+        string? sortBy,
+        bool sortDesc,
+        CancellationToken ct = default)
+    {
+        var query = new List<string>();
+        AddFilters(query, search, classId, sectionId, status, sortBy, sortDesc);
+        var suffix = query.Count == 0 ? "" : $"?{string.Join('&', query)}";
+        var response = await _http.GetAsync($"api/v1/students/export{suffix}", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
+
+    private static void AddFilters(
+        List<string> query, string? search, Guid? classId, Guid? sectionId,
+        StudentStatus? status, string? sortBy, bool sortDesc)
+    {
         if (!string.IsNullOrWhiteSpace(search))
         {
             query.Add($"search={Uri.EscapeDataString(search)}");
@@ -38,9 +68,14 @@ public sealed class StudentsClient
         {
             query.Add($"status={st}");
         }
-
-        return (await _http.GetFromJsonAsync<PagedResult<StudentListItemDto>>(
-            $"api/v1/students?{string.Join('&', query)}", ct))!;
+        if (!string.IsNullOrWhiteSpace(sortBy))
+        {
+            query.Add($"sortBy={Uri.EscapeDataString(sortBy)}");
+        }
+        if (sortDesc)
+        {
+            query.Add("sortDesc=true");
+        }
     }
 
     /// <summary>The bulk-import Excel template; null when unavailable.</summary>

@@ -12,6 +12,11 @@
     <MudText Typo="Typo.h4">Students</MudText>
     <MudSpacer />
     <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.Download"
+               OnClick="ExportAsync">
+        Export
+    </MudButton>
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.UploadFile"
                OnClick="@(() => _importOpen = !_importOpen)">
         Import from Excel
@@ -116,12 +121,28 @@
 <MudTable T="StudentListItemDto" ServerData="LoadServerDataAsync" @ref="_table" Hover="true" Elevation="2"
           OnRowClick="@(args => Navigation.NavigateTo($"students/{args.Item!.Id}"))" Style="cursor: pointer;">
     <HeaderContent>
-        <MudTh>Admission no.</MudTh>
-        <MudTh>Name</MudTh>
-        <MudTh>Class</MudTh>
-        <MudTh>Section</MudTh>
-        <MudTh>Roll</MudTh>
-        <MudTh>Status</MudTh>
+        <MudTh>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="admissionNumber">
+                Admission no.
+            </MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="name" InitialDirection="SortDirection.Ascending">
+                Name
+            </MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="class">Class</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="section">Section</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="roll">Roll</MudTableSortLabel>
+        </MudTh>
+        <MudTh>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="status">Status</MudTableSortLabel>
+        </MudTh>
     </HeaderContent>
     <RowTemplate>
         <MudTd DataLabel="Admission no.">
@@ -153,6 +174,8 @@
     private bool _importOpen;
     private bool _importBusy;
     private ImportStudentsResultDto? _importResult;
+    private string? _sortBy;
+    private bool _sortDesc;
 
     private async Task DownloadTemplateAsync()
     {
@@ -229,17 +252,43 @@
 
     private async Task<TableData<StudentListItemDto>> LoadServerDataAsync(TableState state)
     {
+        _sortBy = state.SortDirection == SortDirection.None ? null : state.SortLabel;
+        _sortDesc = state.SortDirection == SortDirection.Descending;
         try
         {
             var result = await Client.GetStudentsAsync(
                 _search, _classId, _sectionId, _status,
-                state.Page + 1, state.PageSize == 0 ? 20 : state.PageSize);
+                state.Page + 1, state.PageSize == 0 ? 20 : state.PageSize,
+                _sortBy, _sortDesc);
             return new TableData<StudentListItemDto> { Items = result.Items, TotalItems = result.TotalCount };
         }
         catch (HttpRequestException)
         {
             Snackbar.Add("Cannot reach the server.", Severity.Error);
             return new TableData<StudentListItemDto> { Items = [], TotalItems = 0 };
+        }
+    }
+
+    private async Task ExportAsync()
+    {
+        try
+        {
+            var bytes = await Client.ExportAsync(
+                _search, _classId, _sectionId, _status, _sortBy, _sortDesc);
+            if (bytes is null)
+            {
+                Snackbar.Add("Could not build the export.", Severity.Error);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("schoolErpDownload",
+                "students.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Convert.ToBase64String(bytes));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
         }
     }
 

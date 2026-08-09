@@ -177,12 +177,36 @@ else if (_data is { } data)
                     }
                     <MudTable Items="_teachers" Dense="true" Hover="true" Class="mt-3">
                         <HeaderContent>
-                            <MudTh>Teacher</MudTh>
-                            <MudTh>Periods / week</MudTh>
-                            <MudTh>Average %</MudTh>
-                            <MudTh>vs school</MudTh>
-                            <MudTh>Days absent</MudTh>
-                            <MudTh>Marks backlog</MudTh>
+                            <MudTh>
+                                <MudTableSortLabel SortBy="@(new Func<TeacherInsightDto, object>(t => t.Name))">
+                                    Teacher
+                                </MudTableSortLabel>
+                            </MudTh>
+                            <MudTh>
+                                <MudTableSortLabel SortBy="@(new Func<TeacherInsightDto, object>(t => t.PeriodsPerWeek))">
+                                    Periods / week
+                                </MudTableSortLabel>
+                            </MudTh>
+                            <MudTh>
+                                <MudTableSortLabel SortBy="@(new Func<TeacherInsightDto, object>(t => t.AveragePercent ?? -1))">
+                                    Average %
+                                </MudTableSortLabel>
+                            </MudTh>
+                            <MudTh>
+                                <MudTableSortLabel SortBy="@(new Func<TeacherInsightDto, object>(t => t.DeltaVsSchool ?? decimal.MinValue))">
+                                    vs school
+                                </MudTableSortLabel>
+                            </MudTh>
+                            <MudTh>
+                                <MudTableSortLabel SortBy="@(new Func<TeacherInsightDto, object>(t => t.DaysAbsent))">
+                                    Days absent
+                                </MudTableSortLabel>
+                            </MudTh>
+                            <MudTh>
+                                <MudTableSortLabel SortBy="@(new Func<TeacherInsightDto, object>(t => t.MarksBacklog))">
+                                    Marks backlog
+                                </MudTableSortLabel>
+                            </MudTh>
                         </HeaderContent>
                         <RowTemplate>
                             <MudTd>@context.Name</MudTd>

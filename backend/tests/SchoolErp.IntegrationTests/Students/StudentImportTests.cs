@@ -8,6 +8,7 @@ using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Academics;
 using SchoolErp.Application.Students.Commands;
+using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Infrastructure;
 using SchoolErp.Infrastructure.Persistence;
@@ -221,6 +222,51 @@ public sealed class StudentImportTests : IClassFixture<StudentImportFixture>
         var act = () => sender.Send(new ImportStudentsCommand([1, 2, 3, 4]));
         await act.Should().ThrowAsync<FluentValidation.ValidationException>()
             .WithMessage("*could not be read as an Excel workbook*");
+    }
+
+    [Fact]
+    public async Task Student_list_sorts_server_side_by_whitelisted_keys()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var yearId = await db.AcademicYears.Where(y => y.IsCurrent)
+            .Select(y => y.Id).SingleAsync();
+        var section = await db.SchoolClasses
+            .SelectMany(c => c.Sections.Select(s => new { c.Id, SectionId = s.Id }))
+            .FirstAsync();
+        foreach (var (first, roll) in new[] { ("Aaa", 41), ("Bbb", 42) })
+        {
+            await sender.Send(new SchoolErp.Application.Students.Commands.AdmitStudentCommand(
+                null, first, "Zorder", new DateOnly(2018, 1, 1), Gender.Male,
+                null, null, null, null, null, null, null, null,
+                new DateOnly(2026, 6, 5), yearId, section.Id, section.SectionId, roll,
+                [new SchoolErp.Application.Students.GuardianInput(
+                    "G", "Zorder", GuardianRelation.Father,
+                    $"+9198111001{roll}", null, null, true)]));
+        }
+
+        var byNameDesc = await sender.Send(new SchoolErp.Application.Students.Queries.GetStudentsQuery(
+            Search: "Zorder", SortBy: "name", SortDescending: true));
+        byNameDesc.Items.Select(s => s.FirstName).Should().ContainInOrder("Bbb", "Aaa");
+
+        var byRollAsc = await sender.Send(new SchoolErp.Application.Students.Queries.GetStudentsQuery(
+            Search: "Zorder", SortBy: "roll"));
+        byRollAsc.Items.Select(s => s.RollNumber).Should().ContainInOrder(41, 42);
+
+        // Unknown keys fall back to name order instead of failing.
+        var fallback = await sender.Send(new SchoolErp.Application.Students.Queries.GetStudentsQuery(
+            Search: "Zorder", SortBy: "drop table"));
+        fallback.Items.Select(s => s.FirstName).Should().ContainInOrder("Aaa", "Bbb");
+
+        // The export honours the same filter and sort.
+        var export = await sender.Send(new SchoolErp.Application.Students.Queries.ExportStudentsQuery(
+            "Zorder", null, null, null, null, "name", true));
+        using var workbook = new XLWorkbook(new MemoryStream(export));
+        var sheet = workbook.Worksheet("Students");
+        sheet.Cell(2, 2).GetString().Should().Be("Bbb");
+        sheet.Cell(3, 2).GetString().Should().Be("Aaa");
     }
 
     private static async Task<int> CountStudentsAsync(AsyncServiceScope scope)

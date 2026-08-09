@@ -20,7 +20,9 @@ public sealed record GetStudentsQuery(
     Guid? SectionId = null,
     StudentStatus? Status = null,
     int Page = 1,
-    int PageSize = 20) : IRequest<PagedResult<StudentListItemDto>>;
+    int PageSize = 20,
+    string? SortBy = null,
+    bool SortDescending = false) : IRequest<PagedResult<StudentListItemDto>>;
 
 /// <summary>Pagination bounds.</summary>
 public sealed class GetStudentsQueryValidator : AbstractValidator<GetStudentsQuery>
@@ -71,7 +73,15 @@ public sealed class GetStudentsQueryHandler
             Student = s,
             Enrollment = s.Enrollments
                 .Where(e => yearId != null && e.AcademicYearId == yearId)
-                .Select(e => new { e.SchoolClassId, e.SectionId, e.RollNumber, ClassName = e.SchoolClass!.Name, SectionName = e.Section!.Name })
+                .Select(e => new
+                {
+                    e.SchoolClassId,
+                    e.SectionId,
+                    e.RollNumber,
+                    ClassName = e.SchoolClass!.Name,
+                    ClassOrder = e.SchoolClass!.DisplayOrder,
+                    SectionName = e.Section!.Name,
+                })
                 .FirstOrDefault(),
         });
 
@@ -87,8 +97,35 @@ public sealed class GetStudentsQueryHandler
 
         var total = await query.CountAsync(cancellationToken).ConfigureAwait(false);
 
-        var items = await query
-            .OrderBy(x => x.Student.FirstName).ThenBy(x => x.Student.LastName)
+        // Whitelisted sort keys; unknown values fall back to name order.
+        var desc = request.SortDescending;
+        var sorted = (request.SortBy?.ToLowerInvariant()) switch
+        {
+            "admissionnumber" => desc
+                ? query.OrderByDescending(x => x.Student.AdmissionNumber)
+                : query.OrderBy(x => x.Student.AdmissionNumber),
+            "class" => (desc
+                    ? query.OrderByDescending(x => x.Enrollment!.ClassOrder)
+                    : query.OrderBy(x => x.Enrollment!.ClassOrder))
+                .ThenBy(x => x.Enrollment!.SectionName)
+                .ThenBy(x => x.Enrollment!.RollNumber),
+            "section" => desc
+                ? query.OrderByDescending(x => x.Enrollment!.SectionName)
+                : query.OrderBy(x => x.Enrollment!.SectionName),
+            "roll" => desc
+                ? query.OrderByDescending(x => x.Enrollment!.RollNumber)
+                : query.OrderBy(x => x.Enrollment!.RollNumber),
+            "status" => desc
+                ? query.OrderByDescending(x => x.Student.Status)
+                : query.OrderBy(x => x.Student.Status),
+            _ => desc
+                ? query.OrderByDescending(x => x.Student.FirstName)
+                    .ThenByDescending(x => x.Student.LastName)
+                : query.OrderBy(x => x.Student.FirstName)
+                    .ThenBy(x => x.Student.LastName),
+        };
+
+        var items = await sorted
             .Skip((request.Page - 1) * request.PageSize)
             .Take(request.PageSize)
             .Select(x => new StudentListItemDto

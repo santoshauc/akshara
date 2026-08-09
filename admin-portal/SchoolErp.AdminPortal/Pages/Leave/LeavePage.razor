@@ -20,11 +20,11 @@
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudTable Items="_requests" Dense="true" Hover="true" Loading="_loading">
         <HeaderContent>
-            <MudTh>Applicant</MudTh>
-            <MudTh>Type</MudTh>
-            <MudTh>Dates</MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.ApplicantName))">Applicant</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.Kind))">Type</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.FromDate))">Dates</MudTableSortLabel></MudTh>
             <MudTh>Reason</MudTh>
-            <MudTh>Status</MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.Status))">Status</MudTableSortLabel></MudTh>
             <MudTh />
         </HeaderContent>
         <RowTemplate>
@@ -73,6 +73,9 @@
         <NoRecordsContent>
             <MudText Class="mud-text-secondary pa-4">No leave requests.</MudText>
         </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+    </PagerContent>
     </MudTable>
 </MudPaper>
 

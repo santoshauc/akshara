@@ -23,12 +23,12 @@
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudTable Items="_teachers" Dense="true" Hover="true" Loading="_loading">
         <HeaderContent>
-            <MudTh>Code</MudTh>
-            <MudTh>Name</MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<TeacherDto, object>(t => t.EmployeeCode))">Code</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<TeacherDto, object>(t => t.FullName))">Name</MudTableSortLabel></MudTh>
             <MudTh>Phone</MudTh>
-            <MudTh>Specialization</MudTh>
-            <MudTh>Qualification</MudTh>
-            <MudTh>Status</MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<TeacherDto, object>(t => t.Specialization ?? ""))">Specialization</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<TeacherDto, object>(t => t.Qualification ?? ""))">Qualification</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<TeacherDto, object>(t => t.IsActive))">Status</MudTableSortLabel></MudTh>
             <MudTh />
         </HeaderContent>
         <RowTemplate>
@@ -65,6 +65,9 @@
         <NoRecordsContent>
             <MudText Class="mud-text-secondary pa-4">No teachers yet — add the first one.</MudText>
         </NoRecordsContent>
+    <PagerContent>
+        <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+    </PagerContent>
     </MudTable>
 </MudPaper>
 

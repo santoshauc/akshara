@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 103 integration = **151 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 104 integration = **152 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -525,6 +525,24 @@ never in production):
   non-Excel rejection). E2E-verified live via API (3 imported incl.
   cross-grade siblings sharing one guardian → family ledger works;
   re-upload rejected 3/3) and portal UI (panel + template download).
+
+## Grid features (sorting / paging / search / export)
+
+- Students grid sorts SERVER-SIDE: GetStudentsQuery takes SortBy
+  (whitelisted keys: name, admissionNumber, class [by DisplayOrder so
+  Grade 10 > Grade 5, then section+roll], section, roll, status —
+  unknown keys fall back to name) + SortDescending; wired through
+  MudTableSortLabel SortLabel/TableState on the page. Postgres sorts
+  NULLs first on desc (students without enrollment show "—" on top).
+- GET students/export: the grid as students.xlsx honouring the same
+  filters + sort (pages through GetStudentsQuery so filter logic lives
+  once; 5,000-row cap) — "Export" button next to Import.
+- Client-side grids got MudTableSortLabel + MudTablePager: Admissions
+  (plus a child/parent/phone search box), Teachers, Leave inbox,
+  Library books + loans, Users, and the Insights teaching-outcomes
+  table (null averages sort to the bottom via ?? sentinels).
+- Integration test covers server sort keys, injection-shaped SortBy
+  falling back safely, and export honouring filter + sort.
 
 ## Conventions (follow these when adding modules)
 

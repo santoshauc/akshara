@@ -162,6 +162,8 @@ public static class DependencyInjection
             Reports.QuestPdfTermReportRenderer>();
         services.AddSingleton<Application.Students.Commands.IStudentImportWorkbook,
             Files.StudentImportWorkbook>();
+        services.AddSingleton<Application.Students.Queries.IStudentListWorkbook,
+            Files.StudentListWorkbook>();
 
         return services;
     }

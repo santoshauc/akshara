@@ -22,9 +22,9 @@
 
             <MudTable Items="_books" Dense="true" Hover="true" Loading="_loading">
                 <HeaderContent>
-                    <MudTh>Title</MudTh>
-                    <MudTh>Author</MudTh>
-                    <MudTh>Available</MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@(new Func<BookDto, object>(b => b.Title))">Title</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@(new Func<BookDto, object>(b => b.Author))">Author</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@(new Func<BookDto, object>(b => b.CopiesAvailable))">Available</MudTableSortLabel></MudTh>
                     <MudTh />
                 </HeaderContent>
                 <RowTemplate>
@@ -52,6 +52,9 @@
                 <NoRecordsContent>
                     <MudText Class="mud-text-secondary pa-4">No books yet — add the first one.</MudText>
                 </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+            </PagerContent>
             </MudTable>
 
             <MudDivider Class="my-4" />
@@ -80,9 +83,9 @@
 
             <MudTable Items="_loans" Dense="true" Hover="true">
                 <HeaderContent>
-                    <MudTh>Book</MudTh>
-                    <MudTh>Student</MudTh>
-                    <MudTh>Due</MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@(new Func<BookLoanDto, object>(l => l.BookTitle))">Book</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@(new Func<BookLoanDto, object>(l => l.StudentName))">Student</MudTableSortLabel></MudTh>
+                    <MudTh><MudTableSortLabel SortBy="@(new Func<BookLoanDto, object>(l => l.DueOn))">Due</MudTableSortLabel></MudTh>
                     <MudTh />
                 </HeaderContent>
                 <RowTemplate>
@@ -106,6 +109,9 @@
                 <NoRecordsContent>
                     <MudText Class="mud-text-secondary pa-4">No open loans.</MudText>
                 </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+            </PagerContent>
             </MudTable>
         </MudPaper>
     </MudItem>

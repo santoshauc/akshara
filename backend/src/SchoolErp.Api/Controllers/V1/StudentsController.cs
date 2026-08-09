@@ -34,12 +34,35 @@ public sealed class StudentsController : ControllerBase
         [FromQuery] StudentStatus? status,
         [FromQuery] int page = 1,
         [FromQuery] int pageSize = 20,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDesc = false,
         CancellationToken ct = default)
     {
         var result = await _sender.Send(
-            new GetStudentsQuery(search, academicYearId, classId, sectionId, status, page, pageSize), ct);
+            new GetStudentsQuery(
+                search, academicYearId, classId, sectionId, status, page, pageSize,
+                sortBy, sortDesc), ct);
         return Ok(result);
     }
+
+    /// <summary>The current list as an Excel file — same filters and sort as the grid.</summary>
+    [HttpGet("export")]
+    [HasPermission(Permissions.Students.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> Export(
+        [FromQuery] string? search,
+        [FromQuery] Guid? academicYearId,
+        [FromQuery] Guid? classId,
+        [FromQuery] Guid? sectionId,
+        [FromQuery] StudentStatus? status,
+        [FromQuery] string? sortBy = null,
+        [FromQuery] bool sortDesc = false,
+        CancellationToken ct = default) =>
+        File(
+            await _sender.Send(new ExportStudentsQuery(
+                search, academicYearId, classId, sectionId, status, sortBy, sortDesc), ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "students.xlsx");
 
     /// <summary>Full student detail with guardians and current placement.</summary>
     [HttpGet("{id:guid}")]

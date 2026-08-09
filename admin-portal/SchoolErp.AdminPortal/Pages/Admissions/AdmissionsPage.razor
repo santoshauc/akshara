@@ -9,6 +9,9 @@
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
     <MudText Typo="Typo.h4">Admissions</MudText>
     <MudSpacer />
+    <MudTextField @bind-Value="_search" Label="Search child, parent or phone" Dense="true"
+                  Immediate="true" Clearable="true" Style="min-width: 240px;"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search" />
     <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Dense="true"
                Style="width: 150px;" SelectedValuesChanged="@(_ => LoadAsync())">
         <MudSelectItem T="string" Value="@("open")">Open</MudSelectItem>
@@ -32,12 +35,36 @@
     <MudTable Items="_visible" Dense="true" Hover="true" Loading="_loading"
               RowStyleFunc="@((e, _) => e.FollowUpDue ? "background: rgba(255,152,0,0.08);" : "")">
         <HeaderContent>
-            <MudTh>Child</MudTh>
-            <MudTh>Class</MudTh>
-            <MudTh>Parent</MudTh>
-            <MudTh>Source</MudTh>
-            <MudTh>Follow-up</MudTh>
-            <MudTh>Status</MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="@(new Func<EnquiryDto, object>(e => e.ChildName))">
+                    Child
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="@(new Func<EnquiryDto, object>(e => e.AppliedClass))">
+                    Class
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="@(new Func<EnquiryDto, object>(e => e.ParentName))">
+                    Parent
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="@(new Func<EnquiryDto, object>(e => e.Source))">
+                    Source
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="@(new Func<EnquiryDto, object>(e => e.FollowUpOn ?? DateOnly.MaxValue))">
+                    Follow-up
+                </MudTableSortLabel>
+            </MudTh>
+            <MudTh>
+                <MudTableSortLabel SortBy="@(new Func<EnquiryDto, object>(e => e.Status))">
+                    Status
+                </MudTableSortLabel>
+            </MudTh>
             <MudTh />
         </HeaderContent>
         <RowTemplate>
@@ -100,6 +127,9 @@
                 No enquiries yet — register the first one below.
             </MudText>
         </NoRecordsContent>
+        <PagerContent>
+            <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+        </PagerContent>
     </MudTable>
 </MudPaper>
 
@@ -198,10 +228,28 @@
     private DateTime? _followUpOn;
     private string? _notes;
 
+    private string _search = string.Empty;
+
     // "open" is a client-side view over the full board; real statuses filter server-side.
-    private IEnumerable<EnquiryDto> _visible => _statusFilter == "open"
-        ? _enquiries.Where(e => e.Status is not (EnquiryStatus.Admitted or EnquiryStatus.Lost))
-        : _enquiries;
+    private IEnumerable<EnquiryDto> _visible
+    {
+        get
+        {
+            var view = _statusFilter == "open"
+                ? _enquiries.Where(e => e.Status is not (EnquiryStatus.Admitted or EnquiryStatus.Lost))
+                : _enquiries.AsEnumerable();
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                var term = _search.Trim();
+                view = view.Where(e =>
+                    e.ChildName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    e.ParentName.Contains(term, StringComparison.OrdinalIgnoreCase) ||
+                    e.Phone.Contains(term, StringComparison.OrdinalIgnoreCase));
+            }
+
+            return view;
+        }
+    }
 
     protected override Task OnInitializedAsync() => LoadAsync();
 
