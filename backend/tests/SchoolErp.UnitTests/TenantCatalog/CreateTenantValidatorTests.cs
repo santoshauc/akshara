@@ -1,4 +1,5 @@
 using FluentAssertions;
+using SchoolErp.Application.TenantCatalog;
 using SchoolErp.Application.TenantCatalog.Commands;
 using SchoolErp.Domain.TenantCatalog;
 
@@ -18,7 +19,7 @@ public sealed class CreateTenantValidatorTests
         ContactPhone: "+919876543210",
         City: "Hyderabad",
         State: "Telangana",
-        AffiliationBoard: "CBSE",
+        Affiliations: [new TenantAffiliationDto("CBSE", "1234567")],
         Plan: SubscriptionPlan.Standard,
         EnabledModules: TenantModules.Core | TenantModules.Fees);
 

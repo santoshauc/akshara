@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 157 integration = **222 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 158 integration = **223 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -824,6 +824,35 @@ HR/payroll (own product).
   `errors`; 404 → one INF line; and a genuine fault (a platform account
   hitting a tenant-scoped query) still logs ERR with the whole stack.
 - Suite: 61 unit + 135 integration green.
+
+## Multiple board affiliations (feature/multiple-board-affiliations)
+
+- A school can be affiliated to several boards at once — CBSE plus a State
+  stream is ordinary in India, and each affiliation carries its own number —
+  so `Tenant.AffiliationBoard`/`AffiliationNumber` became the child table
+  `tenant_affiliations` (unique per tenant+board).
+- Platform-scoped, no RLS: it hangs off `tenants`, which has none either.
+  Added to the documented exception list. Callers scope by TenantId.
+- MIGRATION ORDER MATTERS and is not what EF scaffolded. EF put the column
+  DROPS first, which would have destroyed every school's existing
+  affiliation. Rewritten to create → backfill (`gen_random_uuid()`, built in
+  from PG13) → drop. `Down` copies the alphabetically-first board back, so
+  reversing is deterministic rather than arbitrary.
+- `ApplyAffiliations` (shared by create and update) replaces the set, matching
+  by board so an existing row keeps its id when only its number changes; blank
+  boards are dropped and duplicates collapse before the unique index sees them.
+- Certificates print every board on the letterhead, joined — previously only
+  the single one. Tenant editor gained repeating board+number rows with an
+  "Add board" button; the affiliation NUMBER now has a UI at all, which it
+  never did.
+- GOTCHA that cost real time: `TenantAffiliation.Id` is deliberately NOT
+  client-generated, unlike `AuditableEntity`. These rows are discovered
+  through the `Tenant.Affiliations` navigation, and a key that already holds a
+  value makes EF treat a brand-new child as an UPDATE of a row that does not
+  exist — surfacing as `DbUpdateConcurrencyException: expected to affect 1
+  row(s), but actually affected 0`.
+- 1 integration test (create with one board, add a second, drop one keeping
+  the survivor's row, blank boards ignored). Suite: 65 unit + 158 integration.
 
 ## Platform hardening (feature/platform-hardening)
 

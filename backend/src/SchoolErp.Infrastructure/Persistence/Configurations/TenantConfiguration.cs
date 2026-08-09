@@ -22,8 +22,10 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.Property(t => t.LogoUrl).HasMaxLength(1024);
         builder.Property(t => t.ContactEmail).HasMaxLength(320);
         builder.Property(t => t.ContactPhone).HasMaxLength(20);
-        builder.Property(t => t.AffiliationBoard).HasMaxLength(64);
-        builder.Property(t => t.AffiliationNumber).HasMaxLength(64);
+        builder.HasMany(t => t.Affiliations)
+            .WithOne()
+            .HasForeignKey(a => a.TenantId)
+            .OnDelete(DeleteBehavior.Cascade);
 
         // Resolution identifiers must be unique across the platform.
         builder.HasIndex(t => t.Code).IsUnique();
@@ -31,5 +33,23 @@ public sealed class TenantConfiguration : IEntityTypeConfiguration<Tenant>
         builder.HasIndex(t => t.CustomDomain).IsUnique();
 
         builder.Ignore(t => t.IsActive);
+    }
+}
+
+/// <summary>
+/// Mapping for a school's board affiliations. No RLS: this is catalog data
+/// hanging off <c>tenants</c>, which has none either — a documented
+/// platform-scoped exception. Callers scope by TenantId explicitly.
+/// </summary>
+public sealed class TenantAffiliationConfiguration : IEntityTypeConfiguration<TenantAffiliation>
+{
+    public void Configure(EntityTypeBuilder<TenantAffiliation> builder)
+    {
+        builder.ToTable("tenant_affiliations");
+        builder.Property(a => a.Board).HasMaxLength(64).IsRequired();
+        builder.Property(a => a.AffiliationNumber).HasMaxLength(64);
+
+        // A school is affiliated to a given board once.
+        builder.HasIndex(a => new { a.TenantId, a.Board }).IsUnique();
     }
 }

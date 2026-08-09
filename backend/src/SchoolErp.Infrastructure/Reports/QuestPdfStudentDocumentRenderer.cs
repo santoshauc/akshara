@@ -81,12 +81,12 @@ public sealed class QuestPdfStudentDocumentRenderer : IStudentDocumentRenderer
                     header.Item().AlignCenter().Text(schoolAddress)
                         .FontColor(Colors.Grey.Darken1);
                 }
-                if (data.AffiliationBoard is { } board)
+                if (data.Affiliations.Count > 0)
                 {
+                    // Joined on one line: schools list every board they are
+                    // affiliated to on the letterhead, not just the first.
                     header.Item().AlignCenter()
-                        .Text($"Affiliated to {board}" +
-                            (data.AffiliationNumber is { } number
-                                ? $" · Affiliation No. {number}" : ""))
+                        .Text($"Affiliated to {string.Join("  |  ", data.Affiliations)}")
                         .FontSize(10).FontColor(Colors.Grey.Darken1);
                 }
 

@@ -19,7 +19,7 @@ public sealed record UpdateTenantCommand(
     string? ContactPhone,
     string? City,
     string? State,
-    string? AffiliationBoard,
+    IReadOnlyList<TenantAffiliationDto>? Affiliations,
     string? LogoUrl,
     string? ThemePrimaryColor,
     string? ThemeSecondaryColor,
@@ -67,6 +67,7 @@ public sealed class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCom
     public async Task<TenantDto> Handle(UpdateTenantCommand request, CancellationToken cancellationToken)
     {
         var tenant = await _db.Tenants
+            .Include(t => t.Affiliations)
             .FirstOrDefaultAsync(t => t.Id == request.Id, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Tenant), request.Id);
@@ -89,7 +90,7 @@ public sealed class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCom
         tenant.ContactPhone = request.ContactPhone?.Trim();
         tenant.City = request.City?.Trim();
         tenant.State = request.State?.Trim();
-        tenant.AffiliationBoard = request.AffiliationBoard?.Trim();
+        ApplyAffiliations(tenant, request.Affiliations);
         tenant.LogoUrl = request.LogoUrl;
         tenant.ThemePrimaryColor = request.ThemePrimaryColor;
         tenant.ThemeSecondaryColor = request.ThemeSecondaryColor;
@@ -104,5 +105,54 @@ public sealed class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCom
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return tenant.ToDto();
+    }
+
+    /// <summary>
+    /// Replaces the affiliation set. Rows are matched by board so an existing
+    /// affiliation keeps its id (and anything that ever references it) when
+    /// only its number changes; blank boards are dropped and duplicates
+    /// collapse, since the unique index would refuse them anyway.
+    /// </summary>
+    internal static void ApplyAffiliations(
+        Tenant tenant, IReadOnlyList<TenantAffiliationDto>? requested)
+    {
+        var wanted = (requested ?? [])
+            .Where(a => !string.IsNullOrWhiteSpace(a.Board))
+            .GroupBy(a => a.Board.Trim(), StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.First())
+            .ToList();
+
+        foreach (var gone in tenant.Affiliations
+                     .Where(existing => !wanted.Any(w =>
+                         string.Equals(w.Board.Trim(), existing.Board, StringComparison.OrdinalIgnoreCase)))
+                     .ToList())
+        {
+            tenant.Affiliations.Remove(gone);
+        }
+
+        foreach (var affiliation in wanted)
+        {
+            var board = affiliation.Board.Trim();
+            var number = string.IsNullOrWhiteSpace(affiliation.AffiliationNumber)
+                ? null
+                : affiliation.AffiliationNumber.Trim();
+
+            var existing = tenant.Affiliations.FirstOrDefault(a =>
+                string.Equals(a.Board, board, StringComparison.OrdinalIgnoreCase));
+            if (existing is null)
+            {
+                // No TenantId or Id set here — the navigation fixes the FK up,
+                // and EF generates the key. See TenantAffiliation.Id.
+                tenant.Affiliations.Add(new TenantAffiliation
+                {
+                    Board = board,
+                    AffiliationNumber = number,
+                });
+            }
+            else
+            {
+                existing.AffiliationNumber = number;
+            }
+        }
     }
 }

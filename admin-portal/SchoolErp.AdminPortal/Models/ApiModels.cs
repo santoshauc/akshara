@@ -20,7 +20,8 @@ public sealed record TenantDto
     public string? State { get; init; }
     public string? ContactEmail { get; init; }
     public string? ContactPhone { get; init; }
-    public string? AffiliationBoard { get; init; }
+    /// <summary>Every board this school is affiliated to.</summary>
+    public List<TenantAffiliationDto> Affiliations { get; init; } = [];
     public string? LogoUrl { get; init; }
     public string? ThemePrimaryColor { get; init; }
     public string? ThemeSecondaryColor { get; init; }
@@ -46,11 +47,14 @@ public sealed record CreateTenantRequest(
     string? ContactPhone,
     string? City,
     string? State,
-    string? AffiliationBoard,
+    List<TenantAffiliationDto>? Affiliations,
     SubscriptionPlan Plan,
     TenantModules EnabledModules,
     string TimeZoneId,
     string DefaultLanguage);
+
+/// <summary>One board affiliation (mirrors TenantAffiliationDto).</summary>
+public sealed record TenantAffiliationDto(string Board, string? AffiliationNumber);
 
 /// <summary>Update payload (mirrors UpdateTenantCommand).</summary>
 public sealed record UpdateTenantRequest(
@@ -61,7 +65,7 @@ public sealed record UpdateTenantRequest(
     string? ContactPhone,
     string? City,
     string? State,
-    string? AffiliationBoard,
+    List<TenantAffiliationDto>? Affiliations,
     string? LogoUrl,
     string? ThemePrimaryColor,
     string? ThemeSecondaryColor,

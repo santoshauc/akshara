@@ -18,8 +18,7 @@ public enum StudentDocumentType
 public sealed record StudentDocumentData(
     string SchoolName,
     string? SchoolAddress,
-    string? AffiliationBoard,
-    string? AffiliationNumber,
+    IReadOnlyList<string> Affiliations,
     string StudentName,
     string AdmissionNumber,
     DateOnly DateOfBirth,
@@ -128,8 +127,13 @@ public sealed class GetStudentDocumentPdfQueryHandler
                 t.State,
                 t.PostalCode,
                 t.ContactPhone,
-                t.AffiliationBoard,
-                t.AffiliationNumber,
+                // Every board, each with its own number: a school running
+                // CBSE and a State stream must show both on its certificates.
+                Affiliations = t.Affiliations
+                    .Select(a => a.AffiliationNumber == null
+                        ? a.Board
+                        : a.Board + " · No. " + a.AffiliationNumber)
+                    .ToList(),
             })
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -162,8 +166,7 @@ public sealed class GetStudentDocumentPdfQueryHandler
         return _renderer.Render(request.Type, new StudentDocumentData(
             school.Name,
             address.Length == 0 ? null : address,
-            school.AffiliationBoard,
-            school.AffiliationNumber,
+            school.Affiliations,
             student.Name,
             student.AdmissionNumber,
             student.DateOfBirth,

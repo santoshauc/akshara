@@ -15,7 +15,8 @@ public sealed record TenantDto
     public string? State { get; init; }
     public string? ContactEmail { get; init; }
     public string? ContactPhone { get; init; }
-    public string? AffiliationBoard { get; init; }
+    /// <summary>Every board this school is affiliated to, with its own number.</summary>
+    public IReadOnlyList<TenantAffiliationDto> Affiliations { get; init; } = [];
     public string? LogoUrl { get; init; }
     public string? ThemePrimaryColor { get; init; }
     public string? ThemeSecondaryColor { get; init; }
@@ -33,6 +34,9 @@ public sealed record TenantDto
     public DateTimeOffset CreatedAt { get; init; }
 }
 
+/// <summary>One board affiliation and its number.</summary>
+public sealed record TenantAffiliationDto(string Board, string? AffiliationNumber);
+
 /// <summary>Hand-written projection (EF-translatable + in-memory).</summary>
 public static class TenantMappings
 {
@@ -49,7 +53,9 @@ public static class TenantMappings
             State = tenant.State,
             ContactEmail = tenant.ContactEmail,
             ContactPhone = tenant.ContactPhone,
-            AffiliationBoard = tenant.AffiliationBoard,
+            Affiliations = tenant.Affiliations
+                .Select(a => new TenantAffiliationDto(a.Board, a.AffiliationNumber))
+                .ToList(),
             LogoUrl = tenant.LogoUrl,
             ThemePrimaryColor = tenant.ThemePrimaryColor,
             ThemeSecondaryColor = tenant.ThemeSecondaryColor,
