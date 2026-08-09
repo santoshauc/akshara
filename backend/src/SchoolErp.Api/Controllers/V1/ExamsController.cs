@@ -169,6 +169,22 @@ public sealed class ExamsController : ControllerBase
         var pdf = await _sender.Send(new GetTermReportCardPdfQuery(id, studentId), ct);
         return File(pdf, "application/pdf", "term-report.pdf");
     }
+
+    /// <summary>How this school's report cards are laid out.</summary>
+    [HttpGet("report-card-settings")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(typeof(ReportCardSettingsDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetReportCardSettings(CancellationToken ct) =>
+        Ok(await _sender.Send(new GetReportCardSettingsQuery(), ct));
+
+    /// <summary>Changes the report-card layout for this school.</summary>
+    [HttpPut("report-card-settings")]
+    [HasPermission(Permissions.Examinations.Manage)]
+    [ProducesResponseType(typeof(ReportCardSettingsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> UpdateReportCardSettings(
+        [FromBody] UpdateReportCardSettingsCommand command, CancellationToken ct) =>
+        Ok(await _sender.Send(command, ct));
 }
 
 /// <summary>Term report creation payload.</summary>

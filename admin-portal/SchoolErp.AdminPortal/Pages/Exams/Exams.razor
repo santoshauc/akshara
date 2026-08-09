@@ -17,6 +17,10 @@
                OnClick="@(() => _showSubjectForm = !_showSubjectForm)">
         Add subject
     </MudButton>
+    <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Tune"
+               OnClick="@(() => _showReportSettings = !_showReportSettings)">
+        Report card layout
+    </MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                OnClick="@(() => _showExamForm = !_showExamForm)">
         Create exam
@@ -35,6 +39,36 @@
             {
                 <MudChip Size="Size.Small" Variant="Variant.Outlined">@subject.Name (@subject.Code)</MudChip>
             }
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_showReportSettings && _reportSettings is not null)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-1">Report card layout</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Applies to every report card this school prints, including the
+            copies parents download.
+        </MudText>
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudSelect T="ReportCardTemplate" @bind-Value="_reportTemplate" Label="Template"
+                       Dense="true" Style="min-width: 230px;">
+                <MudSelectItem Value="ReportCardTemplate.MarksAndGrades">Marks and grades</MudSelectItem>
+                <MudSelectItem Value="ReportCardTemplate.MarksOnly">Marks only</MudSelectItem>
+                <MudSelectItem Value="ReportCardTemplate.GradesOnly">Grades only (no marks)</MudSelectItem>
+            </MudSelect>
+            <MudSwitch @bind-Checked="_reportShowAttendance" Color="Color.Primary"
+                       Label="Show attendance" />
+            <MudSwitch @bind-Checked="_reportShowRemarks" Color="Color.Primary"
+                       Label="Remarks box" />
+        </MudStack>
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mt-2">
+            <MudTextField @bind-Value="_reportSignatories" Label="Signature lines (comma separated)"
+                          HelperText="Up to four; leave empty for the standard three."
+                          Style="min-width: 340px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="SaveReportSettingsAsync">Save layout</MudButton>
         </MudStack>
     </MudPaper>
 }
@@ -241,6 +275,13 @@ else
     private bool _loading = true;
     private bool _busy;
 
+    private bool _showReportSettings;
+    private ReportCardSettingsDto? _reportSettings;
+    private ReportCardTemplate _reportTemplate = ReportCardTemplate.MarksAndGrades;
+    private bool _reportShowAttendance;
+    private bool _reportShowRemarks;
+    private string _reportSignatories = string.Empty;
+
     private bool _showSubjectForm;
     private string _subjectName = string.Empty;
     private string _subjectCode = string.Empty;
@@ -264,6 +305,7 @@ else
             var years = await AcademicsApi.GetYearsAsync();
             _currentYearId = years.FirstOrDefault(y => y.IsCurrent)?.Id ?? years.FirstOrDefault()?.Id;
             _subjects = await Client.GetSubjectsAsync();
+            await LoadReportSettingsAsync();
             _classes = await AcademicsApi.GetClassesAsync();
             await ReloadExamsAsync();
             await ReloadTermReportsAsync();
@@ -527,6 +569,46 @@ else
         else
         {
             Snackbar.Add(error, Severity.Error);
+        }
+    }
+
+    private async Task LoadReportSettingsAsync()
+    {
+        _reportSettings = await Client.GetReportCardSettingsAsync();
+        if (_reportSettings is null)
+        {
+            return;
+        }
+
+        _reportTemplate = _reportSettings.Template;
+        _reportShowAttendance = _reportSettings.ShowAttendance;
+        _reportShowRemarks = _reportSettings.ShowRemarks;
+        _reportSignatories = string.Join(", ", _reportSettings.Signatories);
+    }
+
+    private async Task SaveReportSettingsAsync()
+    {
+        _busy = true;
+        try
+        {
+            var signatories = _reportSignatories
+                .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .ToList();
+            var error = await Client.UpdateReportCardSettingsAsync(new ReportCardSettingsDto(
+                _reportTemplate, _reportShowAttendance, _reportShowRemarks, signatories));
+            if (error is null)
+            {
+                Snackbar.Add("Report card layout saved.", Severity.Success);
+                await LoadReportSettingsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
         }
     }
 }

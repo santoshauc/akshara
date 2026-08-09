@@ -2,6 +2,7 @@ using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
 using SchoolErp.Application.Exams.Queries;
+using SchoolErp.Domain.TenantCatalog;
 
 namespace SchoolErp.Infrastructure.Reports;
 
@@ -22,6 +23,7 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
     public byte[] Render(ReportCardData data)
     {
         var result = data.Result;
+        var template = data.Settings.Template;
 
         return Document.Create(document => document.Page(page =>
         {
@@ -79,14 +81,24 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
                     });
                 });
 
+                var showMarks = template != ReportCardTemplate.GradesOnly;
+                var showGrade = template != ReportCardTemplate.MarksOnly;
+
                 content.Item().PaddingTop(16).Table(table =>
                 {
                     table.ColumnsDefinition(columns =>
                     {
                         columns.RelativeColumn(3);
-                        columns.RelativeColumn(2);
-                        columns.RelativeColumn(2);
-                        columns.RelativeColumn(1);
+                        if (showMarks)
+                        {
+                            columns.RelativeColumn(2);
+                            columns.RelativeColumn(2);
+                        }
+
+                        if (showGrade)
+                        {
+                            columns.RelativeColumn(1);
+                        }
                     });
 
                     table.Header(headerRow =>
@@ -94,9 +106,16 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
                         static IContainer HeaderCell(IContainer cell) => cell
                             .Background(Blue).PaddingVertical(6).PaddingHorizontal(8);
                         headerRow.Cell().Element(HeaderCell).Text("Subject").Bold().FontColor(Colors.White);
-                        headerRow.Cell().Element(HeaderCell).AlignRight().Text("Max marks").Bold().FontColor(Colors.White);
-                        headerRow.Cell().Element(HeaderCell).AlignRight().Text("Obtained").Bold().FontColor(Colors.White);
-                        headerRow.Cell().Element(HeaderCell).AlignRight().Text("Grade").Bold().FontColor(Colors.White);
+                        if (showMarks)
+                        {
+                            headerRow.Cell().Element(HeaderCell).AlignRight().Text("Max marks").Bold().FontColor(Colors.White);
+                            headerRow.Cell().Element(HeaderCell).AlignRight().Text("Obtained").Bold().FontColor(Colors.White);
+                        }
+
+                        if (showGrade)
+                        {
+                            headerRow.Cell().Element(HeaderCell).AlignRight().Text("Grade").Bold().FontColor(Colors.White);
+                        }
                     });
 
                     var shade = false;
@@ -108,13 +127,21 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
                             .Background(background).PaddingVertical(5).PaddingHorizontal(8);
 
                         table.Cell().Element(BodyCell).Text(line.SubjectName);
-                        table.Cell().Element(BodyCell).AlignRight()
-                            .Text(line.MaxMarks.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
-                        table.Cell().Element(BodyCell).AlignRight()
-                            .Text(line.IsAbsent
-                                ? "Absent"
-                                : (line.MarksObtained ?? 0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
-                        table.Cell().Element(BodyCell).AlignRight().Text(line.Grade).SemiBold();
+                        if (showMarks)
+                        {
+                            table.Cell().Element(BodyCell).AlignRight()
+                                .Text(line.MaxMarks.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+                            table.Cell().Element(BodyCell).AlignRight()
+                                .Text(line.IsAbsent
+                                    ? "Absent"
+                                    : (line.MarksObtained ?? 0).ToString("0.##", System.Globalization.CultureInfo.InvariantCulture));
+                        }
+
+                        if (showGrade)
+                        {
+                            table.Cell().Element(BodyCell).AlignRight()
+                                .Text(line.IsAbsent ? "AB" : line.Grade).SemiBold();
+                        }
                     }
                 });
 
@@ -122,6 +149,23 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
                 {
                     summary.RelativeItem().Column(left =>
                     {
+                        if (template == ReportCardTemplate.GradesOnly)
+                        {
+                            // Raw totals would leak the marks this template hides.
+                            if (data.Attendance is { MarkedDays: > 0 } gradeOnlyDays)
+                            {
+                                left.Item().Text(text =>
+                                {
+                                    text.Span("Attendance:  ").SemiBold();
+                                    text.Span(string.Create(
+                                        System.Globalization.CultureInfo.InvariantCulture,
+                                        $"{gradeOnlyDays.PresentDays} of {gradeOnlyDays.MarkedDays} days"));
+                                });
+                            }
+
+                            return;
+                        }
+
                         var totals = string.Create(
                             System.Globalization.CultureInfo.InvariantCulture,
                             $"{result.TotalObtained:0.##} / {result.TotalMax:0.##}   ({result.Percent:0.#}%)");
@@ -130,6 +174,17 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
                             text.Span("Total:  ").SemiBold();
                             text.Span(totals);
                         });
+                        if (data.Attendance is { MarkedDays: > 0 } days)
+                        {
+                            left.Item().Text(text =>
+                            {
+                                text.Span("Attendance:  ").SemiBold();
+                                text.Span(string.Create(
+                                    System.Globalization.CultureInfo.InvariantCulture,
+                                    $"{days.PresentDays} of {days.MarkedDays} days"));
+                            });
+                        }
+
                         if (result.SectionRank is { } rank)
                         {
                             var rankText = string.Create(
@@ -150,27 +205,31 @@ public sealed class QuestPdfReportCardRenderer : IReportCardRenderer
                     });
                 });
 
+                if (data.Settings.ShowRemarks)
+                {
+                    content.Item().PaddingTop(16).Column(remarks =>
+                    {
+                        remarks.Item().Text("Class teacher's remarks").SemiBold();
+                        // Two ruled lines to write on — deliberately blank.
+                        remarks.Item().PaddingTop(14).LineHorizontal(1)
+                            .LineColor(Colors.Grey.Medium);
+                        remarks.Item().PaddingTop(18).LineHorizontal(1)
+                            .LineColor(Colors.Grey.Medium);
+                    });
+                }
+
                 content.Item().PaddingTop(30).Row(signatures =>
                 {
                     static IContainer SignatureCell(IContainer cell) => cell.PaddingHorizontal(12);
-                    signatures.RelativeItem().Element(SignatureCell).Column(sig =>
+                    foreach (var signatory in data.Settings.Signatories)
                     {
-                        sig.Item().LineHorizontal(1).LineColor(Colors.Grey.Medium);
-                        sig.Item().PaddingTop(4).AlignCenter()
-                            .Text("Class teacher").FontColor(Colors.Grey.Darken1);
-                    });
-                    signatures.RelativeItem().Element(SignatureCell).Column(sig =>
-                    {
-                        sig.Item().LineHorizontal(1).LineColor(Colors.Grey.Medium);
-                        sig.Item().PaddingTop(4).AlignCenter()
-                            .Text("Principal").FontColor(Colors.Grey.Darken1);
-                    });
-                    signatures.RelativeItem().Element(SignatureCell).Column(sig =>
-                    {
-                        sig.Item().LineHorizontal(1).LineColor(Colors.Grey.Medium);
-                        sig.Item().PaddingTop(4).AlignCenter()
-                            .Text("Parent / Guardian").FontColor(Colors.Grey.Darken1);
-                    });
+                        signatures.RelativeItem().Element(SignatureCell).Column(sig =>
+                        {
+                            sig.Item().LineHorizontal(1).LineColor(Colors.Grey.Medium);
+                            sig.Item().PaddingTop(4).AlignCenter()
+                                .Text(signatory).FontColor(Colors.Grey.Darken1);
+                        });
+                    }
                 });
             });
 
