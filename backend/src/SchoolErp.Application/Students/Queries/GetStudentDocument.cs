@@ -35,6 +35,12 @@ public sealed record StudentDocumentData(
 {
     /// <summary>Raw image bytes for the ID-card photo; null renders a placeholder.</summary>
     public byte[]? PhotoBytes { get; init; }
+
+    /// <summary>Printed on the back of the ID card — the reason the back exists.</summary>
+    public string? BloodGroup { get; init; }
+
+    /// <summary>School's contact number, for the "if found" line on the card back.</summary>
+    public string? SchoolPhone { get; init; }
 }
 
 /// <summary>Turns document data into a PDF. Implemented in Infrastructure.</summary>
@@ -84,6 +90,7 @@ public sealed class GetStudentDocumentPdfQueryHandler
                 s.Gender,
                 s.AdmissionDate,
                 s.PhotoUrl,
+                s.BloodGroup,
             })
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false)
@@ -119,14 +126,18 @@ public sealed class GetStudentDocumentPdfQueryHandler
                 t.AddressLine1,
                 t.City,
                 t.State,
+                t.PostalCode,
+                t.ContactPhone,
                 t.AffiliationBoard,
                 t.AffiliationNumber,
             })
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        // The postal code matters on the card back, where the address is what
+        // a finder posts the card back to.
         var address = string.Join(", ",
-            new[] { school.AddressLine1, school.City, school.State }
+            new[] { school.AddressLine1, school.City, school.State, school.PostalCode }
                 .Where(p => !string.IsNullOrWhiteSpace(p)));
 
         // The ID card embeds the stored photo; the renderer works from bytes
@@ -165,6 +176,10 @@ public sealed class GetStudentDocumentPdfQueryHandler
             guardian?.Name,
             guardian?.Phone,
             DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime))
-        { PhotoBytes = photo });
+        {
+            PhotoBytes = photo,
+            BloodGroup = student.BloodGroup,
+            SchoolPhone = school.ContactPhone,
+        });
     }
 }
