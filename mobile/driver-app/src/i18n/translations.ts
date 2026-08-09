@@ -43,6 +43,13 @@ export const en = {
   errStartTrip: 'Could not start the trip.',
   errRecordEvent: 'Could not record the event.',
   errEndTrip: 'Could not end the trip.',
+  currentStop: 'Current stop',
+  nextStop: 'Next stop',
+  waiting: 'Waiting',
+  studentsAtStop: 'students',
+  stopComplete: 'Done',
+  allStopsDone: 'All stops complete',
+  ofCount: 'of',
 } as const;
 
 export type TranslationKey = keyof typeof en;
@@ -87,4 +94,11 @@ export const te: Record<TranslationKey, string> = {
   errStartTrip: 'ప్రయాణం ప్రారంభించలేకపోయాం.',
   errRecordEvent: 'నమోదు చేయలేకపోయాం.',
   errEndTrip: 'ప్రయాణం ముగించలేకపోయాం.',
+  currentStop: 'ప్రస్తుత స్టాప్',
+  nextStop: 'తదుపరి స్టాప్',
+  waiting: 'వేచి ఉన్నారు',
+  studentsAtStop: 'విద్యార్థులు',
+  stopComplete: 'పూర్తయింది',
+  allStopsDone: 'అన్ని స్టాప్‌లు పూర్తయ్యాయి',
+  ofCount: 'లో',
 };
