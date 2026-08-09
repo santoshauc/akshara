@@ -1,6 +1,7 @@
 @inherits LayoutComponentBase
 
-@* Bare layout for unauthenticated pages (login) — no app chrome. *@
+@* Bare layout for unauthenticated pages (login) — no app chrome, but the
+   same design system so sign-in does not look like a different product. *@
 <MudThemeProvider Theme="_theme" />
 <MudDialogProvider />
 <MudSnackbarProvider />
@@ -8,12 +9,5 @@
 @Body
 
 @code {
-    private readonly MudTheme _theme = new()
-    {
-        Palette = new PaletteLight
-        {
-            Primary = "#1565C0",
-            AppbarBackground = "#1565C0",
-        },
-    };
+    private readonly MudTheme _theme = AksharaTheme.Build(null, null);
 }

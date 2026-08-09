@@ -1,0 +1,46 @@
+@*
+    The portal's one surface container: a bordered card with an optional
+    header row (title, hint, right-aligned actions). Replaces ad-hoc
+    MudPaper + MudText combinations so every panel matches.
+*@
+
+<section class="ak-card @Class">
+    @if (!string.IsNullOrWhiteSpace(Title) || Actions is not null)
+    {
+        <div class="ak-card__header">
+            <div style="min-width: 0;">
+                @if (!string.IsNullOrWhiteSpace(Title))
+                {
+                    <h2 class="ak-card__title">@Title</h2>
+                }
+                @if (!string.IsNullOrWhiteSpace(Hint))
+                {
+                    <div class="ak-card__hint">@Hint</div>
+                }
+            </div>
+            @if (Actions is not null)
+            {
+                <div class="ak-card__actions">@Actions</div>
+            }
+        </div>
+    }
+    <div class="ak-card__body @(Flush ? "ak-card__body--flush" : "")">
+        @ChildContent
+    </div>
+</section>
+
+@code {
+    [Parameter] public string? Title { get; set; }
+
+    /// <summary>Short explanation under the title.</summary>
+    [Parameter] public string? Hint { get; set; }
+
+    [Parameter] public RenderFragment? Actions { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    /// <summary>Removes body padding — use when the body is a table.</summary>
+    [Parameter] public bool Flush { get; set; }
+
+    [Parameter] public string? Class { get; set; }
+}

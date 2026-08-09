@@ -6,9 +6,13 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Akshara Admin</title>
     <base href="/" />
-    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/design-tokens.css?v=6" />
     <link href="_content/MudBlazor/MudBlazor.min.css" rel="stylesheet" />
-    <link rel="stylesheet" href="css/app.css" />
+    <link rel="stylesheet" href="css/enterprise.css?v=6" />
+    <link rel="stylesheet" href="css/app.css?v=6" />
     <link rel="icon" type="image/png" href="favicon.png" />
     <link href="manifest.webmanifest" rel="manifest" />
     <link rel="apple-touch-icon" sizes="512x512" href="icon-512.png" />
@@ -27,8 +31,32 @@
     <div id="blazor-error-ui">
         An unhandled error has occurred.
         <a href="" class="reload">Reload</a>
-        <a class="dismiss">🗙</a>
+        <a class="dismiss" role="button" aria-label="Dismiss">Dismiss</a>
     </div>
+    <script>
+        // Bridges Blazor state to the CSS token layer: MudBlazor's own theme
+        // only reaches Mud components, while design-tokens.css drives every
+        // shared primitive. Both must agree, so Blazor drives both.
+        window.akshara = {
+            setDark: function (isDark) {
+                document.documentElement.classList.toggle('ak-dark', !!isDark);
+                document.documentElement.style.colorScheme = isDark ? 'dark' : 'light';
+            },
+            setBrand: function (color, contrast, darkColor) {
+                var root = document.documentElement;
+                // Both variants are published; .ak-dark swaps --ak-brand to the
+                // lightened one, because a light-mode brand on a dark surface
+                // fails contrast badly.
+                // Set ONLY the two variants. --ak-brand itself must stay a
+                // stylesheet decision (:root vs .ak-dark) — setting it inline
+                // here outranks the dark-mode rule and pins the light colour
+                // onto dark surfaces, which measured 1.12:1.
+                if (color) { root.style.setProperty('--ak-brand-light', color); }
+                if (darkColor) { root.style.setProperty('--ak-brand-dark', darkColor); }
+                if (contrast) { root.style.setProperty('--ak-brand-contrast', contrast); }
+            }
+        };
+    </script>
     <script src="_content/MudBlazor/MudBlazor.min.js"></script>
     <script src="_framework/blazor.webassembly.js"></script>
     <script>

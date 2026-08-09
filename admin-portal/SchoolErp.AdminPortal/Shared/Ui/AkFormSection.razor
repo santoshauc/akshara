@@ -1,0 +1,29 @@
+@*
+    A labelled group of fields. Long forms are split into these rather than
+    presented as one wall of inputs.
+*@
+
+<fieldset class="ak-form-section" style="border: none; margin: 0; padding-inline: 0;">
+    <legend class="ak-form-section__head" style="padding: 0; width: 100%;">
+        <div class="ak-form-section__title">@Title</div>
+        @if (!string.IsNullOrWhiteSpace(Hint))
+        {
+            <div class="ak-form-section__hint">@Hint</div>
+        }
+    </legend>
+    <div class="ak-field-grid @(SingleColumn ? "ak-field-grid--single" : "")">
+        @ChildContent
+    </div>
+</fieldset>
+
+@code {
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Why these fields matter, or how they will be used.</summary>
+    [Parameter] public string? Hint { get; set; }
+
+    /// <summary>Forces one column — for sections of long free-text fields.</summary>
+    [Parameter] public bool SingleColumn { get; set; }
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+}

@@ -17,170 +17,164 @@
    toggle glitches). The login page uses EmptyLayout, and [Authorize] pages
    redirect before content renders, so the chrome is safe to render always. *@
 <MudLayout>
-    <MudAppBar Elevation="1">
-        <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
-                       OnClick="@(() => _drawerOpen = !_drawerOpen)" />
+    <a class="ak-skip-link" href="#ak-main">@L["chrome.skipToContent"]</a>
+
+    <MudAppBar Elevation="0" Class="ak-appbar" Dense="true">
+        <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" Size="Size.Small"
+                       aria-label="@L["chrome.toggleNav"]"
+                       aria-expanded="@(_drawerOpen ? "true" : "false")"
+                       OnClick="ToggleDrawer" />
+
         @if (_branding?.LogoUrl is { } logoUrl)
         {
-            <MudImage Src="@($"{ApiBase}{logoUrl}")" Alt="School logo"
-                      Style="max-height: 36px; max-width: 90px; object-fit: contain;"
-                      Class="ml-2 rounded" />
+            <MudImage Src="@($"{ApiBase}{logoUrl}")" Alt=""
+                      Style="max-height: 26px; max-width: 80px; object-fit: contain;"
+                      Class="ml-1" />
         }
-        <MudText Typo="Typo.h6" Class="ml-2">@(_branding?.Name ?? "Akshara Admin")</MudText>
-        @if (_branding is not null)
+        else
         {
-            <MudText Typo="Typo.caption" Class="ml-2" Style="opacity: 0.75;">@L["chrome.onAkshara"]</MudText>
+            <span class="ak-brand-mark ml-1" aria-hidden="true">@InitialsOf(_branding?.Name)</span>
         }
+
+        <span class="ak-school-name ml-2">@(_branding?.Name ?? "Akshara")</span>
+        @if (_isPlatformUser)
+        {
+            <span class="ak-env-chip ml-2">@L["chrome.platform"]</span>
+        }
+
         <MudSpacer />
-        <MudButton Size="Size.Small" Color="Color.Inherit" Style="min-width: 44px;"
-                   OnClick="@(() => SetLanguageAsync(L.Language == "en" ? "te" : "en"))">
-            @(L.Language == "en" ? "తెలుగు" : "EN")
-        </MudButton>
-        <MudTooltip Text="@L["chrome.darkMode"]">
-            <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
-                           Color="Color.Inherit" OnClick="@(() => _isDarkMode = !_isDarkMode)" />
+
+        <MudTooltip Text="@L["chrome.language"]">
+            <MudButton Size="Size.Small" Variant="Variant.Text" Class="mr-1"
+                       OnClick="@(() => SetLanguageAsync(L.Language == "en" ? "te" : "en"))">
+                @(L.Language == "en" ? "తెలుగు" : "EN")
+            </MudButton>
         </MudTooltip>
-        <MudMenu Icon="@Icons.Material.Filled.AccountCircle" Color="Color.Inherit" AnchorOrigin="Origin.BottomRight">
+
+        <MudTooltip Text="@L["chrome.darkMode"]">
+            <MudIconButton Size="Size.Small"
+                           Icon="@(_isDarkMode ? Icons.Material.Outlined.LightMode : Icons.Material.Outlined.DarkMode)"
+                           aria-label="@L["chrome.darkMode"]"
+                           OnClick="ToggleDarkModeAsync" />
+        </MudTooltip>
+
+        <MudMenu Icon="@Icons.Material.Outlined.AccountCircle" Size="Size.Small"
+                 AnchorOrigin="Origin.BottomRight" TransformOrigin="Origin.TopRight"
+                 aria-label="@L["chrome.account"]">
             <AuthorizeView>
                 <Authorized>
-                    <MudMenuItem Disabled="true">@context.User.Identity?.Name</MudMenuItem>
+                    <div style="padding: var(--ak-space-2) var(--ak-space-4); min-width: 200px;">
+                        <div style="font-weight: var(--ak-weight-semibold); font-size: var(--ak-text-sm);">
+                            @context.User.Identity?.Name
+                        </div>
+                        <div style="font-size: var(--ak-text-xs); color: var(--ak-text-secondary);">
+                            @(_isPlatformUser ? L["chrome.platform"] : _branding?.Name)
+                        </div>
+                    </div>
+                    <MudDivider />
                 </Authorized>
             </AuthorizeView>
-            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("devices"))">@L["chrome.myDevices"]</MudMenuItem>
-            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("security"))">@L["chrome.security"]</MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Outlined.Devices"
+                         OnClick="@(() => Navigation.NavigateTo("devices"))">@L["chrome.myDevices"]</MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Outlined.Shield"
+                         OnClick="@(() => Navigation.NavigateTo("security"))">@L["chrome.security"]</MudMenuItem>
             <MudDivider />
-            <MudMenuItem OnClick="LogoutAsync">@L["chrome.signOut"]</MudMenuItem>
+            <MudMenuItem Icon="@Icons.Material.Outlined.Logout" OnClick="LogoutAsync">@L["chrome.signOut"]</MudMenuItem>
         </MudMenu>
     </MudAppBar>
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
-        <MudNavMenu>
-            <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
-                @L["nav.dashboard"]
-            </MudNavLink>
-            @if (_isPlatformUser)
-            {
-                <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
-                    @L["nav.schools"]
-                </MudNavLink>
-            }
-            @if (!_isPlatformUser)
-            {
-                <MudNavLink Href="my-day" Icon="@Icons.Material.Filled.Today">
-                    @L["myday.title"]
-                </MudNavLink>
-            }
-            <MudDivider Class="my-2" />
-            <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
-                @L["nav.academics"]
-            </MudNavLink>
-            <MudNavLink Href="students" Icon="@Icons.Material.Filled.Groups">
-                @L["nav.students"]
-            </MudNavLink>
-            <MudNavLink Href="admissions" Icon="@Icons.Material.Filled.PersonAddAlt1">
-                @L["nav.admissions"]
-            </MudNavLink>
-            <MudNavLink Href="attendance" Icon="@Icons.Material.Filled.EventAvailable">
-                @L["nav.attendance"]
-            </MudNavLink>
-            <MudNavLink Href="exams" Icon="@Icons.Material.Filled.Quiz">
-                @L["nav.exams"]
-            </MudNavLink>
-            <MudNavLink Href="fees" Icon="@Icons.Material.Filled.Payments">
-                @L["nav.fees"]
-            </MudNavLink>
-            <MudNavLink Href="homework" Icon="@Icons.Material.Filled.MenuBook">
-                @L["nav.homework"]
-            </MudNavLink>
-            <MudNavLink Href="notices" Icon="@Icons.Material.Filled.Campaign">
-                @L["nav.notices"]
-            </MudNavLink>
-            <MudNavLink Href="transport" Icon="@Icons.Material.Filled.DirectionsBus">
-                @L["nav.transport"]
-            </MudNavLink>
-            <MudNavLink Href="timetable" Icon="@Icons.Material.Filled.CalendarViewWeek">
-                @L["nav.timetable"]
-            </MudNavLink>
-            <MudNavLink Href="teachers" Icon="@Icons.Material.Filled.Badge">
-                @L["nav.teachers"]
-            </MudNavLink>
-            <MudNavLink Href="front-office" Icon="@Icons.Material.Filled.HowToReg">
-                @L["nav.frontOffice"]
-            </MudNavLink>
-            <MudNavLink Href="inventory" Icon="@Icons.Material.Filled.Inventory2">
-                @L["nav.inventory"]
-            </MudNavLink>
-            <MudNavLink Href="library" Icon="@Icons.Material.Filled.LocalLibrary">
-                @L["nav.library"]
-            </MudNavLink>
-            <MudNavLink Href="hostel" Icon="@Icons.Material.Filled.Bed">
-                @L["nav.hostel"]
-            </MudNavLink>
-            <MudNavLink Href="leave" Icon="@Icons.Material.Filled.EventBusy">
-                @L["nav.leave"]
-            </MudNavLink>
-            <MudNavLink Href="messages" Icon="@Icons.Material.Filled.Forum">
-                @L["nav.messages"]
-            </MudNavLink>
-            <MudNavLink Href="users" Icon="@Icons.Material.Filled.ManageAccounts">
-                @L["nav.users"]
-            </MudNavLink>
-            <MudNavLink Href="insights" Icon="@Icons.Material.Filled.Insights">
-                @L["nav.insights"]
-            </MudNavLink>
-            @if (!_isPlatformUser)
-            {
-                <MudNavLink Href="subscription" Icon="@Icons.Material.Filled.CardMembership">
-                    @L["nav.subscription"]
-                </MudNavLink>
-            }
-            <MudNavLink Href="audit" Icon="@Icons.Material.Filled.History">
-                @L["nav.audit"]
-            </MudNavLink>
-        </MudNavMenu>
+
+    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
+               Variant="@DrawerVariant.Mini" OpenMiniOnHover="false"
+               Class="@($"ak-drawer {(_drawerOpen ? "" : "ak-drawer--rail")}")">
+        <nav class="ak-nav" aria-label="@L["chrome.mainNav"]">
+            <MudNavMenu>
+                @foreach (var section in VisibleSections)
+                {
+                    @if (_drawerOpen)
+                    {
+                        <div class="ak-nav-section">@L[section.LabelKey]</div>
+                    }
+                    else
+                    {
+                        <div class="ak-nav-section" aria-hidden="true"></div>
+                    }
+
+                    @foreach (var item in section.Items)
+                    {
+                        <MudNavLink Href="@item.Href" Icon="@item.Icon"
+                                    Match="@(item.Href.Length == 0 ? NavLinkMatch.All : NavLinkMatch.Prefix)"
+                                    title="@L[item.LabelKey]">
+                            @L[item.LabelKey]
+                        </MudNavLink>
+                    }
+                }
+            </MudNavMenu>
+        </nav>
     </MudDrawer>
+
     @* No padding class directly on MudMainContent — it would override the
        component's own padding-top (the fixed appbar offset). Pad inside. *@
     <MudMainContent>
-        <div class="pa-6">
-        <ErrorBoundary @ref="_errorBoundary">
-            <ChildContent>
-                @Body
-            </ChildContent>
-            <ErrorContent>
-                <MudAlert Severity="Severity.Error" Class="ma-4">
-                    Something went wrong on this page.
-                    <MudButton Variant="Variant.Text" Color="Color.Error"
-                               OnClick="@(() => _errorBoundary?.Recover())">
-                        Try again
-                    </MudButton>
-                </MudAlert>
-            </ErrorContent>
-        </ErrorBoundary>
-        </div>
+        <main id="ak-main" class="ak-page" tabindex="-1">
+            <ErrorBoundary @ref="_errorBoundary">
+                <ChildContent>
+                    @Body
+                </ChildContent>
+                <ErrorContent>
+                    <AkCard>
+                        <AkErrorState Title="@L["error.pageTitle"]"
+                                      Description="@L["error.pageBody"]"
+                                      RetryLabel="@L["error.retry"]"
+                                      OnRetry="@(() => _errorBoundary?.Recover())" />
+                    </AkCard>
+                </ErrorContent>
+            </ErrorBoundary>
+        </main>
     </MudMainContent>
 </MudLayout>
 
+
 @code {
     private bool _drawerOpen = true;
+
+    private IReadOnlyList<NavSection> VisibleSections => NavModel.For(_isPlatformUser);
+
+    /// <summary>Two-letter fallback mark when a school has no logo uploaded.</summary>
+    private static string InitialsOf(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+        {
+            return "AK";
+        }
+
+        var words = name.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        return words.Length == 1
+            ? words[0][..Math.Min(2, words[0].Length)].ToUpperInvariant()
+            : $"{char.ToUpperInvariant(words[0][0])}{char.ToUpperInvariant(words[1][0])}";
+    }
+
+    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    /// <summary>
+    /// Dark mode has to move in lockstep across both styling layers:
+    /// MudBlazor's own palette and the CSS token set used by every shared
+    /// primitive. Missing either leaves half the page in the wrong theme.
+    /// </summary>
+    private async Task ToggleDarkModeAsync()
+    {
+        _isDarkMode = !_isDarkMode;
+        await Js.InvokeVoidAsync("akshara.setDark", _isDarkMode);
+    }
+
     private bool _isDarkMode;
     private ErrorBoundary? _errorBoundary;
 
-    private MudTheme _theme = BuildTheme("#1565C0", null);
+    private MudTheme _theme = AksharaTheme.Build(null, null);
     private TenantBrandingDto? _branding;
     private bool _isPlatformUser;
     private bool _brandingAttempted;
 
     private string ApiBase => (Http.BaseAddress?.ToString() ?? "").TrimEnd('/');
-
-    private static MudTheme BuildTheme(string primary, string? secondary) => new()
-    {
-        Palette = new PaletteLight
-        {
-            Primary = primary,
-            AppbarBackground = primary,
-            Secondary = secondary ?? "#FF4081",
-        },
-    };
 
     protected override async Task OnInitializedAsync()
     {
@@ -232,7 +226,12 @@
             _branding = await TenantsApi.GetBrandingAsync(code);
             if (_branding?.ThemePrimaryColor is { } primary)
             {
-                _theme = BuildTheme(primary, _branding.ThemeSecondaryColor);
+                _theme = AksharaTheme.Build(primary, _branding.ThemeSecondaryColor);
+                // The CSS layer needs the brand too — the nav's active state,
+                // the logo fallback mark and focus accents all read --ak-brand.
+                await Js.InvokeVoidAsync(
+                    "akshara.setBrand", primary, "#ffffff",
+                    AksharaTheme.LightenForDark(primary));
             }
 
             StateHasChanged();

@@ -1,0 +1,35 @@
+@*
+    Error state. Shows a human-readable sentence and a retry affordance.
+    Raw exceptions, stack traces and API payloads are never surfaced —
+    the technical detail belongs in logs, not in front of a school clerk.
+*@
+
+<div class="ak-state" role="alert">
+    <div class="ak-state__icon ak-state__icon--error">
+        <MudIcon Icon="@Icons.Material.Filled.ErrorOutline" aria-hidden="true" />
+    </div>
+    <div class="ak-state__title">@Title</div>
+    <p class="ak-state__body">@Description</p>
+    @if (OnRetry.HasDelegate)
+    {
+        <MudButton Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.Refresh"
+                   OnClick="@(() => OnRetry.InvokeAsync())"
+                   Class="mt-2">
+            @RetryLabel
+        </MudButton>
+    }
+</div>
+
+@code {
+    /// <summary>What failed, in the user's terms.</summary>
+    [Parameter] public string Title { get; set; } = "Something went wrong";
+
+    /// <summary>Plain-language explanation with no technical detail.</summary>
+    [Parameter] public string Description { get; set; } =
+        "The information could not be loaded. Please try again.";
+
+    [Parameter] public string RetryLabel { get; set; } = "Retry";
+
+    [Parameter] public EventCallback OnRetry { get; set; }
+}

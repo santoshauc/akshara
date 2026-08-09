@@ -1,0 +1,57 @@
+@*
+    Confirmation for destructive or operationally significant actions.
+
+    Deliberately NOT a generic "Are you sure?" — the caller must state what
+    will happen and what the consequence is, so the person clicking has
+    enough to decide. Open it through AkConfirm.AskAsync.
+*@
+
+<MudDialog>
+    <TitleContent>
+        <div style="display: flex; align-items: center; gap: var(--ak-space-2);">
+            <MudIcon Icon="@(Destructive ? Icons.Material.Filled.ReportProblem : Icons.Material.Filled.HelpOutline)"
+                     Color="@(Destructive ? Color.Error : Color.Primary)"
+                     aria-hidden="true" />
+            <span>@Title</span>
+        </div>
+    </TitleContent>
+    <DialogContent>
+        <p style="margin: 0 0 var(--ak-space-2); color: var(--ak-text);">@Action</p>
+        @if (!string.IsNullOrWhiteSpace(Consequence))
+        {
+            <p style="margin: 0; color: var(--ak-text-secondary);">@Consequence</p>
+        }
+    </DialogContent>
+    <DialogActions>
+        <MudButton Variant="Variant.Text" OnClick="Cancel">@CancelLabel</MudButton>
+        <MudButton Variant="Variant.Filled"
+                   Color="@(Destructive ? Color.Error : Color.Primary)"
+                   OnClick="Confirm">
+            @ConfirmLabel
+        </MudButton>
+    </DialogActions>
+</MudDialog>
+
+@code {
+    [CascadingParameter] private MudDialogInstance Dialog { get; set; } = null!;
+
+    [Parameter] public string Title { get; set; } = "Confirm";
+
+    /// <summary>What is about to happen, in one sentence.</summary>
+    [Parameter, EditorRequired] public string Action { get; set; } = string.Empty;
+
+    /// <summary>What follows from it — who is affected, what cannot be undone.</summary>
+    [Parameter] public string? Consequence { get; set; }
+
+    /// <summary>Verb for the confirm button, e.g. "Suspend driver".</summary>
+    [Parameter] public string ConfirmLabel { get; set; } = "Confirm";
+
+    [Parameter] public string CancelLabel { get; set; } = "Cancel";
+
+    /// <summary>Red styling and a warning glyph for irreversible actions.</summary>
+    [Parameter] public bool Destructive { get; set; }
+
+    private void Confirm() => Dialog.Close(DialogResult.Ok(true));
+
+    private void Cancel() => Dialog.Cancel();
+}

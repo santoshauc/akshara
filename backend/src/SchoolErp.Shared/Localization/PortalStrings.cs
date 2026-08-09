@@ -73,7 +73,7 @@ public static class PortalStrings
         ["home.attendanceTrend"] = "Attendance — last 14 days",
         ["home.feeTrend"] = "Collections — last 14 days",
         ["home.noTrend"] = "No roll-call marked in the last 14 days.",
-        ["home.birthdays"] = "Birthdays today 🎂",
+        ["home.birthdays"] = "Birthdays today",
         ["home.turns"] = "turns {0}",
         ["home.feesOutstanding"] = "Fees outstanding",
         ["home.smsCredits"] = "SMS credits",
@@ -175,6 +175,26 @@ public static class PortalStrings
         ["inventory.itemRequired"] = "Pick an item first.",
         ["inventory.cannotReach"] = "Cannot reach the server.",
 
+
+        // Shell chrome and navigation groups
+        ["chrome.skipToContent"] = "Skip to main content",
+        ["chrome.toggleNav"] = "Toggle navigation",
+        ["chrome.mainNav"] = "Main navigation",
+        ["chrome.account"] = "Account menu",
+        ["chrome.language"] = "Change language",
+        ["chrome.platform"] = "Platform",
+        ["nav.myDay"] = "My day",
+        ["nav.group.overview"] = "Overview",
+        ["nav.group.academics"] = "Academics",
+        ["nav.group.people"] = "People",
+        ["nav.group.operations"] = "Operations",
+        ["nav.group.communication"] = "Communication",
+        ["nav.group.finance"] = "Finance",
+        ["nav.group.administration"] = "Administration",
+        ["error.pageTitle"] = "This page could not be displayed",
+        ["error.pageBody"] = "Something went wrong while rendering this page. Your data has not been changed.",
+        ["error.retry"] = "Try again",
+
         // Students
         ["students.title"] = "Students",
         ["students.export"] = "Export",
@@ -265,7 +285,7 @@ public static class PortalStrings
         ["home.attendanceTrend"] = "హాజరు — గత 14 రోజులు",
         ["home.feeTrend"] = "వసూళ్లు — గత 14 రోజులు",
         ["home.noTrend"] = "గత 14 రోజుల్లో హాజరు నమోదు కాలేదు.",
-        ["home.birthdays"] = "ఈరోజు పుట్టినరోజులు 🎂",
+        ["home.birthdays"] = "ఈరోజు పుట్టినరోజులు",
         ["home.turns"] = "{0} ఏళ్లు",
         ["home.feesOutstanding"] = "బాకీ ఉన్న ఫీజులు",
         ["home.smsCredits"] = "SMS క్రెడిట్లు",
@@ -366,6 +386,26 @@ public static class PortalStrings
         ["inventory.nameRequired"] = "వస్తువు పేరు నమోదు చేయండి.",
         ["inventory.itemRequired"] = "ముందుగా వస్తువును ఎంచుకోండి.",
         ["inventory.cannotReach"] = "సర్వర్‌ను చేరుకోలేకపోతున్నాం.",
+
+
+        // Shell chrome and navigation groups
+        ["chrome.skipToContent"] = "ముఖ్య విషయానికి వెళ్లండి",
+        ["chrome.toggleNav"] = "నావిగేషన్ మార్చండి",
+        ["chrome.mainNav"] = "ప్రధాన నావిగేషన్",
+        ["chrome.account"] = "ఖాతా మెనూ",
+        ["chrome.language"] = "భాష మార్చండి",
+        ["chrome.platform"] = "ప్లాట్‌ఫారమ్",
+        ["nav.myDay"] = "నా రోజు",
+        ["nav.group.overview"] = "సమగ్ర వీక్షణ",
+        ["nav.group.academics"] = "విద్యా వ్యవహారాలు",
+        ["nav.group.people"] = "వ్యక్తులు",
+        ["nav.group.operations"] = "కార్యకలాపాలు",
+        ["nav.group.communication"] = "సమాచార మార్పిడి",
+        ["nav.group.finance"] = "ఆర్థిక",
+        ["nav.group.administration"] = "నిర్వహణ",
+        ["error.pageTitle"] = "ఈ పేజీని చూపించలేకపోయాం",
+        ["error.pageBody"] = "ఈ పేజీని చూపించేటప్పుడు సమస్య ఏర్పడింది. మీ డేటాలో ఎటువంటి మార్పు జరగలేదు.",
+        ["error.retry"] = "మళ్లీ ప్రయత్నించండి",
 
         // Students
         ["students.title"] = "విద్యార్థులు",

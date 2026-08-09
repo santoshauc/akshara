@@ -1,0 +1,71 @@
+@*
+    The one page-header pattern for the whole portal: breadcrumbs, title,
+    optional supporting line, and right-aligned contextual actions.
+    Every page uses this — no page rolls its own heading.
+*@
+
+<header class="ak-page-header">
+    <div style="min-width: 0;">
+        @if (Breadcrumbs is { Count: > 0 })
+        {
+            <nav aria-label="Breadcrumb">
+                <ol class="ak-breadcrumbs">
+                    @foreach (var (crumb, index) in Breadcrumbs.Select((c, i) => (c, i)))
+                    {
+                        <li>
+                            @if (crumb.Href is { } href && index < Breadcrumbs.Count - 1)
+                            {
+                                <a href="@href">@crumb.Label</a>
+                            }
+                            else
+                            {
+                                <span aria-current="page">@crumb.Label</span>
+                            }
+                        </li>
+                        @if (index < Breadcrumbs.Count - 1)
+                        {
+                            <li aria-hidden="true">/</li>
+                        }
+                    }
+                </ol>
+            </nav>
+        }
+
+        <div style="display: flex; align-items: center; gap: var(--ak-space-3); flex-wrap: wrap;">
+            <h1 class="ak-page-title">@Title</h1>
+            @if (Status is not null)
+            {
+                @Status
+            }
+        </div>
+
+        @if (!string.IsNullOrWhiteSpace(Subtitle))
+        {
+            <p class="ak-page-subtitle">@Subtitle</p>
+        }
+    </div>
+
+    @if (Actions is not null)
+    {
+        <div class="ak-page-actions">@Actions</div>
+    }
+</header>
+
+@code {
+    /// <summary>One breadcrumb hop. A null Href renders as plain text.</summary>
+    public sealed record Crumb(string Label, string? Href = null);
+
+    [Parameter, EditorRequired]
+    public string Title { get; set; } = string.Empty;
+
+    /// <summary>One short line explaining what the page is for.</summary>
+    [Parameter] public string? Subtitle { get; set; }
+
+    [Parameter] public IReadOnlyList<Crumb>? Breadcrumbs { get; set; }
+
+    /// <summary>Status badge rendered beside the title (detail pages).</summary>
+    [Parameter] public RenderFragment? Status { get; set; }
+
+    /// <summary>Contextual actions; primary action last so it sits rightmost.</summary>
+    [Parameter] public RenderFragment? Actions { get; set; }
+}

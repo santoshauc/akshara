@@ -1,0 +1,841 @@
+/*
+ * Enterprise component layer.
+ *
+ * MudBlazor's defaults are tuned for consumer apps: generous radii, airy
+ * padding, heavy shadows. This sheet retunes them for an operations tool —
+ * denser rows, hairline borders instead of drop shadows, restrained radii —
+ * and defines the shared primitives (page header, metric tile, status badge,
+ * empty/error states) that every page composes from.
+ *
+ * Rule: no page-specific CSS. If a screen needs something new, it belongs
+ * here as a reusable class, or it does not belong at all.
+ */
+
+/* ---------------------------------------------------------------- base -- */
+
+html {
+    font-size: 16px;
+}
+
+body {
+    font-family: var(--ak-font-sans);
+    font-size: var(--ak-text-base);
+    line-height: var(--ak-leading-normal);
+    color: var(--ak-text);
+    background-color: var(--ak-canvas);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    /* Tabular figures keep numeric columns aligned down a table. */
+    font-variant-numeric: tabular-nums;
+}
+
+/* A single, visible focus treatment everywhere — WCAG 2.4.7. MudBlazor
+   removes outlines on several controls, so this is deliberately broad. */
+:focus-visible {
+    outline: none;
+    box-shadow: var(--ak-focus-ring);
+    border-radius: var(--ak-radius-sm);
+}
+
+/* Skip link: first tab stop on every page, hidden until focused. */
+.ak-skip-link {
+    position: absolute;
+    left: var(--ak-space-2);
+    top: -60px;
+    z-index: 2000;
+    padding: var(--ak-space-2) var(--ak-space-4);
+    background: var(--ak-surface-raised);
+    color: var(--ak-text);
+    border: 1px solid var(--ak-border-strong);
+    border-radius: var(--ak-radius);
+    font-weight: var(--ak-weight-medium);
+    transition: top var(--ak-duration) var(--ak-ease);
+}
+
+.ak-skip-link:focus {
+    top: var(--ak-space-2);
+}
+
+/* Screen-reader-only text for icon-only controls and table captions. */
+.ak-sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+/* ------------------------------------------------------------- shell ---- */
+
+.ak-appbar.mud-appbar {
+    background-color: var(--ak-surface);
+    color: var(--ak-text);
+    border-bottom: 1px solid var(--ak-border);
+    box-shadow: none;
+}
+
+.ak-appbar .mud-toolbar {
+    min-height: var(--ak-header-height);
+    height: var(--ak-header-height);
+    padding-inline: var(--ak-space-3);
+    gap: var(--ak-space-1);
+}
+
+.ak-brand-mark {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: var(--ak-radius-sm);
+    background: var(--ak-brand);
+    color: var(--ak-brand-contrast);
+    font-size: var(--ak-text-xs);
+    font-weight: var(--ak-weight-bold);
+    letter-spacing: 0.02em;
+    flex: none;
+}
+
+.ak-school-name {
+    font-size: var(--ak-text-base);
+    font-weight: var(--ak-weight-semibold);
+    color: var(--ak-text);
+    line-height: var(--ak-leading-tight);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 40vw;
+}
+
+.ak-env-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ak-space-1);
+    height: 20px;
+    padding-inline: var(--ak-space-2);
+    border-radius: var(--ak-radius-sm);
+    background: var(--ak-amber-surface);
+    color: var(--ak-amber-text);
+    border: 1px solid var(--ak-amber-border);
+    font-size: var(--ak-text-2xs);
+    font-weight: var(--ak-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+}
+
+.ak-drawer.mud-drawer {
+    background-color: var(--ak-surface);
+    border-right: 1px solid var(--ak-border);
+    box-shadow: none;
+}
+
+/* Navigation ------------------------------------------------------------ */
+
+.ak-nav {
+    padding: var(--ak-space-2) var(--ak-space-2) var(--ak-space-8);
+}
+
+.ak-nav-section {
+    margin-top: var(--ak-space-4);
+    margin-bottom: var(--ak-space-1);
+    padding-inline: var(--ak-space-3);
+    font-size: var(--ak-text-2xs);
+    font-weight: var(--ak-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--ak-text-muted);
+}
+
+.ak-nav-section:first-child {
+    margin-top: var(--ak-space-1);
+}
+
+/* Over-qualified for the same reason as the active rule below: MudBlazor's
+   own .mud-navmenu-default selectors outrank a plainer one, which would leave
+   link colour driven by Mud's palette instead of the design tokens — and the
+   two disagree in dark mode. */
+.ak-nav .mud-navmenu .mud-nav-link {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-3);
+    min-height: 34px;
+    margin-bottom: 1px;
+    padding: var(--ak-space-1) var(--ak-space-3);
+    border-radius: var(--ak-radius);
+    font-size: var(--ak-text-sm);
+    font-weight: var(--ak-weight-medium);
+    color: var(--ak-text-secondary);
+    transition: background-color var(--ak-duration-fast) var(--ak-ease),
+                color var(--ak-duration-fast) var(--ak-ease);
+}
+
+.ak-nav .mud-navmenu .mud-nav-link .mud-icon-root {
+    color: var(--ak-text-muted);
+}
+
+.ak-nav .mud-navmenu .mud-nav-link:hover {
+    background-color: var(--ak-surface-hover);
+    color: var(--ak-text);
+}
+
+/* Active state carries a colour AND a left rule, so it does not rely on
+   colour alone (WCAG 1.4.1).
+
+   The selector is deliberately over-qualified. MudBlazor ships its own active
+   rule at specificity 0-5-0 (.mud-navmenu.mud-navmenu-default .mud-nav-link
+   .active:not(...)), which silently beat a plainer rule here and left the
+   active row painted in Mud's 6%-alpha grey instead of the selected surface. */
+.ak-nav .mud-navmenu .mud-nav-link.active:not(.mud-nav-link-disabled) {
+    background-color: var(--ak-surface-selected);
+    color: var(--ak-brand);
+    font-weight: var(--ak-weight-semibold);
+    box-shadow: inset 2px 0 0 var(--ak-brand);
+}
+
+.ak-nav .mud-navmenu .mud-nav-link.active:not(.mud-nav-link-disabled) .mud-icon-root {
+    color: var(--ak-brand);
+}
+
+.ak-nav .mud-navmenu .mud-nav-link .mud-icon-root {
+    font-size: 18px;
+    flex: none;
+}
+
+/* Collapsed rail: icons only, labels hidden but still in the accessibility
+   tree via title/aria-label on the link. */
+.ak-drawer--rail .ak-nav-section {
+    height: 1px;
+    margin: var(--ak-space-3) var(--ak-space-2);
+    padding: 0;
+    overflow: hidden;
+    color: transparent;
+    background: var(--ak-border);
+}
+
+.ak-drawer--rail .ak-nav .mud-navmenu .mud-nav-link {
+    justify-content: center;
+    padding-inline: 0;
+}
+
+.ak-drawer--rail .ak-nav .mud-navmenu .mud-nav-link > :not(.mud-icon-root) {
+    display: none;
+}
+
+/* ------------------------------------------------------- page structure -- */
+
+.ak-page {
+    padding: var(--ak-space-5) var(--ak-space-6) var(--ak-space-10);
+    max-width: 1600px;
+    margin-inline: auto;
+}
+
+@media (max-width: 960px) {
+    .ak-page {
+        padding: var(--ak-space-4) var(--ak-space-3) var(--ak-space-8);
+    }
+}
+
+.ak-page-header {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--ak-space-4);
+    flex-wrap: wrap;
+    margin-bottom: var(--ak-space-4);
+}
+
+.ak-breadcrumbs {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-1);
+    margin-bottom: var(--ak-space-1);
+    font-size: var(--ak-text-xs);
+    color: var(--ak-text-muted);
+    list-style: none;
+    padding: 0;
+}
+
+.ak-breadcrumbs a {
+    color: var(--ak-text-secondary);
+    text-decoration: none;
+}
+
+.ak-breadcrumbs a:hover {
+    color: var(--ak-text);
+    text-decoration: underline;
+}
+
+.ak-page-title {
+    font-size: var(--ak-text-xl);
+    font-weight: var(--ak-weight-semibold);
+    line-height: var(--ak-leading-tight);
+    letter-spacing: -0.01em;
+    color: var(--ak-text);
+    margin: 0;
+}
+
+.ak-page-subtitle {
+    margin-top: var(--ak-space-1);
+    font-size: var(--ak-text-sm);
+    color: var(--ak-text-secondary);
+    max-width: 72ch;
+}
+
+.ak-page-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-2);
+    margin-left: auto;
+    flex-wrap: wrap;
+}
+
+/* Surfaces -------------------------------------------------------------- */
+
+.ak-card {
+    background: var(--ak-surface);
+    border: 1px solid var(--ak-border);
+    border-radius: var(--ak-radius-lg);
+    box-shadow: var(--ak-shadow-sm);
+}
+
+.ak-card__header {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-3);
+    padding: var(--ak-space-3) var(--ak-space-4);
+    border-bottom: 1px solid var(--ak-border);
+    min-height: 44px;
+}
+
+.ak-card__title {
+    font-size: var(--ak-text-md);
+    font-weight: var(--ak-weight-semibold);
+    color: var(--ak-text);
+    margin: 0;
+}
+
+.ak-card__hint {
+    font-size: var(--ak-text-xs);
+    color: var(--ak-text-secondary);
+}
+
+.ak-card__actions {
+    margin-left: auto;
+    display: flex;
+    gap: var(--ak-space-2);
+    align-items: center;
+}
+
+.ak-card__body {
+    padding: var(--ak-space-4);
+}
+
+.ak-card__body--flush {
+    padding: 0;
+}
+
+/* Metric tile ----------------------------------------------------------- */
+
+.ak-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: var(--ak-space-3);
+    margin-bottom: var(--ak-space-4);
+}
+
+.ak-metric {
+    display: flex;
+    flex-direction: column;
+    gap: var(--ak-space-1);
+    padding: var(--ak-space-3) var(--ak-space-4);
+    background: var(--ak-surface);
+    border: 1px solid var(--ak-border);
+    border-radius: var(--ak-radius-lg);
+}
+
+.ak-metric__label {
+    font-size: var(--ak-text-xs);
+    font-weight: var(--ak-weight-medium);
+    color: var(--ak-text-secondary);
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-2);
+}
+
+.ak-metric__value {
+    font-size: var(--ak-text-2xl);
+    font-weight: var(--ak-weight-semibold);
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    color: var(--ak-text);
+}
+
+.ak-metric__meta {
+    font-size: var(--ak-text-xs);
+    color: var(--ak-text-muted);
+}
+
+.ak-metric--attention {
+    border-color: var(--ak-amber-border);
+    background: var(--ak-amber-surface);
+}
+
+.ak-metric--attention .ak-metric__value,
+.ak-metric--attention .ak-metric__label {
+    color: var(--ak-amber-text);
+}
+
+.ak-metric--critical {
+    border-color: var(--ak-red-border);
+    background: var(--ak-red-surface);
+}
+
+.ak-metric--critical .ak-metric__value,
+.ak-metric--critical .ak-metric__label {
+    color: var(--ak-red-text);
+}
+
+/* Status badge — icon + label + colour, never colour alone. */
+.ak-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ak-space-1);
+    height: 20px;
+    padding-inline: var(--ak-space-2);
+    border-radius: var(--ak-radius-pill);
+    border: 1px solid transparent;
+    font-size: var(--ak-text-xs);
+    font-weight: var(--ak-weight-medium);
+    line-height: 1;
+    white-space: nowrap;
+}
+
+.ak-badge .mud-icon-root {
+    font-size: 13px;
+}
+
+.ak-badge--neutral {
+    background: var(--ak-grey-100);
+    border-color: var(--ak-border);
+    color: var(--ak-grey-700);
+}
+
+.ak-badge--success {
+    background: var(--ak-green-surface);
+    border-color: var(--ak-green-border);
+    color: var(--ak-green-text);
+}
+
+.ak-badge--warning {
+    background: var(--ak-amber-surface);
+    border-color: var(--ak-amber-border);
+    color: var(--ak-amber-text);
+}
+
+.ak-badge--error {
+    background: var(--ak-red-surface);
+    border-color: var(--ak-red-border);
+    color: var(--ak-red-text);
+}
+
+.ak-badge--info {
+    background: var(--ak-blue-surface);
+    border-color: var(--ak-blue-border);
+    color: var(--ak-blue-text);
+}
+
+.ak-badge--progress {
+    background: var(--ak-violet-surface);
+    border-color: var(--ak-violet-border);
+    color: var(--ak-violet-text);
+}
+
+.ak-dark .ak-badge--neutral {
+    background: var(--ak-surface-sunken);
+    color: var(--ak-text-secondary);
+}
+
+/* --------------------------------------------------------------- tables -- */
+
+.ak-table-wrap {
+    width: 100%;
+    overflow-x: auto;
+}
+
+.ak-table.mud-table {
+    background: transparent;
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.ak-table .mud-table-root {
+    border-collapse: separate;
+    border-spacing: 0;
+}
+
+.ak-table th,
+.ak-table .mud-table-head th {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    background: var(--ak-surface-sunken);
+    border-bottom: 1px solid var(--ak-border-strong);
+    padding: var(--ak-space-2) var(--ak-space-3);
+    font-size: var(--ak-text-xs);
+    font-weight: var(--ak-weight-semibold);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ak-text-secondary);
+    white-space: nowrap;
+}
+
+.ak-table td,
+.ak-table .mud-table-cell {
+    padding: var(--ak-space-2) var(--ak-space-3);
+    border-bottom: 1px solid var(--ak-border);
+    font-size: var(--ak-text-sm);
+    color: var(--ak-text);
+    height: 40px;
+}
+
+.ak-table tbody tr:hover td {
+    background: var(--ak-surface-hover);
+}
+
+.ak-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.ak-table .ak-num {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+.ak-table .ak-cell-primary {
+    font-weight: var(--ak-weight-medium);
+    color: var(--ak-text);
+}
+
+.ak-table .ak-cell-meta {
+    display: block;
+    font-size: var(--ak-text-xs);
+    color: var(--ak-text-muted);
+}
+
+/* Row actions stay quiet until the row is engaged, so a dense grid does not
+   read as a wall of buttons — but they remain focusable for keyboard users. */
+.ak-row-actions {
+    display: flex;
+    gap: var(--ak-space-1);
+    justify-content: flex-end;
+    opacity: 0;
+    transition: opacity var(--ak-duration-fast) var(--ak-ease);
+}
+
+.ak-table tbody tr:hover .ak-row-actions,
+.ak-row-actions:focus-within {
+    opacity: 1;
+}
+
+@media (hover: none) {
+    /* Touch devices have no hover — always show. */
+    .ak-row-actions {
+        opacity: 1;
+    }
+}
+
+/* Toolbar above a table: search, filters, bulk actions. */
+.ak-toolbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-2);
+    flex-wrap: wrap;
+    padding: var(--ak-space-3) var(--ak-space-4);
+    border-bottom: 1px solid var(--ak-border);
+}
+
+.ak-toolbar__spacer {
+    margin-left: auto;
+}
+
+.ak-bulkbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-3);
+    padding: var(--ak-space-2) var(--ak-space-4);
+    background: var(--ak-surface-selected);
+    border-bottom: 1px solid var(--ak-blue-border);
+    font-size: var(--ak-text-sm);
+    color: var(--ak-blue-text);
+}
+
+/* ------------------------------------------------------ non-happy paths -- */
+
+.ak-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--ak-space-2);
+    padding: var(--ak-space-10) var(--ak-space-6);
+    text-align: center;
+}
+
+.ak-state__icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--ak-radius-lg);
+    background: var(--ak-surface-sunken);
+    color: var(--ak-text-muted);
+    margin-bottom: var(--ak-space-1);
+}
+
+.ak-state__icon--error {
+    background: var(--ak-red-surface);
+    color: var(--ak-red-solid);
+}
+
+.ak-state__title {
+    font-size: var(--ak-text-md);
+    font-weight: var(--ak-weight-semibold);
+    color: var(--ak-text);
+}
+
+.ak-state__body {
+    font-size: var(--ak-text-sm);
+    color: var(--ak-text-secondary);
+    max-width: 46ch;
+}
+
+/* Skeletons: shape-matched to the content they replace, so the page does not
+   reflow when data lands. */
+.ak-skeleton {
+    background: linear-gradient(90deg,
+        var(--ak-surface-sunken) 25%,
+        var(--ak-surface-hover) 37%,
+        var(--ak-surface-sunken) 63%);
+    background-size: 400% 100%;
+    animation: ak-shimmer 1.4s ease infinite;
+    border-radius: var(--ak-radius-sm);
+}
+
+@keyframes ak-shimmer {
+    0% { background-position: 100% 50%; }
+    100% { background-position: 0 50%; }
+}
+
+.ak-skeleton-row {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-3);
+    padding: var(--ak-space-2) var(--ak-space-3);
+    border-bottom: 1px solid var(--ak-border);
+    height: 40px;
+}
+
+/* ---------------------------------------------------------------- forms -- */
+
+.ak-form-section {
+    padding-block: var(--ak-space-4);
+    border-bottom: 1px solid var(--ak-border);
+}
+
+.ak-form-section:last-child {
+    border-bottom: none;
+}
+
+.ak-form-section__head {
+    margin-bottom: var(--ak-space-3);
+}
+
+.ak-form-section__title {
+    font-size: var(--ak-text-base);
+    font-weight: var(--ak-weight-semibold);
+    color: var(--ak-text);
+}
+
+.ak-form-section__hint {
+    margin-top: 2px;
+    font-size: var(--ak-text-xs);
+    color: var(--ak-text-secondary);
+    max-width: 68ch;
+}
+
+/* Two columns on desktop, one on tablet and below — never a squeezed grid. */
+.ak-field-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--ak-space-3) var(--ak-space-4);
+}
+
+.ak-field-grid--single {
+    grid-template-columns: minmax(0, 1fr);
+}
+
+.ak-field-grid__full {
+    grid-column: 1 / -1;
+}
+
+@media (max-width: 900px) {
+    .ak-field-grid {
+        grid-template-columns: minmax(0, 1fr);
+    }
+}
+
+/* Required marker — paired with aria-required on the input itself. */
+.ak-required {
+    color: var(--ak-red-solid);
+    margin-left: 2px;
+}
+
+/* Sticky footer for form actions: Save/Cancel never scroll out of reach. */
+.ak-form-actions {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--ak-space-2);
+    padding: var(--ak-space-3) var(--ak-space-4);
+    background: var(--ak-surface);
+    border-top: 1px solid var(--ak-border);
+    border-radius: 0 0 var(--ak-radius-lg) var(--ak-radius-lg);
+}
+
+/* -------------------------------------------------------- mud overrides -- */
+
+/* Buttons: consistent height and radius across every variant. */
+.mud-button-root {
+    border-radius: var(--ak-radius);
+    font-family: var(--ak-font-sans);
+    font-size: var(--ak-text-sm);
+    font-weight: var(--ak-weight-medium);
+    letter-spacing: 0;
+    text-transform: none;
+    min-height: 34px;
+}
+
+.mud-button-root.mud-button-filled {
+    box-shadow: none;
+}
+
+.mud-button-root.mud-button-filled:hover {
+    box-shadow: var(--ak-shadow-sm);
+}
+
+/* Touch targets stay >= 44px on coarse pointers (WCAG 2.5.5). */
+@media (pointer: coarse) {
+    .mud-button-root,
+    .mud-icon-button {
+        min-height: 44px;
+        min-width: 44px;
+    }
+}
+
+.mud-input.mud-input-outlined .mud-input-outlined-border {
+    border-color: var(--ak-border-strong);
+    border-radius: var(--ak-radius);
+}
+
+.mud-paper {
+    background-color: var(--ak-surface);
+    color: var(--ak-text);
+}
+
+.mud-dialog {
+    border-radius: var(--ak-radius-lg);
+    border: 1px solid var(--ak-border);
+    box-shadow: var(--ak-shadow-lg);
+}
+
+.mud-dialog-title {
+    font-size: var(--ak-text-md);
+    font-weight: var(--ak-weight-semibold);
+    padding: var(--ak-space-4) var(--ak-space-4) var(--ak-space-2);
+}
+
+.mud-dialog-content {
+    padding: var(--ak-space-2) var(--ak-space-4);
+    font-size: var(--ak-text-sm);
+    color: var(--ak-text-secondary);
+}
+
+.mud-dialog-actions {
+    padding: var(--ak-space-3) var(--ak-space-4);
+    border-top: 1px solid var(--ak-border);
+    gap: var(--ak-space-2);
+}
+
+.mud-snackbar {
+    border-radius: var(--ak-radius);
+    font-size: var(--ak-text-sm);
+    box-shadow: var(--ak-shadow-md);
+}
+
+.mud-tabs .mud-tab {
+    text-transform: none;
+    font-size: var(--ak-text-sm);
+    font-weight: var(--ak-weight-medium);
+    min-height: 40px;
+    letter-spacing: 0;
+}
+
+/* Tables inside cards should not double up on borders. */
+.ak-card .ak-table td:first-child,
+.ak-card .ak-table th:first-child {
+    padding-left: var(--ak-space-4);
+}
+
+.ak-card .ak-table td:last-child,
+.ak-card .ak-table th:last-child {
+    padding-right: var(--ak-space-4);
+}
+
+/* --------------------------------------------------------- responsive --- */
+
+/* Below 720px a dense grid is unusable; list pages switch to stacked cards
+   via .ak-stacked, where each cell carries its own label. */
+@media (max-width: 720px) {
+    .ak-stacked thead {
+        display: none;
+    }
+
+    .ak-stacked tbody tr {
+        display: block;
+        padding: var(--ak-space-3) var(--ak-space-4);
+        border-bottom: 1px solid var(--ak-border);
+    }
+
+    .ak-stacked tbody td {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: var(--ak-space-4);
+        height: auto;
+        padding: 2px 0;
+        border: none;
+    }
+
+    .ak-stacked tbody td::before {
+        content: attr(data-label);
+        font-size: var(--ak-text-xs);
+        font-weight: var(--ak-weight-medium);
+        color: var(--ak-text-muted);
+        flex: none;
+    }
+
+    .ak-page-actions {
+        width: 100%;
+        margin-left: 0;
+    }
+
+    .ak-page-actions > * {
+        flex: 1 1 auto;
+    }
+}
