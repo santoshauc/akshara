@@ -207,6 +207,7 @@ public sealed class GetStudentByIdQueryHandler : IRequestHandler<GetStudentByIdQ
                     Email = sg.Guardian.Email,
                     Occupation = sg.Guardian.Occupation,
                     IsPrimary = sg.IsPrimary,
+                    PreferredLanguage = sg.Guardian.PreferredLanguage,
                 })
                 .OrderByDescending(g => g.IsPrimary)
                 .ToList(),

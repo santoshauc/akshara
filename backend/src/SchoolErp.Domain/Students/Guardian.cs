@@ -32,6 +32,14 @@ public class Guardian : TenantEntity
     /// <summary>Linked platform user account (set when app access is provisioned).</summary>
     public Guid? UserId { get; set; }
 
+    /// <summary>
+    /// Language this guardian is written to in: an <c>en</c>/<c>te</c> code
+    /// (see <c>NotificationLanguages</c>). Drives SMS, WhatsApp and push text;
+    /// the parent app writes it here when the reader flips its own toggle.
+    /// Unknown or unsupported codes fall back to English at render time.
+    /// </summary>
+    public string PreferredLanguage { get; set; } = "en";
+
     public string FullName => $"{FirstName} {LastName}".Trim();
 }
 

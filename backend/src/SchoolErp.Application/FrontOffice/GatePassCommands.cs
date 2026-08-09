@@ -5,6 +5,7 @@ using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.FrontOffice;
 using SchoolErp.Domain.Students;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.FrontOffice;
 
@@ -133,10 +134,14 @@ public sealed class IssueGatePassCommandHandler : IRequestHandler<IssueGatePassC
                 .ConfigureAwait(false);
             await Notifications.NotificationQueue.QueueGuardianAsync(
                 _db, _tenantContext.TenantId, guardianPhone,
-                "Early release",
-                $"{student.FirstName} left {tenant?.Name ?? "school"} at " +
-                $"{LocalTime(now, tenant?.TimeZoneId):HH:mm} with {pass.ReleasedTo}. " +
-                $"Pass {pass.PassNumber}.",
+                NotificationTemplates.GatePass,
+                [
+                    student.FirstName,
+                    tenant?.Name ?? "school",
+                    LocalTime(now, tenant?.TimeZoneId),
+                    pass.ReleasedTo,
+                    pass.PassNumber,
+                ],
                 cancellationToken).ConfigureAwait(false);
         }
 

@@ -206,7 +206,26 @@ public sealed class StudentsController : ControllerBase
 
         return Ok(photoUrl);
     }
+
+    /// <summary>
+    /// Sets the language a guardian is written to in. The office needs this for
+    /// parents who never open the app — they are the ones an English SMS fails.
+    /// </summary>
+    [HttpPut("guardians/{guardianId:guid}/language")]
+    [HasPermission(Permissions.Students.Manage)]
+    [ProducesResponseType(typeof(LanguagePreferenceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> SetGuardianLanguage(
+        Guid guardianId, [FromBody] SetLanguageRequest request, CancellationToken ct) =>
+        Ok(new LanguagePreferenceDto(
+            await _sender.Send(new SetGuardianLanguageCommand(guardianId, request.Language), ct)));
 }
 
 /// <summary>Erasure payload — the reason is the paper trail.</summary>
 public sealed record EraseStudentDataRequest(string Reason);
+
+/// <summary>Notification-language payload ("en" / "te").</summary>
+public sealed record SetLanguageRequest(string Language);
+
+/// <summary>The stored notification language, echoed back after a change.</summary>
+public sealed record LanguagePreferenceDto(string Language);

@@ -7,6 +7,7 @@ using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Attendance;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.Attendance.Commands;
 
@@ -166,9 +167,8 @@ public sealed class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanc
         {
             await Notifications.NotificationQueue.QueueGuardianAsync(
                 _db, _tenantContext.TenantId, contact.Phone,
-                "Absence noted",
-                $"{contact.StudentName} was marked absent on {date:dd MMM yyyy} at {schoolName}. " +
-                "Please contact the school if this is unexpected.",
+                NotificationTemplates.Absence,
+                [contact.StudentName, date, schoolName],
                 ct).ConfigureAwait(false);
         }
     }

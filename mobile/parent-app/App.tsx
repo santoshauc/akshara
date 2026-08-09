@@ -35,7 +35,7 @@ export default function App() {
   }
 
   return (
-    <LanguageProvider>
+    <LanguageProvider signedIn={signedIn}>
       <StatusBar style="dark" />
       {signedIn ? (
         <HomeScreen onSignedOut={() => setSignedIn(false)} />

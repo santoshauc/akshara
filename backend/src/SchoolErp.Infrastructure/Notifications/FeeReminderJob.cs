@@ -8,6 +8,7 @@ using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Infrastructure.Persistence;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Infrastructure.Notifications;
 
@@ -20,7 +21,11 @@ namespace SchoolErp.Infrastructure.Notifications;
 /// </summary>
 public sealed partial class FeeReminderJob
 {
-    private const string MessagePrefix = "Fee reminder:";
+    /// <summary>
+    /// Recent reminders are recognized by the template stamped on the payload,
+    /// not by the message text — the text is in the guardian's own language.
+    /// </summary>
+    private const string ReminderTemplate = NotificationTemplates.FeeReminder;
 
     private readonly IServiceScopeFactory _scopeFactory;
     private readonly TimeProvider _clock;
@@ -118,15 +123,16 @@ public sealed partial class FeeReminderJob
 
         var guardianByStudent = await db.StudentGuardians.AsNoTracking()
             .Where(g => g.IsPrimary)
-            .Select(g => new { g.StudentId, g.Guardian!.Phone })
+            .Select(g => new { g.StudentId, g.Guardian!.Phone, g.Guardian!.PreferredLanguage })
             .ToListAsync(ct)
             .ConfigureAwait(false);
-        var phoneByStudent = guardianByStudent
+        var guardianOfStudent = guardianByStudent
             .GroupBy(g => g.StudentId)
-            .ToDictionary(g => g.Key, g => g.First().Phone);
+            .ToDictionary(g => g.Key, g => g.First());
 
         // At most one reminder per guardian+child per 6 days: recent queued
-        // reminders are recognized by the message prefix in the payload.
+        // reminders are recognized by the TEMPLATE stamped on the payload —
+        // the message text itself is localized and cannot be matched on.
         // Payload is jsonb, so substring matching happens client-side over
         // the (small) window of recent SMS rows.
         var since = _clock.GetUtcNow().AddDays(-6);
@@ -136,7 +142,7 @@ public sealed partial class FeeReminderJob
                 .Select(m => m.Payload)
                 .ToListAsync(ct)
                 .ConfigureAwait(false))
-            .Where(p => p.Contains(MessagePrefix))
+            .Where(p => p.Contains(ReminderTemplate, StringComparison.Ordinal))
             .ToList();
 
         var schoolName = await db.Tenants.AsNoTracking()
@@ -157,20 +163,23 @@ public sealed partial class FeeReminderJob
                 - paidByStudent.GetValueOrDefault(student.StudentId)
                 - concessionByStudent.GetValueOrDefault(student.StudentId);
             if (balance <= 0 ||
-                !phoneByStudent.TryGetValue(student.StudentId, out var phone) ||
-                recentPayloads.Any(p => p.Contains(phone) && p.Contains(student.StudentName)))
+                !guardianOfStudent.TryGetValue(student.StudentId, out var guardian) ||
+                recentPayloads.Any(p => p.Contains(guardian.Phone, StringComparison.Ordinal) &&
+                                        p.Contains(student.StudentName, StringComparison.Ordinal)))
             {
                 continue;
             }
+
+            var message = NotificationStrings.Render(
+                guardian.PreferredLanguage, $"{ReminderTemplate}.body",
+                balance, student.StudentName, schoolName);
 
             db.OutboxMessages.Add(new OutboxMessage
             {
                 TenantId = tenantId,
                 Type = OutboxMessageTypes.Sms,
                 Payload = JsonSerializer.Serialize(new SmsPayload(
-                    phone,
-                    $"{MessagePrefix} ₹{balance:N0} is overdue for {student.StudentName} " +
-                    $"at {schoolName}. Please pay at the school office or in the parent app.")),
+                    guardian.Phone, message, ReminderTemplate)),
             });
             queued++;
         }

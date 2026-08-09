@@ -12,6 +12,7 @@ import {
   FeeOrder,
   FeeSummary,
   Homework,
+  LanguagePreference,
   LeaveRequest,
   StudentMessage,
   MonthAttendance,
@@ -152,5 +153,16 @@ export const parentApi = {
     request<string>(`/api/v1/parent/children/${studentId}/leave-requests`, {
       method: 'POST',
       body: JSON.stringify({ fromDate, toDate, reason }),
+    }),
+
+  /** The language the school writes this parent's SMS, WhatsApp and push in. */
+  getNotificationLanguage: () =>
+    request<LanguagePreference>('/api/v1/parent/language'),
+
+  /** Follows the app's own EN/తెలుగు toggle. */
+  setNotificationLanguage: (language: string) =>
+    request<LanguagePreference>('/api/v1/parent/language', {
+      method: 'PUT',
+      body: JSON.stringify({ language }),
     }),
 };

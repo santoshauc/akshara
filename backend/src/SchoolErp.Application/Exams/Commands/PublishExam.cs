@@ -6,6 +6,7 @@ using SchoolErp.Application.Attendance;
 using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Outbox;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.Exams.Commands;
 
@@ -79,9 +80,8 @@ public sealed class PublishExamCommandHandler : IRequestHandler<PublishExamComma
         {
             await Notifications.NotificationQueue.QueueGuardianAsync(
                 _db, _tenantContext.TenantId, recipient.Phone,
-                "Results published",
-                $"Results for {exam.Name} are now available for {recipient.StudentName} " +
-                $"at {schoolName}. Open the parent app to view the report card.",
+                NotificationTemplates.ResultsPublished,
+                [exam.Name, recipient.StudentName, schoolName],
                 cancellationToken).ConfigureAwait(false);
         }
 

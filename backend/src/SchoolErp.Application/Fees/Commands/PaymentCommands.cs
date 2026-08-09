@@ -8,6 +8,7 @@ using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Fees;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Students;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.Fees.Commands;
 
@@ -123,9 +124,8 @@ public static class PaymentRecorder
                 .ConfigureAwait(false);
             await Notifications.NotificationQueue.QueueGuardianAsync(
                 db, tenantContext.TenantId, guardianPhone,
-                "Payment received",
-                $"Payment of Rs.{amount:0.##} received for {student.FirstName} at " +
-                $"{tenant?.Name ?? "your school"}. Receipt {receiptNumber}. Thank you.",
+                NotificationTemplates.PaymentReceived,
+                [amount, student.FirstName, tenant?.Name ?? "your school", receiptNumber],
                 ct).ConfigureAwait(false);
         }
 

@@ -133,8 +133,15 @@
                         <MudItem xs="12" sm="4">
                             <MudTextField @bind-Value="guardian.Email" Label="Email" />
                         </MudItem>
-                        <MudItem xs="12" sm="3">
+                        <MudItem xs="12" sm="2">
                             <MudTextField @bind-Value="guardian.Occupation" Label="Occupation" />
+                        </MudItem>
+                        <MudItem xs="12" sm="2">
+                            <MudSelect @bind-Value="guardian.PreferredLanguage" Label="SMS language"
+                                       HelperText="Language of alerts to this parent">
+                                <MudSelectItem Value="@("en")">English</MudSelectItem>
+                                <MudSelectItem Value="@("te")">తెలుగు</MudSelectItem>
+                            </MudSelect>
                         </MudItem>
                         <MudItem xs="12" sm="3" Class="d-flex align-center">
                             <MudCheckBox T="bool"
@@ -142,7 +149,7 @@
                                          ValueChanged="@(on => SetPrimary(index, on))"
                                          Label="Primary contact" />
                         </MudItem>
-                        <MudItem xs="12" sm="2" Class="d-flex align-center justify-end">
+                        <MudItem xs="12" sm="1" Class="d-flex align-center justify-end">
                             <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
                                            Disabled="@(_guardians.Count == 1)"
                                            OnClick="@(() => _guardians.RemoveAt(index))" />

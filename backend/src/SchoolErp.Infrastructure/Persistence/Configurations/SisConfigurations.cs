@@ -81,6 +81,7 @@ public sealed class GuardianConfiguration : IEntityTypeConfiguration<Guardian>
         builder.Property(g => g.Phone).HasMaxLength(20).IsRequired();
         builder.Property(g => g.Email).HasMaxLength(320);
         builder.Property(g => g.Occupation).HasMaxLength(128);
+        builder.Property(g => g.PreferredLanguage).HasMaxLength(8).IsRequired().HasDefaultValue("en");
 
         // Sibling admissions reuse the guardian found by phone.
         builder.HasIndex(g => new { g.TenantId, g.Phone });

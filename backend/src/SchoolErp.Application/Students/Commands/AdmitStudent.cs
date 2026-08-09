@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Students;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.Students.Commands;
 
@@ -172,6 +173,13 @@ public sealed class AdmitStudentCommandHandler : IRequestHandler<AdmitStudentCom
             .ConfigureAwait(false);
         if (existing is not null)
         {
+            // A sibling admission may correct the parent's language; anything
+            // else about the existing record is left alone on purpose.
+            if (NotificationLanguages.IsSupported(input.PreferredLanguage))
+            {
+                existing.PreferredLanguage = NotificationLanguages.Normalize(input.PreferredLanguage);
+            }
+
             return existing;
         }
 
@@ -183,6 +191,7 @@ public sealed class AdmitStudentCommandHandler : IRequestHandler<AdmitStudentCom
             Phone = phone,
             Email = input.Email?.Trim(),
             Occupation = input.Occupation?.Trim(),
+            PreferredLanguage = NotificationLanguages.Normalize(input.PreferredLanguage),
         };
         _db.Guardians.Add(guardian);
         return guardian;

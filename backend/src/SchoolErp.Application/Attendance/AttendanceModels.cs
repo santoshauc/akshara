@@ -44,5 +44,11 @@ public sealed record StudentMonthAttendanceDto
     public double AttendancePercent { get; init; }
 }
 
-/// <summary>Payload stored in the outbox for SMS deliveries.</summary>
-public sealed record SmsPayload(string Phone, string Message);
+/// <summary>
+/// Payload stored in the outbox for SMS deliveries. <paramref name="Template"/>
+/// names the notification template the message was rendered from — the message
+/// itself is in the guardian's language, so it is the only language-independent
+/// way to recognize a kind of message later (the fee-reminder dedupe relies on
+/// it). Null on rows written before templates existed.
+/// </summary>
+public sealed record SmsPayload(string Phone, string Message, string? Template = null);
