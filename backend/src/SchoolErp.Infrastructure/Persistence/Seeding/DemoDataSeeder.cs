@@ -62,6 +62,14 @@ public static partial class DemoDataSeeder
             return; // fresh database — the shell seed runs first; we enrich next startup
         }
 
+        // A distinctive default theme so per-school branding is visible in demos.
+        if (demo.ThemePrimaryColor is null)
+        {
+            demo.ThemePrimaryColor = "#00695C";
+            demo.ThemeSecondaryColor = "#FF8F00";
+            await db.SaveChangesAsync().ConfigureAwait(false);
+        }
+
         scope.ServiceProvider.GetRequiredService<ITenantContextSetter>().SetTenant(demo.Id);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);

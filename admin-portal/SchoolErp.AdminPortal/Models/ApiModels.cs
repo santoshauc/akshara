@@ -22,6 +22,8 @@ public sealed record TenantDto
     public string? ContactPhone { get; init; }
     public string? AffiliationBoard { get; init; }
     public string? LogoUrl { get; init; }
+    public string? ThemePrimaryColor { get; init; }
+    public string? ThemeSecondaryColor { get; init; }
     public SubscriptionPlan Plan { get; init; }
     public DateOnly? SubscriptionExpiresOn { get; init; }
     public TenantModules EnabledModules { get; init; }
@@ -69,3 +71,10 @@ public sealed record UpdateTenantRequest(
     int SmsCredits,
     string TimeZoneId,
     string DefaultLanguage);
+
+/// <summary>Public branding served anonymously by school code.</summary>
+public sealed record TenantBrandingDto(
+    string Name,
+    string? LogoUrl,
+    string? ThemePrimaryColor,
+    string? ThemeSecondaryColor);

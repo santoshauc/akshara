@@ -5,7 +5,7 @@
  */
 export const en = {
   // Login
-  appTitle: 'SchoolErp Parent',
+  appTitle: 'Akshara Parent',
   appSubtitle: "Stay close to your child's school day",
   schoolCodePlaceholder: 'School code (e.g. DEMO01)',
   phonePlaceholder: 'Mobile number (+91…)',
@@ -162,7 +162,7 @@ export type TranslationKey = keyof typeof en;
 
 export const te: Record<TranslationKey, string> = {
   // Login
-  appTitle: 'స్కూల్ ERP పేరెంట్',
+  appTitle: 'అక్షర పేరెంట్',
   appSubtitle: 'మీ పిల్లల స్కూల్ రోజుకు దగ్గరగా ఉండండి',
   schoolCodePlaceholder: 'స్కూల్ కోడ్ (ఉదా. DEMO01)',
   phonePlaceholder: 'మొబైల్ నంబర్ (+91…)',

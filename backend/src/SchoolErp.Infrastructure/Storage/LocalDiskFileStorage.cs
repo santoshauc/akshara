@@ -30,8 +30,13 @@ public sealed partial class LocalDiskFileStorage : IFileStorage
         _tenantContext = tenantContext;
     }
 
+    public Task<string> SaveAsync(
+        string category, string extension, Stream content, CancellationToken ct = default) =>
+        SaveAsync(_tenantContext.TenantId, category, extension, content, ct);
+
     public async Task<string> SaveAsync(
-        string category, string extension, Stream content, CancellationToken ct = default)
+        Guid tenantId, string category, string extension, Stream content,
+        CancellationToken ct = default)
     {
         if (!CategoryPattern().IsMatch(category))
         {
@@ -44,7 +49,7 @@ public sealed partial class LocalDiskFileStorage : IFileStorage
             throw new ArgumentException($"Extension '{extension}' is not allowed.", nameof(extension));
         }
 
-        var key = $"{_tenantContext.TenantId:N}/{category}/{Guid.NewGuid():N}{ext}";
+        var key = $"{tenantId:N}/{category}/{Guid.NewGuid():N}{ext}";
         var path = Path.Combine(_root, key.Replace('/', Path.DirectorySeparatorChar));
         Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 

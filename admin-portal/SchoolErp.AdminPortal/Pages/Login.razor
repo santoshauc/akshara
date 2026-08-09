@@ -2,15 +2,16 @@
 @layout EmptyLayout
 @inject AuthApiClient AuthApi
 @inject NavigationManager Navigation
+@inject IJSRuntime Js
 
-<PageTitle>Sign in — SchoolErp</PageTitle>
+<PageTitle>Sign in — Akshara</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="d-flex align-center" Style="min-height: 100vh;">
     <MudPaper Elevation="4" Class="pa-8" Style="width: 100%;">
         <MudStack Spacing="4">
             <MudStack Row="false" AlignItems="AlignItems.Center" Spacing="1">
                 <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
-                <MudText Typo="Typo.h5">SchoolErp Admin</MudText>
+                <MudText Typo="Typo.h5">Akshara Admin</MudText>
                 <MudText Typo="Typo.body2" Class="mud-text-secondary">
                     @(_mfaToken is null ? "Sign in to manage your platform" : "Two-factor verification")
                 </MudText>
@@ -106,6 +107,18 @@
             }
             else if (outcome.Succeeded)
             {
+                // Remembered so the app chrome can fetch this school's branding.
+                // Platform (Super Admin) sign-ins have no code — clear any
+                // previous school's branding instead of wearing it.
+                if (string.IsNullOrWhiteSpace(_schoolCode))
+                {
+                    await Js.InvokeVoidAsync("localStorage.removeItem", "akshara.schoolCode");
+                }
+                else
+                {
+                    await Js.InvokeVoidAsync("localStorage.setItem",
+                        "akshara.schoolCode", _schoolCode.Trim().ToUpperInvariant());
+                }
                 Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
             }
             else

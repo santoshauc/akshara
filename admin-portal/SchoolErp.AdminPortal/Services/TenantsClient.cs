@@ -87,4 +87,31 @@ public sealed class TenantsClient
     }
 
     private sealed record ProblemShape(string? Title, Dictionary<string, string[]>? Errors);
+
+    /// <summary>Public branding by school code (anonymous); null when unknown.</summary>
+    public async Task<TenantBrandingDto?> GetBrandingAsync(
+        string code, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync(
+            $"api/v1/tenants/branding?code={Uri.EscapeDataString(code)}", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<TenantBrandingDto>(cancellationToken: ct)
+            : null;
+    }
+
+    /// <summary>Uploads a school logo; returns the new URL or an error.</summary>
+    public async Task<(string? LogoUrl, string? Error)> UploadLogoAsync(
+        Guid id, Stream file, string fileName, CancellationToken ct = default)
+    {
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(file);
+        content.Add(fileContent, "file", fileName);
+        var response = await _http.PostAsync($"api/v1/tenants/{id}/logo", content, ct);
+        if (!response.IsSuccessStatusCode)
+        {
+            return (null, await ReadProblemTitleAsync(response, ct));
+        }
+
+        return (await response.Content.ReadFromJsonAsync<string>(cancellationToken: ct), null);
+    }
 }

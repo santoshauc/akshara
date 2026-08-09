@@ -76,6 +76,40 @@ public sealed class TenantsController : ControllerBase
         return Ok(result);
     }
 
+    /// <summary>
+    /// A school's public branding (name, logo, colours) by school code —
+    /// anonymous so login screens can theme themselves before sign-in.
+    /// </summary>
+    [HttpGet("branding")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    [ProducesResponseType(typeof(TenantBrandingDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetBranding(
+        [FromQuery] string code, CancellationToken ct) =>
+        Ok(await _sender.Send(new GetTenantBrandingQuery(code), ct));
+
+    /// <summary>Uploads/replaces the school's logo (png/jpeg/webp, max 1 MB).</summary>
+    [HttpPost("{id:guid}/logo")]
+    [HasPermission(Permissions.TenantCatalog.Manage)]
+    [RequestSizeLimit(1024 * 1024)]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> UploadLogo(Guid id, IFormFile file, CancellationToken ct)
+    {
+        var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+        if (extension is not (".png" or ".jpg" or ".jpeg" or ".webp"))
+        {
+            return BadRequest("The logo must be a .png, .jpg or .webp image.");
+        }
+
+        using var stream = new MemoryStream();
+        await file.CopyToAsync(stream, ct);
+        var logoUrl = await _sender.Send(
+            new UploadTenantLogoCommand(id, extension, stream.ToArray()), ct);
+        return Ok(logoUrl);
+    }
+
     /// <summary>Activates, suspends or archives a school.</summary>
     [HttpPost("{id:guid}/status")]
     [HasPermission(Permissions.TenantCatalog.Manage)]

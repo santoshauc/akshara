@@ -17,6 +17,8 @@ public sealed record TenantDto
     public string? ContactPhone { get; init; }
     public string? AffiliationBoard { get; init; }
     public string? LogoUrl { get; init; }
+    public string? ThemePrimaryColor { get; init; }
+    public string? ThemeSecondaryColor { get; init; }
     public SubscriptionPlan Plan { get; init; }
     public DateOnly? SubscriptionExpiresOn { get; init; }
     public TenantModules EnabledModules { get; init; }
@@ -46,6 +48,8 @@ public static class TenantMappings
             ContactPhone = tenant.ContactPhone,
             AffiliationBoard = tenant.AffiliationBoard,
             LogoUrl = tenant.LogoUrl,
+            ThemePrimaryColor = tenant.ThemePrimaryColor,
+            ThemeSecondaryColor = tenant.ThemeSecondaryColor,
             Plan = tenant.Plan,
             SubscriptionExpiresOn = tenant.SubscriptionExpiresOn,
             EnabledModules = tenant.EnabledModules,

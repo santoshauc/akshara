@@ -12,6 +12,15 @@ public interface IFileStorage
     Task<string> SaveAsync(
         string category, string extension, Stream content, CancellationToken ct = default);
 
+    /// <summary>
+    /// Same, but under an explicit tenant — for platform operations (e.g. a
+    /// Super Admin uploading a school's logo) where the ambient tenant
+    /// context is not the target school.
+    /// </summary>
+    Task<string> SaveAsync(
+        Guid tenantId, string category, string extension, Stream content,
+        CancellationToken ct = default);
+
     /// <summary>Opens a stored file, or null when the key is unknown/invalid.</summary>
     Task<(Stream Content, string ContentType)?> OpenAsync(string key, CancellationToken ct = default);
 

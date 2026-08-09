@@ -4,8 +4,9 @@
 @inject TenantsClient Client
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject HttpClient Http
 
-<PageTitle>@(_isNew ? "Onboard school" : "Edit school") — SchoolErp</PageTitle>
+<PageTitle>@(_isNew ? "Onboard school" : "Edit school") — Akshara</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
     <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
@@ -58,6 +59,43 @@ else
                     <MudSelectItem Value="@("IB")">IB</MudSelectItem>
                 </MudSelect>
             </MudItem>
+
+            @if (!_isNew)
+            {
+                <MudItem xs="12"><MudText Typo="Typo.h6">Branding</MudText></MudItem>
+                <MudItem xs="12" sm="4" Class="d-flex align-center gap-3">
+                    @if (_existing?.LogoUrl is { } logoUrl)
+                    {
+                        <MudImage Src="@($"{ApiBase}{logoUrl}")" Alt="School logo"
+                                  Style="max-height: 56px; max-width: 120px; object-fit: contain;" />
+                    }
+                    else
+                    {
+                        <MudIcon Icon="@Icons.Material.Filled.School" Size="Size.Large"
+                                 Class="mud-text-secondary" />
+                    }
+                    <MudFileUpload T="IBrowserFile" FilesChanged="UploadLogoAsync"
+                                   Accept=".png,.jpg,.jpeg,.webp" MaximumFileCount="1" Class="mt-0">
+                        <ButtonTemplate>
+                            <MudButton HtmlTag="label" for="@context.Id" Size="Size.Small"
+                                       Variant="Variant.Outlined" Disabled="_busy"
+                                       StartIcon="@Icons.Material.Filled.UploadFile">
+                                @(_existing?.LogoUrl is null ? "Upload logo" : "Replace logo")
+                            </MudButton>
+                        </ButtonTemplate>
+                    </MudFileUpload>
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudColorPicker Label="Primary colour" @bind-Text="_primaryColor"
+                                    DisableAlpha="true" PickerVariant="PickerVariant.Inline"
+                                    HelperText="Appbar and buttons in the school's portal" />
+                </MudItem>
+                <MudItem xs="12" sm="4">
+                    <MudColorPicker Label="Secondary colour" @bind-Text="_secondaryColor"
+                                    DisableAlpha="true" PickerVariant="PickerVariant.Inline"
+                                    HelperText="Accents (optional)" />
+                </MudItem>
+            }
 
             <MudItem xs="12"><MudText Typo="Typo.h6">Subscription &amp; modules</MudText></MudItem>
             <MudItem xs="12" sm="4">
@@ -146,6 +184,42 @@ else
     private string _language = "en";
     private int _storageLimitMb = 5120;
     private int _smsCredits;
+    private string? _primaryColor;
+    private string? _secondaryColor;
+
+    private string ApiBase => (Http.BaseAddress?.ToString() ?? "").TrimEnd('/');
+
+    /// <summary>Uploads immediately; the URL lands on the tenant server-side.</summary>
+    private async Task UploadLogoAsync(IBrowserFile? file)
+    {
+        if (file is null || Id is not { } id)
+        {
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 1024 * 1024);
+            var (logoUrl, error) = await Client.UploadLogoAsync(id, stream, file.Name);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            _existing = _existing! with { LogoUrl = logoUrl };
+            Snackbar.Add("Logo updated.", Severity.Success);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {
@@ -174,6 +248,8 @@ else
                 _language = t.DefaultLanguage;
                 _storageLimitMb = t.StorageLimitMb;
                 _smsCredits = t.SmsCredits;
+                _primaryColor = t.ThemePrimaryColor;
+                _secondaryColor = t.ThemeSecondaryColor;
             }
         }
         finally
@@ -210,7 +286,8 @@ else
                 var (updated, error) = await Client.UpdateAsync(new UpdateTenantRequest(
                     Id!.Value, _name, NullIfEmpty(_customDomain), NullIfEmpty(_contactEmail),
                     NullIfEmpty(_contactPhone), NullIfEmpty(_city), NullIfEmpty(_state),
-                    NullIfEmpty(_board), _existing?.LogoUrl, null, null,
+                    NullIfEmpty(_board), _existing?.LogoUrl,
+                    NullIfEmpty(_primaryColor), NullIfEmpty(_secondaryColor),
                     _plan, _existing?.SubscriptionExpiresOn, _modules | TenantModules.Core,
                     _storageLimitMb, _smsCredits, "Asia/Kolkata", _language));
                 _error = error;

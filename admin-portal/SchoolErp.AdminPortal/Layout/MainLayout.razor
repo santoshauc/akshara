@@ -2,6 +2,9 @@
 @implements IDisposable
 @inject AuthApiClient AuthApi
 @inject NavigationManager Navigation
+@inject TenantsClient TenantsApi
+@inject HttpClient Http
+@inject IJSRuntime Js
 
 <MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudDialogProvider />
@@ -15,7 +18,17 @@
     <MudAppBar Elevation="1">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Color="Color.Inherit" Edge="Edge.Start"
                        OnClick="@(() => _drawerOpen = !_drawerOpen)" />
-        <MudText Typo="Typo.h6" Class="ml-2">SchoolErp Admin</MudText>
+        @if (_branding?.LogoUrl is { } logoUrl)
+        {
+            <MudImage Src="@($"{ApiBase}{logoUrl}")" Alt="School logo"
+                      Style="max-height: 36px; max-width: 90px; object-fit: contain;"
+                      Class="ml-2 rounded" />
+        }
+        <MudText Typo="Typo.h6" Class="ml-2">@(_branding?.Name ?? "Akshara Admin")</MudText>
+        @if (_branding is not null)
+        {
+            <MudText Typo="Typo.caption" Class="ml-2" Style="opacity: 0.75;">on Akshara</MudText>
+        }
         <MudSpacer />
         <MudTooltip Text="Toggle dark mode">
             <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
@@ -125,21 +138,71 @@
     private bool _isDarkMode;
     private ErrorBoundary? _errorBoundary;
 
-    private readonly MudTheme _theme = new()
+    private MudTheme _theme = BuildTheme("#1565C0", null);
+    private TenantBrandingDto? _branding;
+    private bool _brandingAttempted;
+
+    private string ApiBase => (Http.BaseAddress?.ToString() ?? "").TrimEnd('/');
+
+    private static MudTheme BuildTheme(string primary, string? secondary) => new()
     {
         Palette = new PaletteLight
         {
-            Primary = "#1565C0",
-            AppbarBackground = "#1565C0",
+            Primary = primary,
+            AppbarBackground = primary,
+            Secondary = secondary ?? "#FF4081",
         },
     };
 
-    protected override void OnInitialized() =>
+    protected override async Task OnInitializedAsync()
+    {
         Navigation.LocationChanged += OnLocationChanged;
+        await LoadBrandingAsync();
+    }
+
+    /// <summary>
+    /// Applies the signed-in school's logo and colours. The school code is
+    /// remembered at login; branding is public data, so this also works
+    /// straight after a hard refresh.
+    /// </summary>
+    private async Task LoadBrandingAsync()
+    {
+        if (_brandingAttempted)
+        {
+            return;
+        }
+
+        try
+        {
+            var code = await Js.InvokeAsync<string?>(
+                "localStorage.getItem", "akshara.schoolCode");
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                return;
+            }
+
+            _brandingAttempted = true;
+            _branding = await TenantsApi.GetBrandingAsync(code);
+            if (_branding?.ThemePrimaryColor is { } primary)
+            {
+                _theme = BuildTheme(primary, _branding.ThemeSecondaryColor);
+            }
+
+            StateHasChanged();
+        }
+        catch (HttpRequestException)
+        {
+            // The chrome falls back to default branding; pages surface errors.
+        }
+    }
 
     /// <summary>A crash on one page must not follow the user to the next.</summary>
-    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e) =>
+    private void OnLocationChanged(object? sender, Microsoft.AspNetCore.Components.Routing.LocationChangedEventArgs e)
+    {
         _errorBoundary?.Recover();
+        // First navigation after a fresh login: the code has just been stored.
+        _ = LoadBrandingAsync();
+    }
 
     public void Dispose() =>
         Navigation.LocationChanged -= OnLocationChanged;
