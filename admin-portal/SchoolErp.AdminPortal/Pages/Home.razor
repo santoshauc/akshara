@@ -110,6 +110,22 @@ else if (_data is { } data)
                         </MudChip>
                         <MudText>Unread parent messages</MudText>
                     </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
+                              @onclick="@(() => Navigation.NavigateTo("admissions"))">
+                        <MudChip Size="Size.Small"
+                                 Color="@(data.OpenEnquiries > 0 ? Color.Info : Color.Default)">
+                            @data.OpenEnquiries
+                        </MudChip>
+                        <MudText>Open admission enquiries</MudText>
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
+                              @onclick="@(() => Navigation.NavigateTo("admissions"))">
+                        <MudChip Size="Size.Small"
+                                 Color="@(data.EnquiryFollowUpsDueToday > 0 ? Color.Warning : Color.Default)">
+                            @data.EnquiryFollowUpsDueToday
+                        </MudChip>
+                        <MudText>Enquiry follow-ups due</MudText>
+                    </MudStack>
                 </MudStack>
             </MudPaper>
         </MudItem>

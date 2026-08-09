@@ -141,6 +141,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
 
     public DbSet<Domain.Leave.LeaveRequest> LeaveRequests => Set<Domain.Leave.LeaveRequest>();
 
+    /// <summary>Admission enquiries pipeline (tenant-scoped).</summary>
+    public DbSet<Domain.Admissions.AdmissionEnquiry> AdmissionEnquiries =>
+        Set<Domain.Admissions.AdmissionEnquiry>();
+
     /// <summary>Timetable entries (tenant-scoped).</summary>
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
 

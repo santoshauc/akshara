@@ -103,4 +103,6 @@ public sealed record DashboardDto(
     int OverdueLoans,
     int PendingLeaveRequests,
     int UnreadParentMessages,
+    int OpenEnquiries,
+    int EnquiryFollowUpsDueToday,
     List<UpcomingExamDto> UpcomingExams);

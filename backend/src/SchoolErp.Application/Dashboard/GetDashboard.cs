@@ -1,6 +1,7 @@
 using MediatR;
 using Microsoft.EntityFrameworkCore;
 using SchoolErp.Application.Abstractions;
+using SchoolErp.Domain.Admissions;
 using SchoolErp.Domain.Attendance;
 using SchoolErp.Domain.Leave;
 using SchoolErp.Domain.Students;
@@ -20,6 +21,8 @@ public sealed record DashboardDto(
     int OverdueLoans,
     int PendingLeaveRequests,
     int UnreadParentMessages,
+    int OpenEnquiries,
+    int EnquiryFollowUpsDueToday,
     IReadOnlyList<UpcomingExamDto> UpcomingExams);
 
 /// <summary>The staff dashboard tiles.</summary>
@@ -86,6 +89,17 @@ public sealed class GetDashboardQueryHandler : IRequestHandler<GetDashboardQuery
             .CountAsync(m => !m.SentByStaff && m.ReadByStaffAt == null, cancellationToken)
             .ConfigureAwait(false);
 
+        var openEnquiries = await _db.AdmissionEnquiries.AsNoTracking()
+            .CountAsync(e => e.Status != EnquiryStatus.Admitted &&
+                             e.Status != EnquiryStatus.Lost, cancellationToken)
+            .ConfigureAwait(false);
+
+        var followUpsDue = await _db.AdmissionEnquiries.AsNoTracking()
+            .CountAsync(e => e.FollowUpOn != null && e.FollowUpOn <= today &&
+                             e.Status != EnquiryStatus.Admitted &&
+                             e.Status != EnquiryStatus.Lost, cancellationToken)
+            .ConfigureAwait(false);
+
         var upcomingExams = currentYearId is { } examYearId
             ? await _db.Exams.AsNoTracking()
                 .Where(e => e.AcademicYearId == examYearId && e.StartDate >= today)
@@ -107,6 +121,8 @@ public sealed class GetDashboardQueryHandler : IRequestHandler<GetDashboardQuery
             overdueLoans,
             pendingLeave,
             unreadMessages,
+            openEnquiries,
+            followUpsDue,
             upcomingExams);
     }
 }

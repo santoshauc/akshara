@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject StudentsClient Client
 @inject AcademicsClient AcademicsApi
+@inject AdmissionsClient AdmissionsApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 
@@ -11,6 +12,10 @@
     <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
                    OnClick="@(() => Navigation.NavigateTo("students"))" />
     <MudText Typo="Typo.h4">Admit student</MudText>
+    @if (EnquiryId is not null)
+    {
+        <MudChip Size="Size.Small" Color="Color.Info">From enquiry</MudChip>
+    }
 </MudStack>
 
 <MudPaper Elevation="2" Class="pa-6" Style="max-width: 1000px;">
@@ -162,6 +167,13 @@
 </MudPaper>
 
 @code {
+    [SupplyParameterFromQuery] public Guid? EnquiryId { get; set; }
+    [SupplyParameterFromQuery] public string? Child { get; set; }
+    [SupplyParameterFromQuery] public string? Dob { get; set; }
+    [SupplyParameterFromQuery] public string? Parent { get; set; }
+    [SupplyParameterFromQuery] public string? Phone { get; set; }
+    [SupplyParameterFromQuery] public string? Email { get; set; }
+
     private List<AcademicYearDto> _years = [];
     private List<SchoolClassDto> _classes = [];
     private bool _busy;
@@ -191,6 +203,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        PrefillFromEnquiry();
         try
         {
             _years = await AcademicsApi.GetYearsAsync();
@@ -201,6 +214,33 @@
         {
             Snackbar.Add("Cannot reach the server.", Severity.Error);
         }
+    }
+
+    /// <summary>Convert flow: the enquiry's details land pre-typed, staff just place the child.</summary>
+    private void PrefillFromEnquiry()
+    {
+        if (!string.IsNullOrWhiteSpace(Child))
+        {
+            var parts = Child.Trim().Split(' ', 2);
+            _firstName = parts[0];
+            _lastName = parts.Length > 1 ? parts[1] : parts[0];
+        }
+
+        if (DateTime.TryParse(Dob, out var dob))
+        {
+            _dateOfBirth = dob;
+        }
+
+        var guardian = _guardians[0];
+        if (!string.IsNullOrWhiteSpace(Parent))
+        {
+            var parts = Parent.Trim().Split(' ', 2);
+            guardian.FirstName = parts[0];
+            guardian.LastName = parts.Length > 1 ? parts[1] : parts[0];
+        }
+
+        guardian.Phone = Phone ?? guardian.Phone;
+        guardian.Email = Email ?? guardian.Email;
     }
 
     private void AddGuardian() => _guardians.Add(new GuardianInputModel());
@@ -257,7 +297,20 @@
 
             if (id is { } studentId)
             {
-                Snackbar.Add($"{_firstName} admitted.", Severity.Success);
+                if (EnquiryId is { } enquiryId)
+                {
+                    var convertError = await AdmissionsApi.ConvertAsync(enquiryId, studentId);
+                    Snackbar.Add(
+                        convertError is null
+                            ? $"{_firstName} admitted — enquiry marked Admitted."
+                            : $"{_firstName} admitted, but the enquiry could not be updated: {convertError}",
+                        convertError is null ? Severity.Success : Severity.Warning);
+                }
+                else
+                {
+                    Snackbar.Add($"{_firstName} admitted.", Severity.Success);
+                }
+
                 Navigation.NavigateTo($"students/{studentId}");
             }
             else

@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 94 integration = **142 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 96 integration = **144 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -371,6 +371,25 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   (Grade 6 A, new demo sibling for Priya) — app card shows both
   children + total; portal shows the ledger with ₹25,000 balance.
   Demo data: Grade 6 fee plan (Tuition ₹25,000 due 06 Oct) added.
+- D2 Admissions enquiries CRM — DONE. AdmissionEnquiry entity (RLS,
+  AddAdmissionEnquiries migration): child name/DOB, applied class
+  (free text), parent name/phone/email, source WalkIn/Phone/Website/
+  Referral, pipeline New → Contacted → Visit → Admitted/Lost,
+  follow-up date, notes, StudentId stamped on conversion. Permissions
+  admissions.view/manage (claims backfilled at startup). API:
+  GET/POST admissions/enquiries, PUT {id} (Admitted refused — the
+  convert action owns it), POST {id}/convert. Board query: follow-ups
+  due first (open statuses only), newest next, capped 500. Dashboard
+  gains OpenEnquiries + EnquiryFollowUpsDueToday (both exclude
+  Admitted/Lost). Portal "Admissions" page: open/status filters,
+  due rows highlighted + warning banner, inline update panel
+  (status/follow-up/notes), New-enquiry form, Convert → admit form
+  pre-filled (child, DOB, guardian name/phone/email via query params;
+  "From enquiry" chip) → on admit auto-calls convert → "View student"
+  link on admitted rows. 2 integration tests (pipeline + conversion
+  guards; dashboard tile deltas). E2E live: Sanvi Verma enquiry —
+  registered, follow-up due highlight, Contacted, converted to
+  ADM-2026-0004, dashboard tiles show counts.
 
 ## How to run (Windows dev box)
 

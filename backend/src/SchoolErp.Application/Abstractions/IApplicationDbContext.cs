@@ -94,6 +94,8 @@ public interface IApplicationDbContext
 
     DbSet<Domain.Leave.LeaveRequest> LeaveRequests { get; }
 
+    DbSet<Domain.Admissions.AdmissionEnquiry> AdmissionEnquiries { get; }
+
     DbSet<TimetableEntry> TimetableEntries { get; }
 
     DbSet<Book> Books { get; }
