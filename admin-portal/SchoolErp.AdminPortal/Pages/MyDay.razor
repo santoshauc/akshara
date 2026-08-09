@@ -1,0 +1,203 @@
+@page "/my-day"
+@attribute [Authorize]
+@implements IDisposable
+@inject StaffClient Staff
+@inject LocalizationService L
+
+<PageTitle>@L["myday.title"] — Akshara</PageTitle>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" Color="Color.Primary" />
+}
+else if (_day is null)
+{
+    <MudAlert Severity="Severity.Info" Class="mt-4">@L["myday.notTeacher"]</MudAlert>
+}
+else
+{
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+        <div>
+            <MudText Typo="Typo.h4">@L["myday.title"]</MudText>
+            <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                @_day.TeacherName · @_day.EmployeeCode ·
+                @_day.Date.ToDateTime(TimeOnly.MinValue).ToString("dddd, dd MMM yyyy")
+            </MudText>
+        </div>
+        <MudSpacer />
+        <MudButton Href="attendance" Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.EventAvailable">
+            @L["myday.markNow"]
+        </MudButton>
+        <MudButton Href="timetable" Variant="Variant.Outlined"
+                   StartIcon="@Icons.Material.Filled.CalendarViewWeek">
+            @L["myday.openTimetable"]
+        </MudButton>
+    </MudStack>
+
+    <MudGrid Spacing="4" Class="mb-2">
+        <MudItem xs="12" sm="4">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @L["myday.awaitingAttendance"]
+                </MudText>
+                <MudText Typo="Typo.h4"
+                         Color="@(_day.SectionsAwaitingAttendance > 0 ? Color.Warning : Color.Success)">
+                    @_day.SectionsAwaitingAttendance
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @L["myday.studentsTaught"]
+                </MudText>
+                <MudText Typo="Typo.h4">@_day.StudentsTaught</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="4">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                    @L["myday.pendingLeave"]
+                </MudText>
+                <MudText Typo="Typo.h4"
+                         Color="@(_day.PendingLeaveForMyStudents > 0 ? Color.Warning : Color.Default)">
+                    @_day.PendingLeaveForMyStudents
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">@L["myday.periods"]</MudText>
+        @if (_day.Periods.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">@L["myday.noPeriods"]</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>@L["myday.period"]</th>
+                        <th>@L["myday.time"]</th>
+                        <th>@L["myday.subject"]</th>
+                        <th>@L["myday.classSection"]</th>
+                        <th>@L["myday.attendance"]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var slot in _day.Periods)
+                    {
+                        <tr>
+                            <td>@slot.Period</td>
+                            <td>@slot.StartTime.ToString("HH:mm") – @slot.EndTime.ToString("HH:mm")</td>
+                            <td>@slot.SubjectName</td>
+                            <td>
+                                @slot.ClassName@(slot.SectionName is { } section ? $" {section}" : "")
+                                @if (slot.IsSubstitution)
+                                {
+                                    <MudChip Size="Size.Small" Color="Color.Info" Class="ml-1">
+                                        @L["myday.cover"]
+                                    </MudChip>
+                                }
+                            </td>
+                            <td>
+                                <MudChip Size="Size.Small"
+                                         Color="@(slot.AttendanceMarked ? Color.Success : Color.Warning)">
+                                    @(slot.AttendanceMarked ? L["myday.marked"] : L["myday.notMarked"])
+                                </MudChip>
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudPaper>
+
+    <MudGrid Spacing="4">
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">@L["myday.marksBacklog"]</MudText>
+                    <MudSpacer />
+                    @if (_day.MarksBacklog.Count > 0)
+                    {
+                        <MudButton Href="exams" Size="Size.Small" Variant="Variant.Outlined">
+                            @L["myday.enterMarks"]
+                        </MudButton>
+                    }
+                </MudStack>
+                @if (_day.MarksBacklog.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary">@L["myday.noMarksBacklog"]</MudText>
+                }
+                else
+                {
+                    @foreach (var task in _day.MarksBacklog)
+                    {
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.EditNote" Size="Size.Small"
+                                     Color="Color.Warning" />
+                            <MudText Typo="Typo.body2">
+                                @task.ExamName — @task.SubjectName, @task.ClassName
+                            </MudText>
+                        </MudStack>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-3">@L["myday.homeworkDue"]</MudText>
+                @if (_day.HomeworkDue.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary">@L["myday.noHomework"]</MudText>
+                }
+                else
+                {
+                    @foreach (var homework in _day.HomeworkDue)
+                    {
+                        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-2">
+                            <MudIcon Icon="@Icons.Material.Filled.MenuBook" Size="Size.Small" />
+                            <MudText Typo="Typo.body2">
+                                @homework.Title — @homework.SubjectName,
+                                @homework.ClassName@(homework.SectionName is { } section ? $" {section}" : "")
+                            </MudText>
+                            <MudSpacer />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                @homework.DueDate.ToDateTime(TimeOnly.MinValue).ToString("dd MMM")
+                            </MudText>
+                        </MudStack>
+                    }
+                }
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private MyTeacherDayDto? _day;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        L.Changed += OnLanguageChanged;
+        try
+        {
+            _day = await Staff.GetMyDayAsync();
+        }
+        catch (HttpRequestException)
+        {
+            _day = null;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+}

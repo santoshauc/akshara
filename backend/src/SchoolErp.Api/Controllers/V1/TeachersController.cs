@@ -71,6 +71,18 @@ public sealed class TeachersController : ControllerBase
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetSchedule(Guid teacherId, CancellationToken ct) =>
         Ok(await _sender.Send(new GetTeacherScheduleQuery(teacherId), ct));
+
+    /// <summary>
+    /// The signed-in teacher's own day. Needs no staff permission — it reads
+    /// nothing but the caller's own slots, and 404s if the caller has no
+    /// linked teacher record.
+    /// </summary>
+    [HttpGet("me/day")]
+    [Microsoft.AspNetCore.Authorization.Authorize]
+    [ProducesResponseType(typeof(MyTeacherDayDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetMyDay(CancellationToken ct) =>
+        Ok(await _sender.Send(new GetMyTeacherDayQuery(), ct));
 }
 
 /// <summary>Temporary password for a new teacher login.</summary>

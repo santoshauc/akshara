@@ -80,6 +80,31 @@ public static class PortalStrings
         ["home.smsLow"] = "Running low — top up soon",
         ["home.subscriptionExpires"] = "Subscription expires {0}",
 
+
+        // My day (teacher self-service)
+        ["myday.title"] = "My day",
+        ["myday.notTeacher"] = "This page is for teachers. Your account isn't linked to a staff record — ask your school admin to create your teacher login.",
+        ["myday.periods"] = "Today's periods",
+        ["myday.noPeriods"] = "No periods scheduled today.",
+        ["myday.period"] = "Period",
+        ["myday.subject"] = "Subject",
+        ["myday.classSection"] = "Class",
+        ["myday.time"] = "Time",
+        ["myday.attendance"] = "Attendance",
+        ["myday.marked"] = "Marked",
+        ["myday.notMarked"] = "Not marked",
+        ["myday.cover"] = "Cover",
+        ["myday.markNow"] = "Mark attendance",
+        ["myday.awaitingAttendance"] = "Sections awaiting attendance",
+        ["myday.studentsTaught"] = "Students you teach",
+        ["myday.pendingLeave"] = "Leave requests from your students",
+        ["myday.marksBacklog"] = "Marks not entered",
+        ["myday.noMarksBacklog"] = "Every paper of yours has marks.",
+        ["myday.homeworkDue"] = "Homework due this week",
+        ["myday.noHomework"] = "Nothing due in the next seven days.",
+        ["myday.enterMarks"] = "Enter marks",
+        ["myday.openTimetable"] = "My timetable",
+
         // Students
         ["students.title"] = "Students",
         ["students.export"] = "Export",
@@ -176,6 +201,31 @@ public static class PortalStrings
         ["home.smsCredits"] = "SMS క్రెడిట్లు",
         ["home.smsLow"] = "తక్కువగా ఉన్నాయి — త్వరలో టాప్-అప్ చేయండి",
         ["home.subscriptionExpires"] = "చందా గడువు {0}",
+
+
+        // My day (teacher self-service)
+        ["myday.title"] = "నా రోజు",
+        ["myday.notTeacher"] = "ఈ పేజీ ఉపాధ్యాయుల కోసం. మీ ఖాతా సిబ్బంది రికార్డుతో అనుసంధానించబడలేదు — మీ పాఠశాల నిర్వాహకుడిని లాగిన్ సృష్టించమని అడగండి.",
+        ["myday.periods"] = "ఈరోజు పీరియడ్లు",
+        ["myday.noPeriods"] = "ఈరోజు పీరియడ్లు లేవు.",
+        ["myday.period"] = "పీరియడ్",
+        ["myday.subject"] = "సబ్జెక్ట్",
+        ["myday.classSection"] = "తరగతి",
+        ["myday.time"] = "సమయం",
+        ["myday.attendance"] = "హాజరు",
+        ["myday.marked"] = "నమోదైంది",
+        ["myday.notMarked"] = "నమోదు కాలేదు",
+        ["myday.cover"] = "ప్రత్యామ్నాయం",
+        ["myday.markNow"] = "హాజరు నమోదు",
+        ["myday.awaitingAttendance"] = "హాజరు నమోదు కావలసిన సెక్షన్లు",
+        ["myday.studentsTaught"] = "మీరు బోధించే విద్యార్థులు",
+        ["myday.pendingLeave"] = "మీ విద్యార్థుల సెలవు అభ్యర్థనలు",
+        ["myday.marksBacklog"] = "నమోదు కాని మార్కులు",
+        ["myday.noMarksBacklog"] = "మీ ప్రతి పేపర్‌కు మార్కులు ఉన్నాయి.",
+        ["myday.homeworkDue"] = "ఈ వారం గడువు హోంవర్క్",
+        ["myday.noHomework"] = "రాబోయే ఏడు రోజుల్లో ఏమీ లేదు.",
+        ["myday.enterMarks"] = "మార్కులు నమోదు",
+        ["myday.openTimetable"] = "నా కాలపట్టిక",
 
         // Students
         ["students.title"] = "విద్యార్థులు",
