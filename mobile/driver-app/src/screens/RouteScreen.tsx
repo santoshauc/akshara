@@ -12,6 +12,7 @@ import {
 import { driverApi, logout } from '../api/driver';
 import { DriverRoute, ManifestRider, RiderEventType, TripType } from '../api/types';
 import LanguageToggle from '../components/LanguageToggle';
+import StopBoarding from '../components/StopBoarding';
 import { BRAND, PING_INTERVAL_SECONDS } from '../config';
 import { useI18n } from '../i18n';
 import { TranslationKey } from '../i18n/translations';
@@ -223,52 +224,35 @@ export default function RouteScreen({ onSignedOut }: Props) {
             </Text>
           </View>
 
-          {route.stops.map((stop) => {
-            const riders = route.riders.filter((r) => r.stopOrder === stop.sortOrder);
-            if (riders.length === 0) {
-              return null;
-            }
-            return (
-              <View key={stop.id} style={styles.card}>
-                <Text style={styles.cardTitle}>
-                  {stop.sortOrder}. {stop.name}
-                </Text>
-                {riders.map((rider) => {
-                  const state = marked[rider.studentId];
-                  return (
-                    <View key={rider.studentId} style={styles.riderRow}>
-                      <View style={styles.riderInfo}>
-                        <Text style={styles.riderName}>{rider.studentName}</Text>
-                        <Text style={styles.riderMeta}>{rider.className ?? ''}</Text>
-                      </View>
-                      {state ? (
-                        <Text style={styles.riderState}>
-                          {state === 3 ? t('markedAbsent') : isPickup ? t('onBoard') : t('dropped')}
-                        </Text>
-                      ) : (
-                        <View style={styles.riderActions}>
-                          <TouchableOpacity
-                            style={styles.actionButton}
-                            onPress={() => void mark(rider, isPickup ? 1 : 2)}
-                          >
-                            <Text style={styles.actionText}>
-                              {isPickup ? t('board') : t('drop')}
-                            </Text>
-                          </TouchableOpacity>
-                          <TouchableOpacity
-                            style={[styles.actionButton, styles.absentButton]}
-                            onPress={() => void mark(rider, 3)}
-                          >
-                            <Text style={styles.absentText}>{t('absent')}</Text>
-                          </TouchableOpacity>
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </View>
-            );
-          })}
+          {/* Trip Mode: only the stop the bus is at expands, so the driver
+              is never hunting for four names inside a full manifest. */}
+          <StopBoarding
+            riders={route.riders}
+            marked={marked}
+            tripType={tripType}
+            busy={busy}
+            onMark={(studentId, eventType) => {
+              const rider = route.riders.find((r) => r.studentId === studentId);
+              if (rider) {
+                void mark(rider, eventType);
+              }
+            }}
+            strings={{
+              currentStop: t('currentStop'),
+              nextStop: t('nextStop'),
+              waiting: t('waiting'),
+              pickedUp: t('onBoard'),
+              dropped: t('dropped'),
+              absent: t('markedAbsent'),
+              markPickedUp: t('board'),
+              markDropped: t('drop'),
+              markAbsent: t('absent'),
+              studentsAtStop: t('studentsAtStop'),
+              stopComplete: t('stopComplete'),
+              allStopsDone: t('allStopsDone'),
+              ofCount: t('ofCount'),
+            }}
+          />
 
           <TouchableOpacity style={[styles.button, styles.endButton]} onPress={endTrip} disabled={busy}>
             {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>{t('endTrip')}</Text>}
@@ -339,25 +323,5 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   activeText: { color: '#2E7D32', fontWeight: '600', textAlign: 'center' },
-  riderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 8,
-    borderTopWidth: 1,
-    borderTopColor: '#F5EDE4',
-  },
-  riderInfo: { flex: 1 },
-  riderName: { fontSize: 15, fontWeight: '600' },
-  riderMeta: { fontSize: 12, color: '#775' },
-  riderState: { fontSize: 14, fontWeight: '600', color: '#2E7D32' },
-  riderActions: { flexDirection: 'row', gap: 8 },
-  actionButton: {
-    backgroundColor: BRAND,
-    borderRadius: 8,
-    paddingVertical: 8,
-    paddingHorizontal: 14,
-  },
   actionText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  absentButton: { backgroundColor: '#F4E8DC' },
-  absentText: { color: '#A55', fontWeight: '600', fontSize: 13 },
 });

@@ -1,0 +1,27 @@
+@*
+    Shape-matched loading placeholder for a table. Matching the real row
+    height means the page does not jump when data arrives.
+*@
+
+<div aria-busy="true" aria-live="polite">
+    <span class="ak-sr-only">@LoadingLabel</span>
+    @for (var row = 0; row < Rows; row++)
+    {
+        <div class="ak-skeleton-row" aria-hidden="true">
+            @for (var column = 0; column < Columns; column++)
+            {
+                <div class="ak-skeleton"
+                     style="height: 10px; flex: @(column == 0 ? "2" : "1");"></div>
+            }
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int Rows { get; set; } = 6;
+
+    [Parameter] public int Columns { get; set; } = 5;
+
+    /// <summary>Announced to screen readers while loading.</summary>
+    [Parameter] public string LoadingLabel { get; set; } = "Loading data";
+}

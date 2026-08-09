@@ -675,6 +675,75 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## Enterprise UI programme (design system, shell, list pattern, mobile)
+
+Benchmarked against Dynamics 365, ServiceNow, Salesforce, Power BI, Fiori
+and Atlassian/Linear. The reference-to-principle mapping and the per-screen
+quality gate live in docs/design-system.md — read that before touching UI.
+
+DONE and browser-verified:
+- Portal design system: wwwroot/css/design-tokens.css (colour ramps,
+  semantic aliases, 4px spacing, restrained type/radius scales, elevation,
+  dark mode) mirrored by Theme/AksharaTheme.cs. BOTH layers must agree —
+  MudBlazor renders colours into inline styles CSS variables never reach.
+- Shared primitives in Shared/Ui: AkPageHeader, AkCard, AkMetric,
+  AkStatusBadge, AkEmptyState, AkErrorState, AkTableSkeleton, AkFormSection,
+  AkFilterChips, AkBulkBar, and AkConfirm.AskAsync (takes an action AND its
+  consequence — never "Are you sure?").
+- App shell: grouped collapsible sidebar driven by Layout/NavModel.cs
+  (7 sections, platform/school aware) replacing a flat 22-item list; neutral
+  app bar; skip link; focusable main landmark.
+- Students is the REFERENCE list page. Copy its shape for the rest:
+  command bar (primary action rightmost), toolbar, removable filter chips
+  with live record count, selection + bulk bar, status badges, and four
+  distinct states (loading skeleton / empty-new / empty-filtered / error).
+- Mobile: shared tokens + primitives in BOTH apps' src/design (duplicated
+  deliberately — separate Metro roots; change one, change the other).
+  Parent app leads with TodayTripCard + TripTimeline. Driver app has
+  StopBoarding Trip Mode (one stop expanded at a time, thumb-sized actions).
+
+GOTCHAS (all cost real time this session):
+- app.css loads LAST. Its template html/body rule silently beat the Inter
+  stack. Anything added there outranks the design system.
+- MudBlazor's .mud-navmenu selectors (0-5-0) out-specify plainer rules —
+  design-system nav styling must be over-qualified to win.
+- Setting --ak-brand inline from JS pins the light value; dark mode can then
+  never override it. Publish --ak-brand-light/--ak-brand-dark instead.
+- A school brand colour reused on dark surfaces measured 1.44:1. The dark
+  variant is lifted 55% toward white; MEASURE, do not eyeball.
+- The global :focus-visible ring doubled up inside MudBlazor inputs (they
+  draw their own). Inputs get one indicator: their own outline, thickened.
+- Razor parses a pattern variable named 'section' as the @section directive.
+- MudBlazor inputs are width:100%; toolbar controls need flex: 0 0 auto.
+- A table's ServerData fills parent state during its own async load — call
+  StateHasChanged or counts/chips never render.
+- Drawer state must be per-breakpoint. One flag defaulted true painted the
+  nav over the whole page on phones before any breakpoint event fired.
+- The Browser pane's "desktop preset" resets to NATIVE width (~618px here),
+  which is below the compact breakpoint. Set an explicit 1440x900 to review
+  desktop layouts.
+
+REMAINING (in agreed order):
+1. Notification localization — per-guardian language on Guardian, localized
+   SMS/WhatsApp templates, integration test proving a Telugu guardian gets
+   Telugu. Highest reach per hour of everything left.
+2. Fee refunds (mid-year withdrawals).
+3. Nine list pages onto the Students pattern: Teachers, Fees, Transport,
+   Inventory, Front office, Library, Hostel, Users, Audit, Admissions.
+4. Forms + record-detail pattern (header + tabs) for Student, Teacher,
+   Route, Tenant.
+5. Parent app bottom-tab nav + Children/Trips/Notifications/Profile; live
+   tracking (map + bottom panel).
+6. Driver app: drop-off, trip summary, exceptions, emergency, offline queue,
+   GPS state.
+7. Accessibility + responsive sweep. Check whether the input focus-ring
+   conflict also affects selects, checkboxes and date pickers.
+8. Optional: promote the duplicated mobile design system to a shared package
+   (needs Metro watchFolders + extraNodeModules in both apps).
+
+NOT DOING: dashboard redesign (user asked to leave Home.razor as-is);
+HR/payroll (own product).
+
 ## Inventory module + honest Enterprise preset (feature/inventory)
 
 - Closes the second sold-but-unbuilt module. Two RLS tables (migration

@@ -1,0 +1,40 @@
+@*
+    Bulk-action bar. Appears only once rows are selected and states the
+    selection count before offering actions, so an operator always knows the
+    blast radius of what they are about to do.
+*@
+
+@if (SelectedCount > 0)
+{
+    <div class="ak-bulkbar" role="region" aria-label="@BulkActionsLabel">
+        <MudIcon Icon="@Icons.Material.Filled.CheckCircle" Size="Size.Small" aria-hidden="true" />
+        <span>
+            @(SelectedCount == 1 ? OneSelectedLabel : string.Format(ManySelectedLabel, SelectedCount))
+        </span>
+        <MudButton Variant="Variant.Text" Size="Size.Small"
+                   OnClick="@(() => OnClear.InvokeAsync())">
+            @ClearLabel
+        </MudButton>
+        <div style="margin-left: auto; display: flex; gap: var(--ak-space-2);">
+            @ChildContent
+        </div>
+    </div>
+}
+
+@code {
+    [Parameter] public int SelectedCount { get; set; }
+
+    [Parameter] public EventCallback OnClear { get; set; }
+
+    /// <summary>The actions available for the selection.</summary>
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    [Parameter] public string OneSelectedLabel { get; set; } = "1 selected";
+
+    /// <summary>Composite format string; {0} is the count.</summary>
+    [Parameter] public string ManySelectedLabel { get; set; } = "{0} selected";
+
+    [Parameter] public string ClearLabel { get; set; } = "Clear selection";
+
+    [Parameter] public string BulkActionsLabel { get; set; } = "Bulk actions";
+}

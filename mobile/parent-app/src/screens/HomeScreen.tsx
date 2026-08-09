@@ -12,6 +12,7 @@ import {
 import { logout, parentApi } from '../api/parent';
 import {
   BookLoan,
+  BusLocation,
   Child,
   ChildHostel,
   ChildTransport,
@@ -28,6 +29,7 @@ import {
   TimetableEntry,
 } from '../api/types';
 import LanguageToggle from '../components/LanguageToggle';
+import TodayTripCard from '../components/TodayTripCard';
 import { API_BASE_URL, BRAND } from '../config';
 import { useI18n } from '../i18n';
 import AttendanceCard from './cards/AttendanceCard';
@@ -44,6 +46,19 @@ import NoticesCard from './cards/NoticesCard';
 import ResultCard from './cards/ResultCard';
 import TimetableCard from './cards/TimetableCard';
 import TransportCard from './cards/TransportCard';
+
+/**
+ * Short local wall-clock time. Parents read '7:25 AM', never a UTC stamp —
+ * the same reason the gate-pass SMS converts to the school's timezone.
+ */
+function formatClockTime(iso: string): string {
+  const parsed = new Date(iso);
+  if (Number.isNaN(parsed.getTime())) {
+    return '—';
+  }
+
+  return parsed.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
 
 interface Props {
   onSignedOut: () => void;
@@ -64,6 +79,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [notices, setNotices] = useState<Notice[]>([]);
   const [homework, setHomework] = useState<Homework[]>([]);
   const [transport, setTransport] = useState<ChildTransport | null>(null);
+  const [bus, setBus] = useState<BusLocation | null>(null);
   const [timetable, setTimetable] = useState<TimetableEntry[]>([]);
   const [libraryLoans, setLibraryLoans] = useState<BookLoan[]>([]);
   const [hostel, setHostel] = useState<ChildHostel | null>(null);
@@ -115,6 +131,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
     setNotices(noticeList);
     setHomework(homeworkList);
     setTransport(transportData);
+    setBus(await parentApi.getBus(child.studentId).catch(() => null) ?? null);
     setTimetable(timetableData);
     setLibraryLoans(libraryData);
     setHostel(hostelData);
@@ -219,6 +236,37 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
       {selected && (
         <View style={styles.cards}>
+          <TodayTripCard
+            childName={selected.fullName}
+            transport={transport}
+            bus={bus}
+            formatTime={formatClockTime}
+            strings={{
+              title: t('todayTitle'),
+              noTransportTitle: t('todayNoTransportTitle'),
+              noTransportBody: t('todayNoTransportBody'),
+              notStarted: t('todayNotStarted'),
+              notStartedDetail: t('todayNotStartedDetail'),
+              busRunning: t('todayBusRunning'),
+              onBoard: t('todayOnBoard'),
+              dropped: t('todayDropped'),
+              completed: t('todayCompleted'),
+              stepHome: t('stepHome'),
+              stepPickup: t('stepPickup'),
+              stepEnRoute: t('stepEnRoute'),
+              stepSchool: t('stepSchool'),
+              pickupTime: t('tripPickupTime'),
+              driver: t('tripDriver'),
+              bus: t('tripBus'),
+              route: t('tripRoute'),
+              stop: t('tripStop'),
+              callDriver: t('tripCallDriver'),
+              lastSeen: t('tripLastSeen'),
+              staleWarning: t('tripStaleWarning'),
+              morningTrip: t('morningTrip'),
+              afternoonTrip: t('afternoonTrip'),
+            }}
+          />
           {familyFees && familyFees.children.length > 1 && (
             <FamilyFeesCard family={familyFees} />
           )}

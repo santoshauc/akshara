@@ -1,0 +1,214 @@
+/*
+ * Akshara design tokens — the single source of truth for the portal's visual
+ * language. Pages MUST consume these variables rather than hard-coding
+ * colours, spacing or radii; that is what keeps twenty-odd screens looking
+ * like one product.
+ *
+ * Layers:
+ *   1. Primitives  — raw palette ramps, never used directly by components.
+ *   2. Semantic    — role-based aliases (surface, border, text, status).
+ *   3. Component   — spacing/typography scales shared by every component.
+ *
+ * The school's brand colour is injected at runtime into --ak-brand (see
+ * MainLayout); everything else stays fixed so branding can never wreck
+ * contrast or legibility.
+ */
+
+:root {
+    /* ---------- 1. Primitives ---------- */
+
+    /* Neutral ramp — cool grey, the backbone of an operational UI. */
+    --ak-grey-0: #ffffff;
+    --ak-grey-25: #fcfcfd;
+    --ak-grey-50: #f8f9fb;
+    --ak-grey-100: #f1f3f7;
+    --ak-grey-200: #e4e7ee;
+    --ak-grey-300: #cfd4e0;
+    --ak-grey-400: #a5adc0;
+    --ak-grey-500: #7b849b;
+    --ak-grey-600: #5b6479;
+    --ak-grey-700: #434b5e;
+    --ak-grey-800: #2c3243;
+    --ak-grey-900: #1a1f2c;
+    --ak-grey-950: #11151f;
+
+    /* Status ramps. Each has a surface (tint), border, and solid tone so a
+       badge, a banner and an icon can all be built from one family. */
+    --ak-green-surface: #e7f6ec;
+    --ak-green-border: #a6dfba;
+    --ak-green-solid: #1a7f42;
+    --ak-green-text: #145c30;
+
+    --ak-amber-surface: #fdf3e2;
+    --ak-amber-border: #f2ce8f;
+    --ak-amber-solid: #a86612;
+    --ak-amber-text: #7c4a0b;
+
+    --ak-red-surface: #fdeceb;
+    --ak-red-border: #f4b3ae;
+    --ak-red-solid: #c0322b;
+    --ak-red-text: #8f231e;
+
+    --ak-blue-surface: #e8f1fd;
+    --ak-blue-border: #a8c8f2;
+    --ak-blue-solid: #1c5fb8;
+    --ak-blue-text: #14458a;
+
+    --ak-violet-surface: #f0ecfb;
+    --ak-violet-border: #c5b6ef;
+    --ak-violet-solid: #5b3fc4;
+    --ak-violet-text: #432e94;
+
+    /* Brand — overridden per school at runtime. Two variants are published:
+       the school's colour as chosen, and a lightened one for dark mode. A
+       light-mode brand on a dark surface measured 1.44:1, so dark mode must
+       never reuse it directly. Defaults are Akshara's own teal. */
+    --ak-brand-light: #00695c;
+    --ak-brand-dark: #8cbbb5;
+    --ak-brand: var(--ak-brand-light);
+    --ak-brand-contrast: #ffffff;
+
+    /* ---------- 2. Semantic aliases ---------- */
+
+    --ak-canvas: var(--ak-grey-50);          /* page background            */
+    --ak-surface: var(--ak-grey-0);          /* cards, tables, menus       */
+    --ak-surface-raised: var(--ak-grey-0);   /* dialogs, popovers          */
+    --ak-surface-sunken: var(--ak-grey-100); /* table headers, wells       */
+    --ak-surface-hover: var(--ak-grey-50);
+    --ak-surface-selected: var(--ak-blue-surface);
+
+    --ak-border: var(--ak-grey-200);         /* default hairline           */
+    --ak-border-strong: var(--ak-grey-300);  /* inputs, dividers of weight */
+    --ak-border-focus: var(--ak-blue-solid);
+
+    --ak-text: var(--ak-grey-900);           /* primary copy               */
+    --ak-text-secondary: var(--ak-grey-600); /* labels, metadata           */
+    --ak-text-muted: var(--ak-grey-500);     /* placeholders, hints        */
+    --ak-text-inverse: var(--ak-grey-0);
+
+    /* ---------- 3. Scales ---------- */
+
+    /* 4px base grid. Operational density: prefer 8/12/16 over 24/32. */
+    --ak-space-1: 4px;
+    --ak-space-2: 8px;
+    --ak-space-3: 12px;
+    --ak-space-4: 16px;
+    --ak-space-5: 20px;
+    --ak-space-6: 24px;
+    --ak-space-8: 32px;
+    --ak-space-10: 40px;
+
+    /* Type scale — restrained. No oversized headings in an operations tool. */
+    --ak-font-sans: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+    --ak-font-mono: "JetBrains Mono", "Cascadia Mono", Consolas, monospace;
+
+    --ak-text-2xs: 11px;   /* dense table metadata, chips  */
+    --ak-text-xs: 12px;    /* supporting text, captions    */
+    --ak-text-sm: 13px;    /* table body, secondary labels */
+    --ak-text-base: 14px;  /* body — the portal's default  */
+    --ak-text-md: 16px;    /* subsection titles            */
+    --ak-text-lg: 18px;    /* section titles               */
+    --ak-text-xl: 20px;    /* page title                   */
+    --ak-text-2xl: 24px;   /* metric values                */
+    --ak-text-3xl: 30px;   /* hero metric only             */
+
+    --ak-weight-regular: 400;
+    --ak-weight-medium: 500;
+    --ak-weight-semibold: 600;
+    --ak-weight-bold: 700;
+
+    --ak-leading-tight: 1.25;
+    --ak-leading-normal: 1.5;
+
+    /* Radius — restrained. Enterprise reads as square-ish, not pill-shaped. */
+    --ak-radius-sm: 3px;
+    --ak-radius: 5px;
+    --ak-radius-lg: 8px;
+    --ak-radius-pill: 999px;  /* badges only */
+
+    /* Elevation — borders do most of the work; shadows are a last resort. */
+    --ak-shadow-none: none;
+    --ak-shadow-sm: 0 1px 2px rgba(17, 21, 31, 0.05);
+    --ak-shadow: 0 1px 3px rgba(17, 21, 31, 0.08), 0 1px 2px rgba(17, 21, 31, 0.04);
+    --ak-shadow-md: 0 4px 10px rgba(17, 21, 31, 0.08), 0 1px 3px rgba(17, 21, 31, 0.05);
+    --ak-shadow-lg: 0 12px 28px rgba(17, 21, 31, 0.14);
+
+    /* Layout */
+    --ak-sidebar-width: 248px;
+    --ak-sidebar-width-collapsed: 60px;
+    --ak-header-height: 52px;
+    --ak-focus-ring: 0 0 0 2px var(--ak-surface), 0 0 0 4px var(--ak-border-focus);
+
+    /* Motion — functional only. Nothing decorative. */
+    --ak-duration-fast: 120ms;
+    --ak-duration: 180ms;
+    --ak-ease: cubic-bezier(0.2, 0, 0.2, 1);
+}
+
+/*
+ * Dark mode. Surfaces lift as they come forward (canvas darkest), which is
+ * how every mature dark UI reads depth. Status tints are re-derived rather
+ * than reused — the light tints turn to mud on a dark canvas.
+ */
+.ak-dark {
+    /* Swap to the lightened brand so accents clear 4.5:1 on dark surfaces. */
+    --ak-brand: var(--ak-brand-dark);
+
+    --ak-canvas: var(--ak-grey-950);
+    --ak-surface: #171c28;
+    --ak-surface-raised: #1d2331;
+    --ak-surface-sunken: #12161f;
+    --ak-surface-hover: #1f2534;
+    --ak-surface-selected: #1b2c47;
+
+    --ak-border: #2a3142;
+    --ak-border-strong: #3a4256;
+    --ak-border-focus: #5b9bf0;
+
+    --ak-text: #e9ecf3;
+    --ak-text-secondary: #a8b0c2;
+    --ak-text-muted: #7b849b;
+    --ak-text-inverse: var(--ak-grey-950);
+
+    --ak-green-surface: #10291b;
+    --ak-green-border: #1f5c37;
+    --ak-green-solid: #48c07a;
+    --ak-green-text: #7fd7a1;
+
+    --ak-amber-surface: #2c1f0c;
+    --ak-amber-border: #6b4715;
+    --ak-amber-solid: #e0a447;
+    --ak-amber-text: #f0c884;
+
+    --ak-red-surface: #2d1414;
+    --ak-red-border: #6d2823;
+    --ak-red-solid: #e8635b;
+    --ak-red-text: #f3a19b;
+
+    --ak-blue-surface: #101f33;
+    --ak-blue-border: #1f4372;
+    --ak-blue-solid: #5b9bf0;
+    --ak-blue-text: #93c0f7;
+
+    --ak-violet-surface: #1d1735;
+    --ak-violet-border: #3d2f70;
+    --ak-violet-solid: #9d86ee;
+    --ak-violet-text: #bcabf5;
+
+    --ak-shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --ak-shadow: 0 1px 3px rgba(0, 0, 0, 0.45), 0 1px 2px rgba(0, 0, 0, 0.3);
+    --ak-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.5);
+    --ak-shadow-lg: 0 12px 28px rgba(0, 0, 0, 0.6);
+}
+
+/* Respect the OS "reduce motion" setting — required for WCAG 2.1 AA. */
+@media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        transition-duration: 0.01ms !important;
+        scroll-behavior: auto !important;
+    }
+}

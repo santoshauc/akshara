@@ -1,0 +1,57 @@
+@*
+    A single operational metric. Every metric must answer a business
+    question, so Label states the question's subject and Meta gives the
+    context that makes the number actionable.
+*@
+
+<div class="ak-metric @ToneClass" role="group" aria-label="@($"{Label}: {Value}")">
+    <div class="ak-metric__label">
+        @if (!string.IsNullOrWhiteSpace(Icon))
+        {
+            <MudIcon Icon="@Icon" Size="Size.Small" aria-hidden="true" />
+        }
+        <span>@Label</span>
+    </div>
+    <div class="ak-metric__value">@Value</div>
+    @if (!string.IsNullOrWhiteSpace(Meta))
+    {
+        <div class="ak-metric__meta">@Meta</div>
+    }
+    @if (ChildContent is not null)
+    {
+        <div class="ak-metric__meta">@ChildContent</div>
+    }
+</div>
+
+@code {
+    /// <summary>How much the number should pull the eye.</summary>
+    public enum MetricTone
+    {
+        /// <summary>Normal reading — nothing to do.</summary>
+        Default,
+        /// <summary>Someone should look at this today.</summary>
+        Attention,
+        /// <summary>Needs action now.</summary>
+        Critical,
+    }
+
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    [Parameter, EditorRequired] public string Value { get; set; } = string.Empty;
+
+    /// <summary>The comparison or breakdown that makes the value actionable.</summary>
+    [Parameter] public string? Meta { get; set; }
+
+    [Parameter] public string? Icon { get; set; }
+
+    [Parameter] public MetricTone Tone { get; set; } = MetricTone.Default;
+
+    [Parameter] public RenderFragment? ChildContent { get; set; }
+
+    private string ToneClass => Tone switch
+    {
+        MetricTone.Attention => "ak-metric--attention",
+        MetricTone.Critical => "ak-metric--critical",
+        _ => string.Empty,
+    };
+}

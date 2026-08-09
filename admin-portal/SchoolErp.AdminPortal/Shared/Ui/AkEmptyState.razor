@@ -1,0 +1,32 @@
+@*
+    Empty state. Never a bare "No data" — always says what is missing, why
+    it might be missing, and what the user can do next.
+*@
+
+<div class="ak-state" role="status">
+    <div class="ak-state__icon">
+        <MudIcon Icon="@Icon" aria-hidden="true" />
+    </div>
+    <div class="ak-state__title">@Title</div>
+    @if (!string.IsNullOrWhiteSpace(Description))
+    {
+        <p class="ak-state__body">@Description</p>
+    }
+    @if (Action is not null)
+    {
+        <div style="margin-top: var(--ak-space-2);">@Action</div>
+    }
+</div>
+
+@code {
+    /// <summary>What is missing, e.g. "No routes found".</summary>
+    [Parameter, EditorRequired] public string Title { get; set; } = string.Empty;
+
+    /// <summary>Why it might be empty and what to try next.</summary>
+    [Parameter] public string? Description { get; set; }
+
+    [Parameter] public string Icon { get; set; } = Icons.Material.Outlined.Inbox;
+
+    /// <summary>The next step — create, clear filters, import.</summary>
+    [Parameter] public RenderFragment? Action { get; set; }
+}

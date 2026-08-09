@@ -1,0 +1,42 @@
+@*
+    Status indicator. Always renders icon + label + colour together so state
+    is never communicated by colour alone (WCAG 1.4.1).
+*@
+
+<span class="ak-badge ak-badge--@Tone.ToString().ToLowerInvariant()" title="@Title">
+    <MudIcon Icon="@ResolvedIcon" aria-hidden="true" />
+    <span>@Label</span>
+</span>
+
+@code {
+    /// <summary>Semantic meaning, not a colour name — callers state intent.</summary>
+    public enum StatusTone
+    {
+        Neutral,
+        Success,
+        Warning,
+        Error,
+        Info,
+        Progress,
+    }
+
+    [Parameter, EditorRequired] public string Label { get; set; } = string.Empty;
+
+    [Parameter] public StatusTone Tone { get; set; } = StatusTone.Neutral;
+
+    /// <summary>Overrides the tone's default glyph when a better one exists.</summary>
+    [Parameter] public string? Icon { get; set; }
+
+    /// <summary>Hover text explaining the state, e.g. why something failed.</summary>
+    [Parameter] public string? Title { get; set; }
+
+    private string ResolvedIcon => Icon ?? Tone switch
+    {
+        StatusTone.Success => Icons.Material.Filled.CheckCircle,
+        StatusTone.Warning => Icons.Material.Filled.Warning,
+        StatusTone.Error => Icons.Material.Filled.Cancel,
+        StatusTone.Info => Icons.Material.Filled.Info,
+        StatusTone.Progress => Icons.Material.Filled.Autorenew,
+        _ => Icons.Material.Filled.RadioButtonUnchecked,
+    };
+}
