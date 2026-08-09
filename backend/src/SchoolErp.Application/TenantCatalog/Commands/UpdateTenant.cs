@@ -28,6 +28,7 @@ public sealed record UpdateTenantCommand(
     TenantModules EnabledModules,
     int StorageLimitMb,
     int SmsCredits,
+    bool WhatsAppEnabled,
     string TimeZoneId,
     string DefaultLanguage) : IRequest<TenantDto>;
 
@@ -97,6 +98,7 @@ public sealed class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCom
         tenant.EnabledModules = request.EnabledModules;
         tenant.StorageLimitMb = request.StorageLimitMb;
         tenant.SmsCredits = request.SmsCredits;
+        tenant.WhatsAppEnabled = request.WhatsAppEnabled;
         tenant.TimeZoneId = request.TimeZoneId;
         tenant.DefaultLanguage = request.DefaultLanguage;
 

@@ -29,6 +29,7 @@ public sealed record TenantDto
     public TenantModules EnabledModules { get; init; }
     public int StorageLimitMb { get; init; }
     public int SmsCredits { get; init; }
+    public bool WhatsAppEnabled { get; init; }
     public string TimeZoneId { get; init; } = "Asia/Kolkata";
     public string DefaultLanguage { get; init; } = "en";
     public TenantStatus Status { get; init; }
@@ -69,6 +70,7 @@ public sealed record UpdateTenantRequest(
     TenantModules EnabledModules,
     int StorageLimitMb,
     int SmsCredits,
+    bool WhatsAppEnabled,
     string TimeZoneId,
     string DefaultLanguage);
 

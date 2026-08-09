@@ -103,6 +103,24 @@ public static class DependencyInjection
             services.AddScoped<ISmsSender, DevSmsSender>();
         }
 
+        // Meta Cloud API goes live when WhatsApp:Provider=meta; otherwise logged.
+        services.AddOptions<Notifications.WhatsAppOptions>()
+            .Bind(configuration.GetSection(Notifications.WhatsAppOptions.SectionName));
+        services.AddHttpClient<Notifications.MetaWhatsAppSender>(client =>
+        {
+            client.BaseAddress = new Uri("https://graph.facebook.com/");
+            client.Timeout = TimeSpan.FromSeconds(15);
+        });
+        if (string.Equals(configuration["WhatsApp:Provider"], "meta", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IWhatsAppSender>(
+                sp => sp.GetRequiredService<Notifications.MetaWhatsAppSender>());
+        }
+        else
+        {
+            services.AddScoped<IWhatsAppSender, Notifications.DevWhatsAppSender>();
+        }
+
         // Expo push goes live on Push:Provider=expo; otherwise pushes are logged.
         services.AddHttpClient<Notifications.ExpoPushSender>(client =>
         {

@@ -20,6 +20,7 @@ public sealed partial class OutboxProcessor
 
     private readonly AppDbContext _db;
     private readonly ISmsSender _smsSender;
+    private readonly IWhatsAppSender _whatsAppSender;
     private readonly Application.Notifications.IPushSender _pushSender;
     private readonly TimeProvider _clock;
     private readonly ILogger<OutboxProcessor> _logger;
@@ -27,12 +28,14 @@ public sealed partial class OutboxProcessor
     public OutboxProcessor(
         AppDbContext db,
         ISmsSender smsSender,
+        IWhatsAppSender whatsAppSender,
         Application.Notifications.IPushSender pushSender,
         TimeProvider clock,
         ILogger<OutboxProcessor> logger)
     {
         _db = db;
         _smsSender = smsSender;
+        _whatsAppSender = whatsAppSender;
         _pushSender = pushSender;
         _clock = clock;
         _logger = logger;
@@ -48,10 +51,23 @@ public sealed partial class OutboxProcessor
             .ToListAsync(ct)
             .ConfigureAwait(false);
 
+        // One flag lookup per tenant per batch, not per message.
+        var whatsAppTenants = await ResolveWhatsAppTenantsAsync(pending, ct).ConfigureAwait(false);
+
         foreach (var message in pending)
         {
             try
             {
+                if (message.Type == OutboxMessageTypes.Sms &&
+                    whatsAppTenants.Contains(message.TenantId) &&
+                    await TryDeliverViaWhatsAppAsync(message, ct).ConfigureAwait(false))
+                {
+                    // Delivered on WhatsApp — no SMS credit spent.
+                    message.ProcessedAt = _clock.GetUtcNow();
+                    message.LastError = null;
+                    continue;
+                }
+
                 if (message.Type == OutboxMessageTypes.Sms &&
                     !await TryConsumeSmsCreditAsync(message.TenantId, ct).ConfigureAwait(false))
                 {
@@ -81,6 +97,51 @@ public sealed partial class OutboxProcessor
         }
 
         return pending.Count;
+    }
+
+    /// <summary>Tenants in this batch that prefer WhatsApp for parent messages.</summary>
+    private async Task<HashSet<Guid>> ResolveWhatsAppTenantsAsync(
+        IReadOnlyList<OutboxMessage> pending, CancellationToken ct)
+    {
+        var tenantIds = pending
+            .Where(m => m.Type == OutboxMessageTypes.Sms && m.TenantId != Guid.Empty)
+            .Select(m => m.TenantId)
+            .Distinct()
+            .ToList();
+        if (tenantIds.Count == 0)
+        {
+            return [];
+        }
+
+        return (await _db.Tenants
+                .IgnoreQueryFilters()
+                .AsNoTracking()
+                .Where(t => tenantIds.Contains(t.Id) && t.WhatsAppEnabled)
+                .Select(t => t.Id)
+                .ToListAsync(ct)
+                .ConfigureAwait(false))
+            .ToHashSet();
+    }
+
+    /// <summary>
+    /// WhatsApp is best-effort: a failure logs and returns false so the same
+    /// message falls back to SMS in the same pass (parents still get notified;
+    /// the school just pays SMS rates for that one).
+    /// </summary>
+    private async Task<bool> TryDeliverViaWhatsAppAsync(OutboxMessage message, CancellationToken ct)
+    {
+        var sms = JsonSerializer.Deserialize<SmsPayload>(message.Payload)
+            ?? throw new InvalidOperationException("Empty SMS payload.");
+        try
+        {
+            await _whatsAppSender.SendAsync(sms.Phone, sms.Message, ct).ConfigureAwait(false);
+            return true;
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            LogWhatsAppFellBack(_logger, ex, message.Id);
+            return false;
+        }
     }
 
     private async Task DeliverAsync(OutboxMessage message, CancellationToken ct)
@@ -133,4 +194,8 @@ public sealed partial class OutboxProcessor
     [LoggerMessage(Level = LogLevel.Warning,
         Message = "SMS blocked: tenant {TenantId} has no SMS credits (message {MessageId} dead-lettered)")]
     private static partial void LogSmsCreditsExhausted(ILogger logger, Guid tenantId, Guid messageId);
+
+    [LoggerMessage(Level = LogLevel.Warning,
+        Message = "WhatsApp send failed for message {MessageId}; falling back to SMS")]
+    private static partial void LogWhatsAppFellBack(ILogger logger, Exception ex, Guid messageId);
 }
