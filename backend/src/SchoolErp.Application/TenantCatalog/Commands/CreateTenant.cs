@@ -17,7 +17,7 @@ public sealed record CreateTenantCommand(
     string? ContactPhone,
     string? City,
     string? State,
-    string? AffiliationBoard,
+    IReadOnlyList<TenantAffiliationDto>? Affiliations,
     SubscriptionPlan Plan,
     TenantModules EnabledModules,
     string TimeZoneId = "Asia/Kolkata",
@@ -98,13 +98,14 @@ public sealed class CreateTenantCommandHandler : IRequestHandler<CreateTenantCom
             ContactPhone = request.ContactPhone?.Trim(),
             City = request.City?.Trim(),
             State = request.State?.Trim(),
-            AffiliationBoard = request.AffiliationBoard?.Trim(),
             Plan = request.Plan,
             EnabledModules = request.EnabledModules,
             TimeZoneId = request.TimeZoneId,
             DefaultLanguage = request.DefaultLanguage,
             Status = TenantStatus.Provisioning,
         };
+
+        UpdateTenantCommandHandler.ApplyAffiliations(tenant, request.Affiliations);
 
         _db.Tenants.Add(tenant);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

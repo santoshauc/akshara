@@ -7,6 +7,7 @@ using Microsoft.Extensions.DependencyInjection;
 using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Common.Exceptions;
+using SchoolErp.Application.TenantCatalog;
 using SchoolErp.Application.TenantCatalog.Commands;
 using SchoolErp.Application.TenantCatalog.Queries;
 using SchoolErp.Domain.TenantCatalog;
@@ -82,7 +83,7 @@ public sealed class TenantModuleTests : IClassFixture<TenantModuleFixture>
         ContactPhone: null,
         City: "Hyderabad",
         State: "Telangana",
-        AffiliationBoard: "CBSE",
+        Affiliations: [new TenantAffiliationDto("CBSE", "1234567")],
         Plan: SubscriptionPlan.Standard,
         EnabledModules: TenantModules.Core);
 
@@ -101,6 +102,78 @@ public sealed class TenantModuleTests : IClassFixture<TenantModuleFixture>
         var listed = await sender.Send(new GetTenantsQuery(Search: "RTRIP1"));
         listed.TotalCount.Should().Be(1);
         listed.Items.Single().Id.Should().Be(created.Id);
+    }
+
+    /// <summary>An update that changes nothing but the affiliations.</summary>
+    private static UpdateTenantCommand UpdateOf(TenantDto tenant) => new(
+        Id: tenant.Id,
+        Name: tenant.Name,
+        CustomDomain: tenant.CustomDomain,
+        ContactEmail: tenant.ContactEmail,
+        ContactPhone: tenant.ContactPhone,
+        City: tenant.City,
+        State: tenant.State,
+        Affiliations: tenant.Affiliations,
+        LogoUrl: tenant.LogoUrl,
+        ThemePrimaryColor: tenant.ThemePrimaryColor,
+        ThemeSecondaryColor: tenant.ThemeSecondaryColor,
+        Plan: tenant.Plan,
+        SubscriptionExpiresOn: tenant.SubscriptionExpiresOn,
+        EnabledModules: tenant.EnabledModules,
+        StorageLimitMb: tenant.StorageLimitMb,
+        SmsCredits: tenant.SmsCredits,
+        WhatsAppEnabled: tenant.WhatsAppEnabled,
+        TimeZoneId: tenant.TimeZoneId,
+        DefaultLanguage: tenant.DefaultLanguage);
+
+    /// <summary>
+    /// One command per scope, as the API does — a single DbContext tracking a
+    /// tenant across four commands is not how any of this runs in production,
+    /// and the stale tracked collection makes deletes look like lost updates.
+    /// </summary>
+    private async Task<TenantDto> SendAsync(IRequest<TenantDto> command)
+    {
+        await using var scope = _fixture.CreateScope();
+        return await scope.ServiceProvider.GetRequiredService<ISender>().Send(command);
+    }
+
+    [Fact]
+    public async Task A_school_can_be_affiliated_to_several_boards_at_once()
+    {
+        var created = await SendAsync(NewSchool("MULTI1", "multiboard"));
+        created.Affiliations.Should().ContainSingle()
+            .Which.AffiliationNumber.Should().Be("1234567");
+
+        // A CBSE school opening a State stream: both, each with its own number.
+        var updated = await SendAsync(UpdateOf(created) with
+        {
+            Affiliations =
+            [
+                new TenantAffiliationDto("CBSE", "1234567"),
+                new TenantAffiliationDto("State Board", "TS/99/2026"),
+            ],
+        });
+
+        updated.Affiliations.Should().HaveCount(2);
+        updated.Affiliations.Should().Contain(a =>
+            a.Board == "State Board" && a.AffiliationNumber == "TS/99/2026");
+
+        // Editing keeps the surviving board's row and drops what was removed.
+        var trimmed = await SendAsync(UpdateOf(updated) with
+        {
+            Affiliations = [new TenantAffiliationDto("State Board", "TS/100/2027")],
+        });
+
+        trimmed.Affiliations.Should().ContainSingle()
+            .Which.AffiliationNumber.Should().Be("TS/100/2027",
+                "an existing board keeps its row and takes the new number");
+
+        // Blank boards are dropped rather than stored as empty rows.
+        var cleaned = await SendAsync(UpdateOf(trimmed) with
+        {
+            Affiliations = [new TenantAffiliationDto("  ", "ignored")],
+        });
+        cleaned.Affiliations.Should().BeEmpty();
     }
 
     [Fact]

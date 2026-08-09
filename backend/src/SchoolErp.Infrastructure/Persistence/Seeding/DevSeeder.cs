@@ -86,7 +86,7 @@ public static partial class DevSeeder
             Subdomain = "demo",
             City = "Hyderabad",
             State = "Telangana",
-            AffiliationBoard = "CBSE",
+            Affiliations = [new TenantAffiliation { Board = "CBSE", AffiliationNumber = "1234567" }],
             Plan = SubscriptionPlan.Standard,
             EnabledModules = DemoModules,
             SmsCredits = 10_000,

@@ -29,9 +29,12 @@ public class Tenant : AuditableEntity
     public string? PostalCode { get; set; }
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
-    /// <summary>Board affiliation (CBSE / ICSE / State) and affiliation number.</summary>
-    public string? AffiliationBoard { get; set; }
-    public string? AffiliationNumber { get; set; }
+    /// <summary>
+    /// Boards this school is affiliated to. More than one is normal in India —
+    /// a CBSE school often runs a State board stream too, and each affiliation
+    /// carries its own number, so this cannot be a single pair of columns.
+    /// </summary>
+    public ICollection<TenantAffiliation> Affiliations { get; set; } = [];
 
     // ----- Branding -----
     public string? LogoUrl { get; set; }
@@ -80,4 +83,29 @@ public class Tenant : AuditableEntity
 
     /// <summary>True when the tenant may serve traffic.</summary>
     public bool IsActive => Status == TenantStatus.Active && !IsDeleted;
+}
+
+/// <summary>
+/// One board a school is affiliated to, with that board's own affiliation
+/// number. Platform-scoped like <see cref="Tenant"/> itself — it belongs to
+/// the school catalog, not to a school's own RLS'd data, so there is no
+/// tenant filter here (queries scope by <see cref="TenantId"/> explicitly).
+/// </summary>
+public class TenantAffiliation
+{
+    /// <summary>
+    /// Left unset on purpose, unlike <c>AuditableEntity</c>'s client-generated
+    /// key: these rows are discovered through <c>Tenant.Affiliations</c>, and a
+    /// key that already has a value makes EF treat a new child as an UPDATE of
+    /// a row that does not exist ("expected to affect 1 row, actually 0").
+    /// </summary>
+    public Guid Id { get; set; }
+
+    public Guid TenantId { get; set; }
+
+    /// <summary>CBSE, ICSE, State Board, IB, Cambridge…</summary>
+    public string Board { get; set; } = string.Empty;
+
+    /// <summary>The number that board issued this school; not every board gives one.</summary>
+    public string? AffiliationNumber { get; set; }
 }
