@@ -38,6 +38,9 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
+Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
+once the GitHub account clears the Actions hold (see below).
+
 Test suite: 50 unit + 109 integration = **159 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
