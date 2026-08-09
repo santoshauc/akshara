@@ -155,6 +155,10 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
 
     /// <summary>Library books (tenant-scoped).</summary>
+    public DbSet<Domain.FrontOffice.VisitorEntry> VisitorEntries => Set<Domain.FrontOffice.VisitorEntry>();
+
+    public DbSet<Domain.FrontOffice.GatePass> GatePasses => Set<Domain.FrontOffice.GatePass>();
+
     public DbSet<Book> Books => Set<Book>();
 
     /// <summary>Book loans (tenant-scoped).</summary>

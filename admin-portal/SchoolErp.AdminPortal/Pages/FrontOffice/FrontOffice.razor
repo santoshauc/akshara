@@ -1,0 +1,385 @@
+@page "/front-office"
+@attribute [Authorize]
+@implements IDisposable
+@inject FrontOfficeClient Client
+@inject StudentsClient StudentsApi
+@inject LocalizationService L
+@inject ISnackbar Snackbar
+
+<PageTitle>@L["frontoffice.title"] — Akshara</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-4">@L["frontoffice.title"]</MudText>
+
+<MudTabs Elevation="2" Rounded="true" ApplyEffectsToContainer="true" PanelClass="pa-6">
+    <MudTabPanel Text="@L["frontoffice.visitors"]" Icon="@Icons.Material.Filled.HowToReg">
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-4">
+            <MudTextField @bind-Value="_visitorName" Label="@L["frontoffice.visitorName"]"
+                          Style="min-width: 180px;" />
+            <MudTextField @bind-Value="_visitorPhone" Label="@L["frontoffice.phone"]"
+                          Style="width: 150px;" />
+            <MudSelect T="VisitorPurpose" @bind-Value="_visitorPurpose" Label="@L["frontoffice.purpose"]"
+                       Dense="true" Style="min-width: 170px;">
+                <MudSelectItem Value="VisitorPurpose.ParentMeeting">@L["frontoffice.purposeParent"]</MudSelectItem>
+                <MudSelectItem Value="VisitorPurpose.AdmissionEnquiry">@L["frontoffice.purposeAdmission"]</MudSelectItem>
+                <MudSelectItem Value="VisitorPurpose.Delivery">@L["frontoffice.purposeDelivery"]</MudSelectItem>
+                <MudSelectItem Value="VisitorPurpose.Official">@L["frontoffice.purposeOfficial"]</MudSelectItem>
+                <MudSelectItem Value="VisitorPurpose.Other">@L["frontoffice.purposeOther"]</MudSelectItem>
+            </MudSelect>
+            <MudTextField @bind-Value="_whomToMeet" Label="@L["frontoffice.whomToMeet"]"
+                          Style="width: 160px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       StartIcon="@Icons.Material.Filled.Login" OnClick="CheckInAsync">
+                @L["frontoffice.checkIn"]
+            </MudButton>
+            <MudSpacer />
+            <MudSwitch @bind-Checked="_openOnly" Color="Color.Primary"
+                       Label="@L["frontoffice.openOnly"]" />
+        </MudStack>
+
+        @if (_visitors.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">@L["frontoffice.noVisitors"]</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>@L["frontoffice.pass"]</th>
+                        <th>@L["frontoffice.visitorName"]</th>
+                        <th>@L["frontoffice.purpose"]</th>
+                        <th>@L["frontoffice.whomToMeet"]</th>
+                        <th>@L["frontoffice.inOut"]</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var visitor in _visitors)
+                    {
+                        <tr>
+                            <td>@visitor.PassNumber</td>
+                            <td>
+                                @visitor.VisitorName
+                                @if (visitor.Phone is { } phone)
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                        @phone
+                                    </MudText>
+                                }
+                            </td>
+                            <td>@PurposeLabel(visitor.Purpose)</td>
+                            <td>
+                                @(visitor.WhomToMeet ?? "—")
+                                @if (visitor.StudentName is { } student)
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                        @student
+                                    </MudText>
+                                }
+                            </td>
+                            <td>
+                                @visitor.CheckedInAt.LocalDateTime.ToString("HH:mm")
+                                @if (visitor.CheckedOutAt is { } outAt)
+                                {
+                                    <text> – @outAt.LocalDateTime.ToString("HH:mm")</text>
+                                }
+                            </td>
+                            <td>
+                                @if (visitor.CheckedOutAt is null)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                               Disabled="@_busy"
+                                               OnClick="@(() => CheckOutAsync(visitor.Id))">
+                                        @L["frontoffice.checkOut"]
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudChip Size="Size.Small" Color="Color.Default">
+                                        @L["frontoffice.left"]
+                                    </MudChip>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+
+    <MudTabPanel Text="@L["frontoffice.gatePasses"]" Icon="@Icons.Material.Filled.ExitToApp">
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            @L["frontoffice.gatePassHelp"]
+        </MudText>
+        <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-4">
+            <MudSelect T="Guid?" @bind-Value="_passStudentId" Label="@L["frontoffice.student"]"
+                       Dense="true" Style="min-width: 220px;">
+                @foreach (var student in _students)
+                {
+                    <MudSelectItem T="Guid?" Value="@student.Id">
+                        @student.FirstName @student.LastName (@student.AdmissionNumber)
+                    </MudSelectItem>
+                }
+            </MudSelect>
+            <MudTextField @bind-Value="_passReason" Label="@L["frontoffice.reason"]"
+                          Style="min-width: 180px;" />
+            <MudTextField @bind-Value="_releasedTo" Label="@L["frontoffice.releasedTo"]"
+                          Style="min-width: 160px;" />
+            <MudTextField @bind-Value="_releasedToPhone" Label="@L["frontoffice.phone"]"
+                          Style="width: 150px;" />
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       StartIcon="@Icons.Material.Filled.ExitToApp" OnClick="IssuePassAsync">
+                @L["frontoffice.issuePass"]
+            </MudButton>
+        </MudStack>
+
+        @if (_gatePasses.Count == 0)
+        {
+            <MudText Class="mud-text-secondary">@L["frontoffice.noPasses"]</MudText>
+        }
+        else
+        {
+            <MudSimpleTable Dense="true" Hover="true">
+                <thead>
+                    <tr>
+                        <th>@L["frontoffice.pass"]</th>
+                        <th>@L["frontoffice.student"]</th>
+                        <th>@L["frontoffice.reason"]</th>
+                        <th>@L["frontoffice.releasedTo"]</th>
+                        <th>@L["frontoffice.inOut"]</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var pass in _gatePasses)
+                    {
+                        <tr>
+                            <td>@pass.PassNumber</td>
+                            <td>
+                                @pass.StudentName
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                    @(pass.ClassName ?? "—")
+                                </MudText>
+                            </td>
+                            <td>@pass.Reason</td>
+                            <td>
+                                @pass.ReleasedTo
+                                @if (pass.ReleasedToPhone is { } phone)
+                                {
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                        @phone
+                                    </MudText>
+                                }
+                            </td>
+                            <td>
+                                @pass.IssuedAt.LocalDateTime.ToString("HH:mm")
+                                @if (pass.ReturnedAt is { } back)
+                                {
+                                    <text> – @back.LocalDateTime.ToString("HH:mm")</text>
+                                }
+                            </td>
+                            <td>
+                                @if (pass.ReturnedAt is null)
+                                {
+                                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                               Disabled="@_busy"
+                                               OnClick="@(() => MarkReturnedAsync(pass.Id))">
+                                        @L["frontoffice.markReturned"]
+                                    </MudButton>
+                                }
+                                else
+                                {
+                                    <MudChip Size="Size.Small" Color="Color.Success">
+                                        @L["frontoffice.returned"]
+                                    </MudChip>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </MudSimpleTable>
+        }
+    </MudTabPanel>
+</MudTabs>
+
+@code {
+    private List<VisitorEntryDto> _visitors = [];
+    private List<GatePassDto> _gatePasses = [];
+    private List<StudentListItemDto> _students = [];
+    private bool _busy;
+
+    private string _visitorName = string.Empty;
+    private string _visitorPhone = string.Empty;
+    private VisitorPurpose _visitorPurpose = VisitorPurpose.ParentMeeting;
+    private string _whomToMeet = string.Empty;
+
+    private bool _openOnlyValue;
+
+    private bool _openOnly
+    {
+        get => _openOnlyValue;
+        set
+        {
+            _openOnlyValue = value;
+            _ = ReloadVisitorsAsync();
+        }
+    }
+
+    private Guid? _passStudentId;
+    private string _passReason = string.Empty;
+    private string _releasedTo = string.Empty;
+    private string _releasedToPhone = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        L.Changed += OnLanguageChanged;
+
+        // Loaded independently: a failure fetching the student picker must not
+        // blank the gate register, which is the page's whole job.
+        try
+        {
+            // 100 is the API's page-size ceiling.
+            _students = (await StudentsApi.GetStudentsAsync(
+                null, null, null, StudentStatus.Active, 1, 100)).Items.ToList();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(L["frontoffice.studentsUnavailable"], Severity.Warning);
+        }
+
+        try
+        {
+            await ReloadVisitorsAsync();
+            await ReloadPassesAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(L["frontoffice.cannotReach"], Severity.Error);
+        }
+    }
+
+    private string PurposeLabel(VisitorPurpose purpose) => purpose switch
+    {
+        VisitorPurpose.ParentMeeting => L["frontoffice.purposeParent"],
+        VisitorPurpose.AdmissionEnquiry => L["frontoffice.purposeAdmission"],
+        VisitorPurpose.Delivery => L["frontoffice.purposeDelivery"],
+        VisitorPurpose.Official => L["frontoffice.purposeOfficial"],
+        _ => L["frontoffice.purposeOther"],
+    };
+
+    private async Task ReloadVisitorsAsync()
+    {
+        _visitors = await Client.GetVisitorsAsync(openOnly: _openOnlyValue);
+        StateHasChanged();
+    }
+
+    private async Task ReloadPassesAsync() => _gatePasses = await Client.GetGatePassesAsync();
+
+    private async Task CheckInAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_visitorName))
+        {
+            Snackbar.Add(L["frontoffice.nameRequired"], Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CheckInAsync(new CheckInVisitorRequest(
+                _visitorName.Trim(),
+                string.IsNullOrWhiteSpace(_visitorPhone) ? null : _visitorPhone.Trim(),
+                _visitorPurpose,
+                string.IsNullOrWhiteSpace(_whomToMeet) ? null : _whomToMeet.Trim(),
+                null,
+                null));
+            if (error is null)
+            {
+                _visitorName = _visitorPhone = _whomToMeet = string.Empty;
+                await ReloadVisitorsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CheckOutAsync(Guid id)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.CheckOutAsync(id);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+
+            await ReloadVisitorsAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task IssuePassAsync()
+    {
+        if (_passStudentId is null || string.IsNullOrWhiteSpace(_passReason) ||
+            string.IsNullOrWhiteSpace(_releasedTo))
+        {
+            Snackbar.Add(L["frontoffice.passRequired"], Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.IssueGatePassAsync(new IssueGatePassRequest(
+                _passStudentId.Value, _passReason.Trim(), _releasedTo.Trim(),
+                string.IsNullOrWhiteSpace(_releasedToPhone) ? null : _releasedToPhone.Trim()));
+            if (error is null)
+            {
+                _passReason = _releasedTo = _releasedToPhone = string.Empty;
+                Snackbar.Add(L["frontoffice.passIssued"], Severity.Success);
+                await ReloadPassesAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task MarkReturnedAsync(Guid id)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.MarkReturnedAsync(id);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+
+            await ReloadPassesAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+}

@@ -675,6 +675,36 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## Front office module (feature/front-office)
+
+- Closes the first of three "sold but unbuilt" modules: FrontOffice ships in
+  the Premium preset and previously had no code behind the flag.
+- Two RLS tables (migration 20260809095033_AddFrontOffice):
+  `visitor_entries` (gate register — name, phone, purpose, whom to meet,
+  optional student, badge `V-yyyyMMdd-nnn` restarting daily, check-in/out)
+  and `gate_passes` (early release — `GP-yyyy-nnnn` sequential per year,
+  reason, released-to name + phone, approver, returned-at).
+- Issuing a gate pass queues a guardian notification through the normal
+  outbox, so it inherited WhatsApp routing and push for free — verified
+  in the dev log firing on both channels at once.
+- New permissions frontoffice.view/manage (DevSeeder backfills SchoolAdmin
+  at startup; re-login needed for the JWT to carry them),
+  [RequiresModule(FrontOffice)] gate, portal page `/front-office` with
+  Visitors and Gate passes tabs, fully en/te.
+- Check-out and mark-returned are idempotent: a double click keeps the
+  first recorded time rather than moving it.
+- GOTCHA (browser-caught): the guardian message printed `now.UtcDateTime`,
+  so an Indian parent read 10:02 for a 15:32 release. It now converts via
+  the tenant's `TimeZoneId` with an IST fallback. Any future parent-facing
+  timestamp needs the same treatment — UTC is never what a parent reads.
+- GOTCHA: the page asked for students with pageSize=200 but GetStudents
+  caps at 100 → 400, and a single try/catch around all three loads let
+  that blank the whole register. Loads are now independent.
+- 3 integration tests (badge + idempotent checkout, sequential passes +
+  guardian alert + class resolution, unknown student/blank name rejected).
+  Suite: 50 unit + 121 integration green.
+- DEMO01 has the module switched on so the page is demoable.
+
 ## Report card templates (feature/report-card-templates)
 
 - Four per-school settings on Tenant (migration
