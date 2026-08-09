@@ -140,7 +140,7 @@ public sealed class CreateRoleCommandValidator : AbstractValidator<CreateRoleCom
         RuleFor(c => c.Name).NotEmpty().MaximumLength(64);
         RuleFor(c => c.Description).MaximumLength(256);
         RuleFor(c => c.Permissions).NotEmpty()
-            .Must(p => p.All(Permissions.All.Contains))
+            .Must(p => p.All(Permissions.TenantAssignable.Contains))
             .WithMessage("Unknown permission in the set.");
     }
 }
@@ -168,7 +168,7 @@ public sealed class UpdateRoleCommandValidator : AbstractValidator<UpdateRoleCom
     {
         RuleFor(c => c.Description).MaximumLength(256);
         RuleFor(c => c.Permissions).NotEmpty()
-            .Must(p => p.All(Permissions.All.Contains))
+            .Must(p => p.All(Permissions.TenantAssignable.Contains))
             .WithMessage("Unknown permission in the set.");
     }
 }

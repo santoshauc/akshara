@@ -97,16 +97,26 @@ else
                 </MudItem>
             }
 
-            <MudItem xs="12"><MudText Typo="Typo.h6">Subscription &amp; modules</MudText></MudItem>
-            <MudItem xs="12" sm="4">
-                <MudSelect @bind-Value="_plan" Label="Plan">
+            <MudItem xs="12"><MudText Typo="Typo.h6">Package &amp; modules</MudText></MudItem>
+            <MudItem xs="12" sm="3">
+                <MudSelect T="SubscriptionPlan" Value="_plan" Label="Plan"
+                           ValueChanged="OnPlanChanged"
+                           HelperText="Selecting a plan applies its module preset">
                     @foreach (var plan in Enum.GetValues<SubscriptionPlan>())
                     {
-                        <MudSelectItem Value="plan">@plan</MudSelectItem>
+                        <MudSelectItem Value="plan">
+                            @plan @(PlanPresets.AnnualRatePerStudent(plan) is var rate && rate > 0
+                                ? $"· ₹{rate:0}/student/yr" : "")
+                        </MudSelectItem>
                     }
                 </MudSelect>
             </MudItem>
-            <MudItem xs="12" sm="4">
+            <MudItem xs="12" sm="3">
+                <MudDatePicker @bind-Date="_subscriptionExpires" Label="Subscription expires"
+                               Editable="true" Clearable="true"
+                               HelperText="@(_subscriptionExpires is null ? "No expiry — runs until suspended" : ExpiryHint)" />
+            </MudItem>
+            <MudItem xs="12" sm="2">
                 <MudSelect @bind-Value="_language" Label="Default language">
                     <MudSelectItem Value="@("en")">English</MudSelectItem>
                     <MudSelectItem Value="@("te")">తెలుగు (Telugu)</MudSelectItem>
@@ -185,6 +195,7 @@ else
     private int _storageLimitMb = 5120;
     private int _smsCredits;
     private string? _primaryColor;
+    private DateTime? _subscriptionExpires;
     private string? _secondaryColor;
 
     private string ApiBase => (Http.BaseAddress?.ToString() ?? "").TrimEnd('/');
@@ -249,6 +260,7 @@ else
                 _storageLimitMb = t.StorageLimitMb;
                 _smsCredits = t.SmsCredits;
                 _primaryColor = t.ThemePrimaryColor;
+                _subscriptionExpires = t.SubscriptionExpiresOn?.ToDateTime(TimeOnly.MinValue);
                 _secondaryColor = t.ThemeSecondaryColor;
             }
         }
@@ -260,6 +272,19 @@ else
 
     private void ToggleModule(TenantModules module, bool on) =>
         _modules = on ? _modules | module : _modules & ~module;
+
+    private string ExpiryHint =>
+        _subscriptionExpires is { } expiry && expiry.Date < DateTime.Today
+            ? "EXPIRED — school logins are blocked"
+            : "Logins are blocked after this date";
+
+    /// <summary>Plan choice applies its preset; checkboxes stay hand-tunable after.</summary>
+    private void OnPlanChanged(SubscriptionPlan plan)
+    {
+        _plan = plan;
+        _modules = PlanPresets.ModulesFor(plan);
+        Snackbar.Add($"{plan} module preset applied — adjust below if needed.", Severity.Info);
+    }
 
     private async Task SaveAsync()
     {
@@ -288,7 +313,9 @@ else
                     NullIfEmpty(_contactPhone), NullIfEmpty(_city), NullIfEmpty(_state),
                     NullIfEmpty(_board), _existing?.LogoUrl,
                     NullIfEmpty(_primaryColor), NullIfEmpty(_secondaryColor),
-                    _plan, _existing?.SubscriptionExpiresOn, _modules | TenantModules.Core,
+                    _plan,
+                    _subscriptionExpires is { } exp ? DateOnly.FromDateTime(exp) : null,
+                    _modules | TenantModules.Core,
                     _storageLimitMb, _smsCredits, "Asia/Kolkata", _language));
                 _error = error;
                 if (updated is not null)

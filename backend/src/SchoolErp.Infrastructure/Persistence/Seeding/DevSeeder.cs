@@ -103,7 +103,7 @@ public static partial class DevSeeder
             Description = "Full administrative access within the school.",
         };
         db.Roles.Add(adminRole);
-        db.RoleClaims.AddRange(Permissions.All.Select(p => new IdentityRoleClaim<Guid>
+        db.RoleClaims.AddRange(Permissions.TenantAssignable.Select(p => new IdentityRoleClaim<Guid>
         {
             RoleId = adminRole.Id,
             ClaimType = Permissions.ClaimType,
@@ -143,25 +143,32 @@ public static partial class DevSeeder
         await DemoDataSeeder.SeedAsync(services).ConfigureAwait(false);
     }
 
-    /// <summary>Adds any missing permission claims to seeded SchoolAdmin roles.</summary>
+    /// <summary>
+    /// Adds any missing tenant-assignable permission claims to seeded
+    /// SchoolAdmin roles — and STRIPS platform-only claims that earlier seeds
+    /// granted (a school role must never reach the school catalog or
+    /// platform billing).
+    /// </summary>
     private static async Task BackfillSchoolAdminClaimsAsync(AppDbContext db, ILogger logger)
     {
         var adminRoleIds = await db.Roles
-            .Where(r => r.Name == WellKnownRoles.SchoolAdmin)
+            .Where(r => r.Name == WellKnownRoles.SchoolAdmin && r.TenantId != null)
             .Select(r => r.Id)
             .ToListAsync()
             .ConfigureAwait(false);
 
         var added = 0;
+        var removed = 0;
         foreach (var roleId in adminRoleIds)
         {
             var existing = await db.RoleClaims
                 .Where(c => c.RoleId == roleId && c.ClaimType == Permissions.ClaimType)
-                .Select(c => c.ClaimValue!)
                 .ToListAsync()
                 .ConfigureAwait(false);
 
-            var missing = Permissions.All.Except(existing, StringComparer.Ordinal).ToList();
+            var missing = Permissions.TenantAssignable
+                .Except(existing.Select(c => c.ClaimValue!), StringComparer.Ordinal)
+                .ToList();
             db.RoleClaims.AddRange(missing.Select(p => new IdentityRoleClaim<Guid>
             {
                 RoleId = roleId,
@@ -169,12 +176,18 @@ public static partial class DevSeeder
                 ClaimValue = p,
             }));
             added += missing.Count;
+
+            var platformClaims = existing
+                .Where(c => Permissions.PlatformOnly.Contains(c.ClaimValue!, StringComparer.Ordinal))
+                .ToList();
+            db.RoleClaims.RemoveRange(platformClaims);
+            removed += platformClaims.Count;
         }
 
-        if (added > 0)
+        if (added > 0 || removed > 0)
         {
             await db.SaveChangesAsync().ConfigureAwait(false);
-            LogClaimsBackfilled(logger, added);
+            LogClaimsBackfilled(logger, added, removed);
         }
     }
 
@@ -240,8 +253,8 @@ public static partial class DevSeeder
     private static partial void LogSeeded(ILogger logger, string superAdmin, string schoolAdmin, string schoolCode);
 
     [LoggerMessage(Level = LogLevel.Information,
-        Message = "Backfilled {Count} missing permission claims onto SchoolAdmin roles; users must re-login to receive them")]
-    private static partial void LogClaimsBackfilled(ILogger logger, int count);
+        Message = "SchoolAdmin claims reconciled: {Added} added, {Removed} platform-only removed; users must re-login to receive them")]
+    private static partial void LogClaimsBackfilled(ILogger logger, int added, int removed);
 
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Demo school entitlements refreshed: all shipped modules enabled, SMS credits topped up")]

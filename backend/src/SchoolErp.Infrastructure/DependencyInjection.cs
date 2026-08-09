@@ -125,6 +125,7 @@ public static class DependencyInjection
         services.AddScoped<Notifications.OutboxProcessor>();
         services.AddScoped<Notifications.OutboxDispatchJob>();
         services.AddScoped<Notifications.FeeReminderJob>();
+        services.AddScoped<Billing.BillingCycleJob>();
 
         // --- Payments ------------------------------------------------------
         // Razorpay goes live the moment credentials are configured; without
@@ -149,7 +150,16 @@ public static class DependencyInjection
         services.AddScoped<Payments.GatewayWebhookProcessor>();
 
         // --- Files ---------------------------------------------------------
-        services.AddScoped<IFileStorage, Storage.LocalDiskFileStorage>();
+        // Storage:Provider=s3 switches to any S3-compatible store (AWS, R2,
+        // MinIO); keys are identical across providers so URLs never break.
+        if (string.Equals(configuration["Storage:Provider"], "s3", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IFileStorage, Storage.S3FileStorage>();
+        }
+        else
+        {
+            services.AddScoped<IFileStorage, Storage.LocalDiskFileStorage>();
+        }
 
         // --- Reports -------------------------------------------------------
         services.AddSingleton<Application.Exams.Queries.IReportCardRenderer,

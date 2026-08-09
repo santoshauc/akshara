@@ -66,6 +66,24 @@ public sealed class BillingClient
             : null;
     }
 
+    /// <summary>The signed-in school's own subscription; null when unavailable.</summary>
+    public async Task<MySubscriptionDto?> GetMySubscriptionAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("api/v1/subscription", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<MySubscriptionDto>(cancellationToken: ct)
+            : null;
+    }
+
+    /// <summary>One of the school's own invoices as a PDF.</summary>
+    public async Task<byte[]?> GetMyInvoicePdfAsync(Guid invoiceId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"api/v1/subscription/invoices/{invoiceId}/pdf", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
+
     /// <summary>Sells an SMS pack: credits + invoice in one action.</summary>
     public async Task<(InvoiceDto? Invoice, string? Error)> SmsTopUpAsync(
         Guid tenantId, int credits, decimal unitPrice, DateOnly dueOn,

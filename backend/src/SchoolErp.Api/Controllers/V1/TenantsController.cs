@@ -14,6 +14,7 @@ namespace SchoolErp.Api.Controllers.V1;
 /// <summary>Super Admin school-catalog management.</summary>
 [ApiController]
 [ApiVersion(1.0)]
+[PlatformOnly]
 [Route("api/v{version:apiVersion}/tenants")]
 public sealed class TenantsController : ControllerBase
 {

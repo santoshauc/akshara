@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 107 integration = **155 green** (`dotnet test` from `school-erp/`).
+Test suite: 49 unit + 108 integration = **157 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -611,6 +611,47 @@ never in production):
   isn't compiled yet, and update still prints "Done." Build (or drop
   --no-build) between add and update, and check `migrations list`
   for "(Pending)" when in doubt.
+
+## Go-live batch (platform security, packages, S3, jobs, self-serve)
+
+- SECURITY FIX (was a real cross-tenant escalation, verified live with
+  a 200 before the fix): SchoolAdmin roles were backfilled with ALL
+  permissions including tenants.view/manage, and authorization only
+  checked the permission claim — so a school admin could list/edit
+  every school and grant themselves SMS credits. Fixed in depth:
+  - `Permissions.PlatformOnly` (tenants.*) vs `TenantAssignable`;
+    school seeds/backfills use TenantAssignable, and the backfill now
+    STRIPS platform claims from existing school roles on startup.
+  - Role editing validators only accept TenantAssignable.
+  - `[PlatformOnly]` policy (principal must have NO "tenant" claim) on
+    TenantsController + BillingController — school tokens are refused
+    even if a claim sneaks in. Verified: school admin 403, super 200.
+- Package & modules control (tenant editor): choosing a Plan applies
+  its module preset (PlanPresets in Domain — Basic: Core+Exams+Fees;
+  Standard: +Transport/Library/Timetable/Homework; Premium:
+  +Hostel/FrontOffice; Enterprise/Trial: everything) with per-plan
+  ₹/student rates shown; checkboxes stay hand-tunable; subscription
+  expiry is now an editable date picker (expired = logins blocked).
+- S3-compatible IFileStorage (AWSSDK.S3, Apache-2.0): AWS/R2/MinIO via
+  Storage:Provider=s3 + Storage:S3:{Bucket, Region|ServiceUrl,
+  AccessKey/SecretKey or default chain}. Identical key shape to local
+  disk, so stored URLs survive the switch. (MSG91 SMS sender already
+  existed behind Sms:Provider=msg91 — no work needed.)
+- BillingCycleJob (nightly 02:00 UTC): in Billing:RenewalMonth
+  (default April) auto-invoices every active paid-plan school —
+  students × plan rate, idempotent per season via the licence line
+  tag; and (opt-in Billing:AutoSuspend, grace
+  Billing:SuspendGraceDays=30) suspends schools with invoices unpaid
+  past grace. Integration-tested (renewal idempotency + suspension).
+- School self-serve: permission subscription.view (auto-backfilled),
+  GET /subscription (+ own-invoice PDF with ownership check → 404 for
+  foreign ids). Portal "Subscription" page: plan/credits/amount-due/
+  modules cards, invoice list with PDF. Nav is principal-aware:
+  platform users see Schools, school users see Subscription.
+- Parent app pre-login branding: typing the school code fetches the
+  anonymous branding endpoint (debounced) — school logo, name and
+  primary colour appear on the login screen before sign-in.
+- E2E verified across all of it; suite 157 green.
 
 ## Conventions (follow these when adding modules)
 

@@ -1,6 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Platform,
   StyleSheet,
@@ -11,8 +12,14 @@ import {
 } from 'react-native';
 import { requestOtp, verifyOtp } from '../api/parent';
 import LanguageToggle from '../components/LanguageToggle';
-import { BRAND } from '../config';
+import { API_BASE_URL, BRAND } from '../config';
 import { useI18n } from '../i18n';
+
+interface SchoolBranding {
+  name: string;
+  logoUrl: string | null;
+  themePrimaryColor: string | null;
+}
 
 interface Props {
   onSignedIn: () => void;
@@ -27,6 +34,26 @@ export default function LoginScreen({ onSignedIn }: Props) {
   const [stage, setStage] = useState<'details' | 'code'>('details');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [branding, setBranding] = useState<SchoolBranding | null>(null);
+
+  // Once the code looks complete, show the school's own name/logo/colour —
+  // parents instantly know they're in the right place. Public data.
+  useEffect(() => {
+    const trimmed = schoolCode.trim();
+    if (trimmed.length < 4) {
+      setBranding(null);
+      return;
+    }
+    const timer = setTimeout(() => {
+      fetch(`${API_BASE_URL}/api/v1/tenants/branding?code=${encodeURIComponent(trimmed.toUpperCase())}`)
+        .then((response) => (response.ok ? response.json() : null))
+        .then(setBranding)
+        .catch(() => setBranding(null));
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [schoolCode]);
+
+  const brand = branding?.themePrimaryColor ?? BRAND;
 
   const sendCode = async () => {
     if (!schoolCode.trim() || !phone.trim()) {
@@ -71,9 +98,19 @@ export default function LoginScreen({ onSignedIn }: Props) {
         <View style={styles.langRow}>
           <LanguageToggle />
         </View>
-        <Text style={styles.logo}>🎓</Text>
-        <Text style={styles.title}>{t('appTitle')}</Text>
-        <Text style={styles.subtitle}>{t('appSubtitle')}</Text>
+        {branding?.logoUrl ? (
+          <Image
+            source={{ uri: `${API_BASE_URL}${branding.logoUrl}` }}
+            style={styles.schoolLogo}
+            resizeMode="contain"
+          />
+        ) : (
+          <Text style={styles.logo}>🎓</Text>
+        )}
+        <Text style={styles.title}>{branding?.name ?? t('appTitle')}</Text>
+        <Text style={styles.subtitle}>
+          {branding ? t('appTitle') : t('appSubtitle')}
+        </Text>
 
         {stage === 'details' ? (
           <>
@@ -92,7 +129,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
               onChangeText={setPhone}
             />
             {error && <Text style={styles.error}>{error}</Text>}
-            <TouchableOpacity style={styles.button} onPress={sendCode} disabled={busy}>
+            <TouchableOpacity style={[styles.button, { backgroundColor: brand }]} onPress={sendCode} disabled={busy}>
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
@@ -112,7 +149,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
               onChangeText={setCode}
             />
             {error && <Text style={styles.error}>{error}</Text>}
-            <TouchableOpacity style={styles.button} onPress={confirmCode} disabled={busy}>
+            <TouchableOpacity style={[styles.button, { backgroundColor: brand }]} onPress={confirmCode} disabled={busy}>
               {busy ? (
                 <ActivityIndicator color="#fff" />
               ) : (
@@ -120,7 +157,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
               )}
             </TouchableOpacity>
             <TouchableOpacity onPress={() => setStage('details')}>
-              <Text style={styles.link}>{t('changeNumber')}</Text>
+              <Text style={[styles.link, { color: brand }]}>{t('changeNumber')}</Text>
             </TouchableOpacity>
           </>
         )}
@@ -142,6 +179,7 @@ const styles = StyleSheet.create({
   },
   langRow: { flexDirection: 'row', justifyContent: 'flex-end', marginBottom: 4 },
   logo: { fontSize: 40, textAlign: 'center' },
+  schoolLogo: { height: 64, alignSelf: 'center', width: 160 },
   title: { fontSize: 22, fontWeight: '700', textAlign: 'center', marginTop: 8 },
   subtitle: { fontSize: 14, color: '#667', textAlign: 'center', marginBottom: 24 },
   input: {

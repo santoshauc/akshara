@@ -113,3 +113,12 @@ public sealed record TenantUsageDto(
     int PushSentLast30Days,
     decimal FeesCollectedLast30Days,
     decimal OutstandingInvoiceTotal);
+
+/// <summary>The school's own subscription view.</summary>
+public sealed record MySubscriptionDto(
+    SubscriptionPlan Plan,
+    DateOnly? ExpiresOn,
+    List<string> EnabledModules,
+    int SmsCredits,
+    decimal OutstandingTotal,
+    List<InvoiceDto> Invoices);

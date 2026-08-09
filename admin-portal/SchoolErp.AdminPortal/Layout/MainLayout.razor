@@ -5,6 +5,7 @@
 @inject TenantsClient TenantsApi
 @inject HttpClient Http
 @inject IJSRuntime Js
+@inject AuthenticationStateProvider AuthState
 
 <MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudDialogProvider />
@@ -51,9 +52,12 @@
             <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
                 Dashboard
             </MudNavLink>
-            <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
-                Schools
-            </MudNavLink>
+            @if (_isPlatformUser)
+            {
+                <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
+                    Schools
+                </MudNavLink>
+            }
             <MudDivider Class="my-2" />
             <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
                 Academics
@@ -106,6 +110,12 @@
             <MudNavLink Href="insights" Icon="@Icons.Material.Filled.Insights">
                 Insights
             </MudNavLink>
+            @if (!_isPlatformUser)
+            {
+                <MudNavLink Href="subscription" Icon="@Icons.Material.Filled.CardMembership">
+                    Subscription
+                </MudNavLink>
+            }
             <MudNavLink Href="audit" Icon="@Icons.Material.Filled.History">
                 Audit log
             </MudNavLink>
@@ -140,6 +150,7 @@
 
     private MudTheme _theme = BuildTheme("#1565C0", null);
     private TenantBrandingDto? _branding;
+    private bool _isPlatformUser;
     private bool _brandingAttempted;
 
     private string ApiBase => (Http.BaseAddress?.ToString() ?? "").TrimEnd('/');
@@ -157,8 +168,25 @@
     protected override async Task OnInitializedAsync()
     {
         Navigation.LocationChanged += OnLocationChanged;
+        AuthState.AuthenticationStateChanged += OnAuthStateChanged;
+        await RefreshPrincipalAsync();
         await LoadBrandingAsync();
     }
+
+    /// <summary>Platform users see the school catalog; school users their subscription.</summary>
+    private async Task RefreshPrincipalAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _isPlatformUser = state.User.Identity?.IsAuthenticated == true &&
+                          state.User.FindFirst("tenant") is null;
+    }
+
+    private void OnAuthStateChanged(Task<AuthenticationState> task) =>
+        _ = InvokeAsync(async () =>
+        {
+            await RefreshPrincipalAsync();
+            StateHasChanged();
+        });
 
     /// <summary>
     /// Applies the signed-in school's logo and colours. The school code is
@@ -204,8 +232,11 @@
         _ = LoadBrandingAsync();
     }
 
-    public void Dispose() =>
+    public void Dispose()
+    {
         Navigation.LocationChanged -= OnLocationChanged;
+        AuthState.AuthenticationStateChanged -= OnAuthStateChanged;
+    }
 
     private async Task LogoutAsync()
     {

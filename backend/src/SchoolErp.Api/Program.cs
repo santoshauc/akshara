@@ -106,7 +106,13 @@ try
             };
         });
 
-    builder.Services.AddAuthorization();
+    builder.Services.AddAuthorization(options =>
+        // Platform endpoints demand a principal with NO tenant claim — school
+        // tokens are refused regardless of what permissions they carry.
+        options.AddPolicy(PlatformOnlyAttribute.PolicyName, policy => policy
+            .RequireAuthenticatedUser()
+            .RequireAssertion(context =>
+                context.User.FindFirst(TenantResolutionMiddleware.TenantClaim) is null)));
     builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
     builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 
@@ -204,6 +210,11 @@ try
         jobScope.ServiceProvider.GetRequiredService<IRecurringJobManager>()
             .AddOrUpdate<SchoolErp.Infrastructure.Notifications.FeeReminderJob>(
                 "fee-due-reminders", job => job.RunAsync(CancellationToken.None), "0 3 * * *");
+        // Nightly billing cycle at 02:00 UTC: April licence renewals and
+        // (opt-in) overdue-invoice suspension.
+        jobScope.ServiceProvider.GetRequiredService<IRecurringJobManager>()
+            .AddOrUpdate<SchoolErp.Infrastructure.Billing.BillingCycleJob>(
+                "billing-cycle", job => job.RunAsync(CancellationToken.None), "0 2 * * *");
     }
 
     app.UseHttpsRedirection();

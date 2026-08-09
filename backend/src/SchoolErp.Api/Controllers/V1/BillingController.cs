@@ -13,6 +13,7 @@ namespace SchoolErp.Api.Controllers.V1;
 /// </summary>
 [ApiController]
 [ApiVersion(1.0)]
+[PlatformOnly]
 [Route("api/v{version:apiVersion}/billing")]
 public sealed class BillingController : ControllerBase
 {

@@ -44,6 +44,11 @@ public sealed class BillingFixture : IAsyncLifetime
             {
                 ["ConnectionStrings:Postgres"] = _container.GetConnectionString(),
                 ["Jwt:SigningKey"] = "integration-test-signing-key-0123456789abcdef",
+                // Make the billing cycle exercisable today, whatever today is.
+                ["Billing:RenewalMonth"] = DateTime.UtcNow.Month.ToString(
+                    System.Globalization.CultureInfo.InvariantCulture),
+                ["Billing:AutoSuspend"] = "true",
+                ["Billing:SuspendGraceDays"] = "0",
             })
             .Build();
 
@@ -119,7 +124,7 @@ public sealed class BillingTests : IClassFixture<BillingFixture>
             _fixture.TenantId,
             new DateOnly(2026, 9, 30),
             [
-                new InvoiceLineDto("Annual licence 2026-27", 850, 70, 0),
+                new InvoiceLineDto("Manual licence 2026-27", 850, 70, 0),
                 new InvoiceLineDto("Onboarding & data import", 1, 15_000, 0),
             ],
             "Season discount applied on setup."));
@@ -168,5 +173,58 @@ public sealed class BillingTests : IClassFixture<BillingFixture>
             .Should().Contain(i => i.Id == invoice.Id);
         (await sender.Send(new GetInvoicesQuery(Guid.NewGuid())))
             .Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Billing_cycle_renews_licences_once_and_suspends_the_long_overdue()
+    {
+        await using var scope = _fixture.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var job = scope.ServiceProvider
+            .GetRequiredService<SchoolErp.Infrastructure.Billing.BillingCycleJob>();
+
+        // The fixture school becomes a paid plan so renewal applies to it.
+        var school = await db.Tenants.SingleAsync(t => t.Id == _fixture.TenantId);
+        school.Plan = SubscriptionPlan.Standard;
+
+        // A second school with a long-overdue invoice awaits suspension.
+        var overdue = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Code = "OVRDU1",
+            Name = "Overdue School",
+            Subdomain = "overduetest",
+            Status = TenantStatus.Active,
+        };
+        db.Tenants.Add(overdue);
+        db.Invoices.Add(new SchoolErp.Domain.Billing.Invoice
+        {
+            TenantId = overdue.Id,
+            InvoiceNumber = "INV-TEST-OVERDUE",
+            IssuedOn = new DateOnly(2026, 1, 1),
+            DueOn = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-1),
+            TotalAmount = 999,
+        });
+        await db.SaveChangesAsync();
+
+        await job.RunAsync(CancellationToken.None);
+        await job.RunAsync(CancellationToken.None); // idempotency
+
+        var licences = (await db.Invoices.AsNoTracking()
+                .Include(i => i.Lines)
+                .Where(i => i.TenantId == _fixture.TenantId)
+                .ToListAsync())
+            .Where(i => i.Lines.Any(l =>
+                l.Description.StartsWith("Annual licence", StringComparison.Ordinal)))
+            .ToList();
+        licences.Should().HaveCount(1, "the second run must not double-invoice");
+        licences[0].Lines.Single().Quantity.Should().Be(1, "one active student");
+        licences[0].Lines.Single().UnitAmount.Should().Be(
+            PlanPresets.AnnualRatePerStudent(SubscriptionPlan.Standard));
+
+        (await db.Tenants.AsNoTracking().SingleAsync(t => t.Id == overdue.Id))
+            .Status.Should().Be(TenantStatus.Suspended, "its invoice is past the grace period");
+        (await db.Tenants.AsNoTracking().SingleAsync(t => t.Id == _fixture.TenantId))
+            .Status.Should().Be(TenantStatus.Active, "its invoices are not overdue");
     }
 }

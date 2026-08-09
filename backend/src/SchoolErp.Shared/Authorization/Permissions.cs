@@ -121,6 +121,12 @@ public static class Permissions
         public const string View = "insights.view";
     }
 
+    public static class Subscription
+    {
+        /// <summary>See the school's own plan, modules and invoices.</summary>
+        public const string View = "subscription.view";
+    }
+
     /// <summary>Every permission constant, discovered once via reflection.</summary>
     public static IReadOnlyList<string> All { get; } = typeof(Permissions)
         .GetNestedTypes(BindingFlags.Public | BindingFlags.Static)
@@ -128,4 +134,17 @@ public static class Permissions
         .Where(f => f.IsLiteral && f.FieldType == typeof(string))
         .Select(f => (string)f.GetRawConstantValue()!)
         .ToList();
+
+    /// <summary>
+    /// Platform-operator permissions. These must NEVER land on a school role:
+    /// the endpoints they guard cross tenant boundaries (school catalog,
+    /// platform billing). Kept out of school seeds/backfills and rejected by
+    /// role editing; the API additionally requires a platform principal.
+    /// </summary>
+    public static IReadOnlyList<string> PlatformOnly { get; } =
+        [TenantCatalog.View, TenantCatalog.Manage];
+
+    /// <summary>What a school role may hold: everything except platform-only.</summary>
+    public static IReadOnlyList<string> TenantAssignable { get; } =
+        All.Except(PlatformOnly, StringComparer.Ordinal).ToList();
 }

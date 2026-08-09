@@ -30,6 +30,23 @@ public sealed class PermissionRequirement : IAuthorizationRequirement
 }
 
 /// <summary>
+/// Restricts an endpoint to PLATFORM principals — tokens with no tenant
+/// claim (Super Admin and future platform staff). School tokens are refused
+/// even when they somehow carry the demanded permission: permission claims
+/// are tenant-editable data, platform scope is not.
+/// </summary>
+[AttributeUsage(AttributeTargets.Class | AttributeTargets.Method)]
+public sealed class PlatformOnlyAttribute : AuthorizeAttribute
+{
+    public const string PolicyName = "platform-only";
+
+    public PlatformOnlyAttribute()
+        : base(PolicyName)
+    {
+    }
+}
+
+/// <summary>
 /// Grants access when the token carries the demanded permission claim, or the
 /// caller is a platform SuperAdmin (who implicitly holds every permission).
 /// </summary>
