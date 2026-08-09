@@ -231,6 +231,58 @@ public sealed class ExamModuleTests : IClassFixture<ExamModuleFixture>
     }
 
     [Fact]
+    public async Task Report_card_settings_round_trip_and_every_template_renders()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var (examId, mathPaper, sciencePaper) = await SetUpExamAsync(sender, "Template Exam");
+        await sender.Send(new EnterMarksCommand(mathPaper,
+            [new MarkInput(_fixture.EnrollmentTop, 71, false)]));
+        await sender.Send(new EnterMarksCommand(sciencePaper,
+            [new MarkInput(_fixture.EnrollmentTop, 33, false)]));
+
+        var defaults = await sender.Send(new GetReportCardSettingsQuery());
+        defaults.Template.Should().Be(ReportCardTemplate.MarksAndGrades);
+        defaults.Signatories.Should().BeEquivalentTo(ReportCardDefaults.Signatories);
+
+        try
+        {
+            // Every template must produce a real PDF, not just the default one.
+            foreach (var template in Enum.GetValues<ReportCardTemplate>())
+            {
+                var saved = await sender.Send(new UpdateReportCardSettingsCommand(
+                    template, ShowAttendance: true, ShowRemarks: true,
+                    ["Class teacher", "Principal"]));
+                saved.Template.Should().Be(template);
+                saved.Signatories.Should().HaveCount(2);
+
+                var pdf = await sender.Send(
+                    new GetReportCardPdfQuery(_fixture.StudentTop, examId));
+                System.Text.Encoding.ASCII.GetString(pdf, 0, 5).Should().Be("%PDF-");
+                pdf.Length.Should().BeGreaterThan(2000, $"{template} must render a full page");
+            }
+
+            // Blank signature lines fall back to the defaults rather than
+            // printing an empty row.
+            var blanked = await sender.Send(new UpdateReportCardSettingsCommand(
+                ReportCardTemplate.MarksOnly, ShowAttendance: false, ShowRemarks: false, []));
+            blanked.Signatories.Should().BeEquivalentTo(ReportCardDefaults.Signatories);
+
+            var tooMany = () => sender.Send(new UpdateReportCardSettingsCommand(
+                ReportCardTemplate.MarksOnly, false, false,
+                ["One", "Two", "Three", "Four", "Five"]));
+            await tooMany.Should().ThrowAsync<FluentValidation.ValidationException>();
+        }
+        finally
+        {
+            // Shared fixture: put the school's layout back.
+            await sender.Send(new UpdateReportCardSettingsCommand(
+                ReportCardTemplate.MarksAndGrades, false, false,
+                ReportCardDefaults.Signatories));
+        }
+    }
+
+    [Fact]
     public async Task Marks_above_paper_maximum_are_rejected()
     {
         await using var scope = _fixture.CreateScope();

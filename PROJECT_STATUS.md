@@ -675,6 +675,33 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## Report card templates (feature/report-card-templates)
+
+- Four per-school settings on Tenant (migration
+  20260809091105_AddReportCardSettings): `ReportCardTemplate`
+  (MarksOnly / MarksAndGrades / GradesOnly), `ReportCardShowAttendance`,
+  `ReportCardShowRemarks` and `ReportCardSignatories` (CSV, max 4).
+  GradesOnly never prints raw marks — including the totals block, which
+  would otherwise leak what the template hides; it shows attendance there
+  instead. Absent students show "AB" in the grade column.
+- `GET/PUT exams/report-card-settings` (view / manage permission). Edited
+  from the Exams page → "Report card layout"; applies to staff proofs and
+  the copies parents download alike. Blank signature lines fall back to
+  class teacher / principal / guardian rather than printing an empty row.
+- ShowAttendance counts daily roll-call for the year and is only queried
+  when the school has the toggle on.
+- GOTCHA: `AddColumn<int>` for an enum defaults to 0, which is NOT a member
+  of ReportCardTemplate — existing schools rendered an unknown layout and
+  the portal select showed a bare "0". The migration now backfills
+  `defaultValue: 2` (MarksAndGrades). Any future enum column needs the same
+  treatment: the C# property initialiser does not touch existing rows.
+- The portal reuses the DOMAIN enum (already in _Imports); defining a
+  mirror copy in Models made every reference ambiguous.
+- Integration test drives all three templates through a real render plus
+  the blank-signatories fallback and the >4 validation. E2E: the four
+  setting combinations produced four distinct PDF byte lengths.
+  Suite: 50 unit + 118 integration green.
+
 ## Teacher dashboard — "My day" (feature/teacher-dashboard)
 
 - `GET teachers/me/day` → `GetMyTeacherDayQuery`. Resolves the CALLER's

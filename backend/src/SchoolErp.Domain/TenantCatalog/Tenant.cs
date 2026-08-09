@@ -53,6 +53,22 @@ public class Tenant : AuditableEntity
     /// </summary>
     public bool WhatsAppEnabled { get; set; }
 
+    // ----- Report cards -----
+    /// <summary>Which columns the printed report card shows.</summary>
+    public ReportCardTemplate ReportCardTemplate { get; set; } = ReportCardTemplate.MarksAndGrades;
+
+    /// <summary>Print the year's attendance line under the marks table.</summary>
+    public bool ReportCardShowAttendance { get; set; }
+
+    /// <summary>Print a ruled box for the class teacher's handwritten remarks.</summary>
+    public bool ReportCardShowRemarks { get; set; }
+
+    /// <summary>
+    /// Comma-separated signature lines, in print order. Null/blank falls back
+    /// to class teacher, principal and guardian.
+    /// </summary>
+    public string? ReportCardSignatories { get; set; }
+
     // ----- Regional settings -----
     /// <summary>IANA timezone id; Indian schools default to Asia/Kolkata.</summary>
     public string TimeZoneId { get; set; } = "Asia/Kolkata";

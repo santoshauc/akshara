@@ -7,6 +7,9 @@ using SchoolErp.Domain.Students;
 namespace SchoolErp.Application.Exams.Queries;
 
 /// <summary>Everything a report card shows, ready for rendering.</summary>
+/// <summary>Year-to-date attendance, printed only when the school asks for it.</summary>
+public sealed record ReportCardAttendance(int PresentDays, int MarkedDays);
+
 public sealed record ReportCardData(
     string SchoolName,
     string? SchoolCity,
@@ -15,7 +18,9 @@ public sealed record ReportCardData(
     string? ClassName,
     string? SectionName,
     int? RollNumber,
-    StudentResultDto Result);
+    StudentResultDto Result,
+    ReportCardSettingsDto Settings,
+    ReportCardAttendance? Attendance);
 
 /// <summary>Turns report-card data into a PDF. Implemented in Infrastructure.</summary>
 public interface IReportCardRenderer
@@ -89,6 +94,29 @@ public sealed class GetReportCardPdfQueryHandler : IRequestHandler<GetReportCard
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        var settings = await _sender.Send(new GetReportCardSettingsQuery(), cancellationToken)
+            .ConfigureAwait(false);
+
+        // Daily roll-call for the current year, counted only when asked for.
+        ReportCardAttendance? attendance = null;
+        if (settings.ShowAttendance)
+        {
+            var tally = await _db.AttendanceRecords.AsNoTracking()
+                .Where(a => a.StudentId == request.StudentId && a.Period == null)
+                .GroupBy(_ => 1)
+                .Select(g => new
+                {
+                    Marked = g.Count(),
+                    Present = g.Count(a =>
+                        a.Status == Domain.Attendance.AttendanceStatus.Present ||
+                        a.Status == Domain.Attendance.AttendanceStatus.Late ||
+                        a.Status == Domain.Attendance.AttendanceStatus.HalfDay),
+                })
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false);
+            attendance = new ReportCardAttendance(tally?.Present ?? 0, tally?.Marked ?? 0);
+        }
+
         return _renderer.Render(new ReportCardData(
             school.Name,
             school.City,
@@ -97,6 +125,8 @@ public sealed class GetReportCardPdfQueryHandler : IRequestHandler<GetReportCard
             placement?.ClassName,
             placement?.SectionName,
             placement?.RollNumber,
-            result));
+            result,
+            settings,
+            attendance));
     }
 }

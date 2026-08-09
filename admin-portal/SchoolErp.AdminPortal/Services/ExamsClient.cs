@@ -100,4 +100,22 @@ public sealed class ExamsClient
             ? await response.Content.ReadAsByteArrayAsync(ct)
             : null;
     }
+
+    /// <summary>This school's report-card layout settings.</summary>
+    public async Task<ReportCardSettingsDto?> GetReportCardSettingsAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("api/v1/exams/report-card-settings", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<ReportCardSettingsDto>(cancellationToken: ct)
+            : null;
+    }
+
+    /// <summary>Saves them; null on success.</summary>
+    public async Task<string?> UpdateReportCardSettingsAsync(
+        ReportCardSettingsDto settings, CancellationToken ct = default)
+    {
+        var response = await _http.PutAsJsonAsync(
+            "api/v1/exams/report-card-settings", settings, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
 }

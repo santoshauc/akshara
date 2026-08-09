@@ -1,4 +1,5 @@
 using SchoolErp.Domain.Exams;
+using SchoolErp.Domain.TenantCatalog;
 
 namespace SchoolErp.AdminPortal.Models;
 
@@ -96,3 +97,10 @@ public sealed record TermReportComponentDto(Guid ExamId, string ExamName, decima
 
 /// <summary>Creation input line (mirrors TermReportComponentInput).</summary>
 public sealed record TermReportComponentInput(Guid ExamId, decimal WeightPercent);
+
+/// <summary>Report-card layout settings (mirrors ReportCardSettingsDto).</summary>
+public sealed record ReportCardSettingsDto(
+    ReportCardTemplate Template,
+    bool ShowAttendance,
+    bool ShowRemarks,
+    IReadOnlyList<string> Signatories);

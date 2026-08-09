@@ -42,3 +42,20 @@ public enum TenantModules : long
     Inventory = 1 << 9,
     Hostel = 1 << 10,
 }
+
+/// <summary>
+/// How a school wants its report cards laid out. Indian schools differ:
+/// senior classes print raw marks, CBSE primary sections often publish
+/// grades only, and some want both.
+/// </summary>
+public enum ReportCardTemplate
+{
+    /// <summary>Subject, max marks and obtained — no grade column.</summary>
+    MarksOnly = 1,
+
+    /// <summary>Marks plus the grade column (the default).</summary>
+    MarksAndGrades = 2,
+
+    /// <summary>Grades only; raw marks are never printed (CBSE primary style).</summary>
+    GradesOnly = 3,
+}
