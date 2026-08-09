@@ -133,8 +133,21 @@ public sealed class QuestPdfStudentDocumentRenderer : IStudentDocumentRenderer
             });
         })).GeneratePdf();
 
+    /// <summary>
+    /// Two CR80 pages: front then back, so the school prints them duplex and
+    /// cuts one card. The back carries what matters when nobody can ask the
+    /// child — blood group and who to call — plus the school address a finder
+    /// returns the card to.
+    /// </summary>
     private static byte[] IdCard(StudentDocumentData data) =>
-        Document.Create(document => document.Page(page =>
+        Document.Create(document =>
+        {
+            IdCardFront(document, data);
+            IdCardBack(document, data);
+        }).GeneratePdf();
+
+    private static void IdCardFront(IDocumentContainer document, StudentDocumentData data) =>
+        document.Page(page =>
         {
             // CR80 card ratio scaled up for print-and-cut (86 x 54 mm ≈ 244 x 153 pt).
             page.Size(244, 153);
@@ -198,5 +211,67 @@ public sealed class QuestPdfStudentDocumentRenderer : IStudentDocumentRenderer
                             .FontSize(6.5f).FontColor(Colors.Grey.Darken1);
                     });
             });
-        })).GeneratePdf();
+        });
+
+    private static void IdCardBack(IDocumentContainer document, StudentDocumentData data) =>
+        document.Page(page =>
+        {
+            page.Size(244, 153);
+            page.Margin(0);
+            page.DefaultTextStyle(style => style.FontSize(7.5f));
+
+            page.Content().Column(card =>
+            {
+                card.Item().Background(Colors.Grey.Lighten3).PaddingVertical(4)
+                    .PaddingHorizontal(10)
+                    .Text("IN CASE OF EMERGENCY").Bold()
+                    .FontSize(6.5f).FontColor(Colors.Grey.Darken3);
+
+                card.Item().PaddingHorizontal(10).PaddingTop(7).Column(details =>
+                {
+                    details.Spacing(3);
+
+                    // Blood group is the one field on this card that a hospital
+                    // reads, so it gets the emphasis rather than a label-sized row.
+                    details.Item().Row(blood =>
+                    {
+                        blood.ConstantItem(52).Text("Blood group")
+                            .FontColor(Colors.Grey.Darken1);
+                        blood.RelativeItem().Text(Blank(data.BloodGroup)).Bold().FontSize(10);
+                    });
+
+                    details.Item().Row(contact =>
+                    {
+                        contact.ConstantItem(52).Text("Call").FontColor(Colors.Grey.Darken1);
+                        contact.RelativeItem().Text(
+                            data.GuardianPhone is { } phone
+                                ? $"{data.GuardianName ?? "Guardian"} · {phone}"
+                                : "—").Bold();
+                    });
+
+                    details.Item().PaddingTop(2).LineHorizontal(0.5f)
+                        .LineColor(Colors.Grey.Lighten2);
+
+                    details.Item().Text(data.SchoolName).Bold();
+                    if (data.SchoolAddress is { } schoolAddress)
+                    {
+                        details.Item().Text(schoolAddress).FontColor(Colors.Grey.Darken2);
+                    }
+
+                    if (data.SchoolPhone is { } schoolPhone)
+                    {
+                        details.Item().Text($"Tel: {schoolPhone}").FontColor(Colors.Grey.Darken2);
+                    }
+                });
+
+                card.Item().AlignBottom().Background(Colors.Grey.Lighten4)
+                    .PaddingVertical(4).PaddingHorizontal(10)
+                    .Text("If found, please return this card to the school. " +
+                        "It remains school property.")
+                    .FontSize(6).FontColor(Colors.Grey.Darken1);
+            });
+        });
+
+    private static string Blank(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? "—" : value;
 }

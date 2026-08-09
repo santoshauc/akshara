@@ -70,6 +70,16 @@ public static partial class DemoDataSeeder
             await db.SaveChangesAsync().ConfigureAwait(false);
         }
 
+        // A postable address and a phone number: without them the ID-card back
+        // and the certificate letterheads render half-empty dashes.
+        if (string.IsNullOrWhiteSpace(demo.AddressLine1))
+        {
+            demo.AddressLine1 = "12-3-45, Road No. 4, Jubilee Hills";
+            demo.PostalCode ??= "500033";
+            demo.ContactPhone ??= "+914023456789";
+            await db.SaveChangesAsync().ConfigureAwait(false);
+        }
+
         scope.ServiceProvider.GetRequiredService<ITenantContextSetter>().SetTenant(demo.Id);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
@@ -95,6 +105,7 @@ public static partial class DemoDataSeeder
         await EnsureAttendanceAsync(db, year, today).ConfigureAwait(false);
         await EnsureExamsAndMarksAsync(db, year, [grade5.Id, grade6.Id], subjects)
             .ConfigureAwait(false);
+        await EnsureBloodGroupsAsync(db).ConfigureAwait(false);
         await EnsureFeesAsync(db, year, grade5.Id, grade6.Id, today).ConfigureAwait(false);
         await EnsureTimetableAsync(db, grade5.Id, grade6.Id, subjects, teachers)
             .ConfigureAwait(false);
@@ -221,6 +232,36 @@ public static partial class DemoDataSeeder
         return added;
     }
 
+    /// <summary>Rotated across the cohort so ID-card backs show a real value.</summary>
+    private static readonly string[] BloodGroups =
+        ["O+", "B+", "A+", "AB+", "O-", "B-", "A+", "O+"];
+
+    /// <summary>
+    /// Backfills demo students admitted before the ID card had a back — the
+    /// cohort seeder skips students that already exist, so without this the
+    /// card's headline field stays a dash on every existing demo database.
+    /// Assigned by admission number, so it is stable across runs.
+    /// </summary>
+    private static async Task EnsureBloodGroupsAsync(AppDbContext db)
+    {
+        var missing = await db.Students
+            .Where(s => s.BloodGroup == null)
+            .OrderBy(s => s.AdmissionNumber)
+            .ToListAsync()
+            .ConfigureAwait(false);
+        if (missing.Count == 0)
+        {
+            return;
+        }
+
+        for (var i = 0; i < missing.Count; i++)
+        {
+            missing[i].BloodGroup = BloodGroups[i % BloodGroups.Length];
+        }
+
+        await db.SaveChangesAsync().ConfigureAwait(false);
+    }
+
     private static async Task<int> AddCohortAsync(
         AppDbContext db, AcademicYear year, Guid classId, Guid sectionId,
         (string First, string Last, Gender Gender)[] names,
@@ -246,6 +287,7 @@ public static partial class DemoDataSeeder
                     ? new DateOnly(birthYear, today.Month, today.Day)
                     : new DateOnly(birthYear, 1 + (i * 5 % 12), 1 + (i * 7 % 27)),
                 Gender = gender,
+                BloodGroup = BloodGroups[i % BloodGroups.Length],
                 City = "Hyderabad",
                 State = "Telangana",
                 AdmissionDate = new DateOnly(2026, 6, 5),

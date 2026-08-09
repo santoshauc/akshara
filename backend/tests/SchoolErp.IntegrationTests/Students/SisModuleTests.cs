@@ -1,3 +1,4 @@
+using System.Globalization;
 using FluentAssertions;
 using MediatR;
 using Microsoft.EntityFrameworkCore;
@@ -239,6 +240,18 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
         await act.Should().ThrowAsync<ConflictException>().WithMessage("*CUSTOM-1*");
     }
 
+    /// <summary>
+    /// Pages from the PDF catalog's /Count. Crude, but it needs no PDF library
+    /// and the page tree is written uncompressed, so it is stable.
+    /// </summary>
+    private static int PageCount(byte[] pdf)
+    {
+        var text = System.Text.Encoding.Latin1.GetString(pdf);
+        var match = System.Text.RegularExpressions.Regex.Match(text, @"/Count (\d+)");
+        match.Success.Should().BeTrue("the PDF must declare a page count");
+        return int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+    }
+
     [Fact]
     public async Task Official_documents_render_as_pdfs_for_an_enrolled_student()
     {
@@ -258,6 +271,12 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
             var pdf = await sender.Send(new GetStudentDocumentPdfQuery(studentId, type));
             pdf.Length.Should().BeGreaterThan(1_000, $"{type} must be a real document");
             System.Text.Encoding.ASCII.GetString(pdf, 0, 4).Should().Be("%PDF");
+
+            // The ID card is printed duplex: a front and a back carrying the
+            // blood group and the school's contact details. The certificates
+            // stay single-sided.
+            PageCount(pdf).Should().Be(type == StudentDocumentType.IdCard ? 2 : 1,
+                "{0} page count", type);
         }
 
         var missing = () => sender.Send(new GetStudentDocumentPdfQuery(

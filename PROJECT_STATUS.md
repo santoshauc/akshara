@@ -825,6 +825,36 @@ HR/payroll (own product).
   hitting a tenant-scoped query) still logs ERR with the whole stack.
 - Suite: 61 unit + 135 integration green.
 
+## ID card back (feature/id-card-back)
+
+- The student ID card is now two CR80 pages — front then back — so a school
+  prints duplex and cuts one card. `IdCard()` composes two
+  `document.Page(...)` calls; the front is unchanged.
+- The back answers the question nobody can ask a hurt child: **blood group**
+  (set in the largest type on the card, because a hospital reads it), the
+  emergency contact to call, then the school name, postal address and phone,
+  and an "if found, please return" line. `Tenant.PostalCode` joined into
+  `SchoolAddress` — a finder needs something postable — and `ContactPhone`
+  added to the document data alongside `Student.BloodGroup`.
+- DELIBERATELY OMITTED: the student's home address. Indian school cards often
+  carry it, but a lost card would then hand a stranger a child's photo, name,
+  home address and a parent's phone. The school's address serves the
+  "return it" purpose without that. Say so if you want it added.
+- The integration test now asserts PAGE COUNT: 2 for the ID card, 1 for the
+  transfer and bonafide certificates, read from the PDF catalog's `/Count`
+  (no PDF library needed; QuestPDF writes the page tree uncompressed).
+  QuestPDF also throws on layout overflow, so a card that renders at all is a
+  card whose content fits.
+- Demo data: DEMO01 gained a street address, postal code and phone (without
+  them the back and both certificate letterheads render half-empty), and
+  students get rotated blood groups. Existing demo students are BACKFILLED —
+  the cohort seeder skips students that already exist, so otherwise the card's
+  headline field stayed a dash on every database seeded before today.
+- GOTCHA: the in-app Browser pane will not render a PDF (no plugin) and
+  `pdftoppm` is not installed, so PDFs cannot be eyeballed in-session. Verify
+  structurally (page count, byte size, QuestPDF's own overflow exception) and
+  send the file to the user to look at.
+
 ## Timetable breaks — recess and lunch (feature/timetable-breaks)
 
 - An Indian school day is periods broken up by a recess and a lunch break, and
