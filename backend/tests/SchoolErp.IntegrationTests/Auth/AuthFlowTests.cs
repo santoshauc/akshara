@@ -68,6 +68,38 @@ public sealed class AuthFlowTests : IClassFixture<AuthTestFixture>
     }
 
     [Fact]
+    public async Task A_platform_account_without_mfa_is_marked_and_cannot_act()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var result = await auth.LoginWithPasswordAsync(
+            null, AuthTestFixture.PlatformEmail, AuthTestFixture.AdminPassword, null);
+
+        result.Succeeded.Should().BeTrue(
+            "refusing the sign-in outright would brick an operator with nowhere to enrol");
+
+        // The claim is what the platform-only policy refuses on, so the
+        // operator can reach the Security page and nothing else.
+        new JwtSecurityTokenHandler().ReadJwtToken(result.Tokens!.AccessToken)
+            .Claims.Should().Contain(c => c.Type == "platform_mfa_setup_required");
+    }
+
+    [Fact]
+    public async Task A_school_account_is_never_marked_for_platform_mfa()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var result = await auth.LoginWithPasswordAsync(
+            null, AuthTestFixture.AdminEmail, AuthTestFixture.AdminPassword, null);
+
+        new JwtSecurityTokenHandler().ReadJwtToken(result.Tokens!.AccessToken)
+            .Claims.Should().NotContain(c => c.Type == "platform_mfa_setup_required",
+                "the gate is for operators, not for school staff");
+    }
+
+    [Fact]
     public async Task Login_WhenTheEmailBelongsToTwoSchools_AsksWhichAfterThePassword()
     {
         await using var scope = _fixture.CreateScope();

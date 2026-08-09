@@ -56,23 +56,37 @@ public sealed class AuditBehavior<TRequest, TResponse> : IPipelineBehavior<TRequ
     }
 }
 
-/// <summary>One row of the audit trail as shown to staff.</summary>
+/// <summary>
+/// One row of the audit trail as shown to staff. <paramref name="SchoolName"/>
+/// is only populated for the platform view, where rows can come from different
+/// schools — a school's own trail is already all one school.
+/// </summary>
 public sealed record AuditEventDto(
     Guid Id,
     DateTimeOffset OccurredAt,
     string Action,
     string? UserName,
     string? UserId,
-    string? IpAddress);
+    string? IpAddress,
+    string? SchoolName = null);
 
 /// <summary>
-/// The action trail for the caller's scope: school admins see their school's
-/// rows; platform (no tenant) sees everything. Latest first, capped at 200.
+/// The action trail. A school admin always gets their own school's rows and
+/// <paramref name="SchoolId"/> is ignored — the tenant decides.
+/// <para>
+/// A platform caller gets OPERATOR actions (the tenant-less rows: plan edits,
+/// SMS top-ups, invoices) by default, or one named school's trail when
+/// <paramref name="SchoolId"/> is given. It deliberately no longer returns
+/// every school at once: that firehose mixed thousands of unrelated school
+/// rows into the view meant for holding operators to account.
+/// </para>
+/// Latest first, capped at 200.
 /// </summary>
 public sealed record GetAuditTrailQuery(
     string? Search = null,
     DateOnly? From = null,
-    DateOnly? To = null) : IRequest<IReadOnlyList<AuditEventDto>>;
+    DateOnly? To = null,
+    Guid? SchoolId = null) : IRequest<IReadOnlyList<AuditEventDto>>;
 
 /// <summary>Explicit tenant filter — this table has no RLS (nullable tenant).</summary>
 public sealed class GetAuditTrailQueryHandler
@@ -96,8 +110,20 @@ public sealed class GetAuditTrailQueryHandler
 
         if (_tenantContext.HasTenant)
         {
+            // A school never sees outside itself, whatever it asks for.
             var tenantId = _tenantContext.TenantId;
             query = query.Where(a => a.TenantId == tenantId);
+        }
+        else if (request.SchoolId is { } schoolId)
+        {
+            query = query.Where(a => a.TenantId == schoolId);
+        }
+        else
+        {
+            // Operator actions only. Tenant-less AND performed by a signed-in
+            // person: anonymous public traffic (the website enquiry form) also
+            // lands without a tenant, and it is not something an operator did.
+            query = query.Where(a => a.TenantId == null && a.UserId != null);
         }
 
         if (!string.IsNullOrWhiteSpace(request.Search))
@@ -125,7 +151,11 @@ public sealed class GetAuditTrailQueryHandler
             .OrderByDescending(a => a.OccurredAt)
             .Take(MaxRows)
             .Select(a => new AuditEventDto(
-                a.Id, a.OccurredAt, a.Action, a.UserName, a.UserId, a.IpAddress))
+                a.Id, a.OccurredAt, a.Action, a.UserName, a.UserId, a.IpAddress,
+                a.TenantId == null
+                    ? null
+                    : _db.Tenants.Where(t => t.Id == a.TenantId)
+                        .Select(t => t.Name).FirstOrDefault()))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
     }

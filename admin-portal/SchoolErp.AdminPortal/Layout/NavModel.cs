@@ -33,52 +33,54 @@ public static class NavModel
         [
             new("nav.dashboard", "", Icons.Material.Outlined.SpaceDashboard),
             new("nav.myDay", "my-day", Icons.Material.Outlined.Today, SchoolOnly: true),
-            new("nav.insights", "insights", Icons.Material.Outlined.Insights),
+            new("nav.insights", "insights", Icons.Material.Outlined.Insights, SchoolOnly: true),
         ]),
 
         new("nav.group.academics",
         [
-            new("nav.academics", "academics", Icons.Material.Outlined.CalendarMonth),
-            new("nav.timetable", "timetable", Icons.Material.Outlined.GridView),
-            new("nav.exams", "exams", Icons.Material.Outlined.Assignment),
-            new("nav.homework", "homework", Icons.Material.Outlined.MenuBook),
-            new("nav.attendance", "attendance", Icons.Material.Outlined.FactCheck),
+            new("nav.academics", "academics", Icons.Material.Outlined.CalendarMonth, SchoolOnly: true),
+            new("nav.timetable", "timetable", Icons.Material.Outlined.GridView, SchoolOnly: true),
+            new("nav.exams", "exams", Icons.Material.Outlined.Assignment, SchoolOnly: true),
+            new("nav.homework", "homework", Icons.Material.Outlined.MenuBook, SchoolOnly: true),
+            new("nav.attendance", "attendance", Icons.Material.Outlined.FactCheck, SchoolOnly: true),
         ]),
 
         new("nav.group.people",
         [
-            new("nav.students", "students", Icons.Material.Outlined.Groups),
-            new("nav.admissions", "admissions", Icons.Material.Outlined.PersonAddAlt),
-            new("nav.teachers", "teachers", Icons.Material.Outlined.Badge),
-            new("nav.leave", "leave", Icons.Material.Outlined.EventBusy),
+            new("nav.students", "students", Icons.Material.Outlined.Groups, SchoolOnly: true),
+            new("nav.admissions", "admissions", Icons.Material.Outlined.PersonAddAlt, SchoolOnly: true),
+            new("nav.teachers", "teachers", Icons.Material.Outlined.Badge, SchoolOnly: true),
+            new("nav.leave", "leave", Icons.Material.Outlined.EventBusy, SchoolOnly: true),
         ]),
 
         new("nav.group.operations",
         [
-            new("nav.transport", "transport", Icons.Material.Outlined.DirectionsBus),
-            new("nav.frontOffice", "front-office", Icons.Material.Outlined.HowToReg),
-            new("nav.inventory", "inventory", Icons.Material.Outlined.Inventory2),
-            new("nav.library", "library", Icons.Material.Outlined.LocalLibrary),
-            new("nav.hostel", "hostel", Icons.Material.Outlined.Bed),
+            new("nav.transport", "transport", Icons.Material.Outlined.DirectionsBus, SchoolOnly: true),
+            new("nav.frontOffice", "front-office", Icons.Material.Outlined.HowToReg, SchoolOnly: true),
+            new("nav.inventory", "inventory", Icons.Material.Outlined.Inventory2, SchoolOnly: true),
+            new("nav.library", "library", Icons.Material.Outlined.LocalLibrary, SchoolOnly: true),
+            new("nav.hostel", "hostel", Icons.Material.Outlined.Bed, SchoolOnly: true),
         ]),
 
         new("nav.group.communication",
         [
-            new("nav.notices", "notices", Icons.Material.Outlined.Campaign),
-            new("nav.messages", "messages", Icons.Material.Outlined.Forum),
+            new("nav.notices", "notices", Icons.Material.Outlined.Campaign, SchoolOnly: true),
+            new("nav.messages", "messages", Icons.Material.Outlined.Forum, SchoolOnly: true),
         ]),
 
         new("nav.group.finance",
         [
-            new("nav.fees", "fees", Icons.Material.Outlined.Payments),
+            new("nav.fees", "fees", Icons.Material.Outlined.Payments, SchoolOnly: true),
             new("nav.subscription", "subscription", Icons.Material.Outlined.CardMembership, SchoolOnly: true),
         ]),
 
         new("nav.group.administration",
         [
             new("nav.schools", "tenants", Icons.Material.Outlined.Domain, PlatformOnly: true),
-            new("nav.users", "users", Icons.Material.Outlined.ManageAccounts),
-            new("nav.audit", "audit", Icons.Material.Outlined.History),
+            new("nav.users", "users", Icons.Material.Outlined.ManageAccounts, SchoolOnly: true),
+            new("nav.audit", "audit", Icons.Material.Outlined.History, SchoolOnly: true),
+            new("nav.operators", "platform/operators", Icons.Material.Outlined.AdminPanelSettings, PlatformOnly: true),
+            new("nav.operatorLog", "platform/audit", Icons.Material.Outlined.Policy, PlatformOnly: true),
         ]),
     ];
 

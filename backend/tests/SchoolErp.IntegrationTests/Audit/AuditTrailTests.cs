@@ -78,6 +78,9 @@ public sealed class AuditTrailFixture : IAsyncLifetime
         scope.ServiceProvider.GetRequiredService<ITenantContextSetter>().SetTenant(TenantId);
         return scope;
     }
+
+    /// <summary>Scope with NO tenant bound — how a platform operator arrives.</summary>
+    public AsyncServiceScope CreatePlatformScope() => _provider.CreateAsyncScope();
 }
 
 /// <summary>Every successful command leaves a trail; queries never do.</summary>
@@ -144,5 +147,80 @@ public sealed class AuditTrailTests : IClassFixture<AuditTrailFixture>
 
         var search = await sender.Send(new GetAuditTrailQuery(Search: "ForeignSchool"));
         search.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task A_platform_operator_sees_operator_actions_not_every_school_at_once()
+    {
+        await using (var seed = _fixture.CreateScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.AuditEvents.AddRange(
+                new AuditEvent
+                {
+                    TenantId = null, // an operator acting on the platform
+                    UserId = "test-user", // a real operator action always has one
+                    UserName = "Platform Super Admin",
+                    Action = "RecordSmsTopUpCommand",
+                    OccurredAt = DateTimeOffset.UtcNow,
+                },
+                new AuditEvent
+                {
+                    TenantId = _fixture.TenantId,
+                    Action = "SchoolSideCommand",
+                    OccurredAt = DateTimeOffset.UtcNow,
+                },
+                new AuditEvent
+                {
+                    // Anonymous public traffic: no tenant, but nobody did it.
+                    TenantId = null,
+                    UserId = null,
+                    Action = "SubmitPublicEnquiryCommand",
+                    OccurredAt = DateTimeOffset.UtcNow,
+                });
+            await db.SaveChangesAsync();
+        }
+
+        await using var scope = _fixture.CreatePlatformScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        var operatorTrail = await sender.Send(new GetAuditTrailQuery());
+        operatorTrail.Should().Contain(e => e.Action == "RecordSmsTopUpCommand",
+            "operator actions are exactly what this view exists for");
+        operatorTrail.Should().NotContain(e => e.Action == "SchoolSideCommand",
+            "every school's rows at once drowns the operator trail");
+        operatorTrail.Should().NotContain(e => e.Action == "SubmitPublicEnquiryCommand",
+            "anonymous public traffic has no tenant either, but no operator did it");
+
+        // Support still reaches one named school, deliberately.
+        var schoolTrail = await sender.Send(
+            new GetAuditTrailQuery(SchoolId: _fixture.TenantId));
+        schoolTrail.Should().Contain(e => e.Action == "SchoolSideCommand");
+        schoolTrail.Should().OnlyContain(e => e.SchoolName != null,
+            "a platform view labels which school a row came from");
+    }
+
+    [Fact]
+    public async Task A_school_admin_cannot_read_another_school_by_asking_for_it()
+    {
+        var other = Guid.NewGuid();
+        await using (var seed = _fixture.CreateScope())
+        {
+            var db = seed.ServiceProvider.GetRequiredService<AppDbContext>();
+            db.AuditEvents.Add(new AuditEvent
+            {
+                TenantId = other,
+                Action = "SomeoneElsesCommand",
+                OccurredAt = DateTimeOffset.UtcNow,
+            });
+            await db.SaveChangesAsync();
+        }
+
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // SchoolId is ignored for a tenant-bound caller — the tenant decides.
+        var trail = await sender.Send(new GetAuditTrailQuery(SchoolId: other));
+        trail.Should().NotContain(e => e.Action == "SomeoneElsesCommand");
     }
 }

@@ -1,0 +1,104 @@
+@page "/platform/audit"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@inject PlatformClient Client
+@inject TenantsClient TenantsApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Operator log — Akshara</PageTitle>
+
+<AkPageHeader Title="Operator log"
+              Subtitle="What platform staff did to schools: plan changes, SMS top-ups, invoices. Pick a school to read its own trail instead." />
+
+<MudPaper Elevation="2" Class="pa-4 mb-4">
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudTextField @bind-Value="_search" Label="Search action or person"
+                      Immediate="true" DebounceInterval="300" OnDebounceIntervalElapsed="LoadAsync"
+                      Style="min-width: 240px; flex: 0 0 auto;" />
+        <MudSelect T="Guid?" @bind-Value="_schoolId" Label="Scope" Dense="true"
+                   Style="min-width: 220px; flex: 0 0 auto;"
+                   SelectedValuesChanged="@(_ => LoadAsync())">
+            <MudSelectItem T="Guid?" Value="@((Guid?)null)">Operator actions</MudSelectItem>
+            @foreach (var school in _schools)
+            {
+                <MudSelectItem T="Guid?" Value="@school.Id">@school.Name</MudSelectItem>
+            }
+        </MudSelect>
+    </MudStack>
+</MudPaper>
+
+<MudPaper Elevation="2" Class="pa-6">
+    @if (_loading)
+    {
+        <AkTableSkeleton Columns="4" />
+    }
+    else if (_rows.Count == 0)
+    {
+        <AkEmptyState Title="Nothing recorded"
+                      Description="@(_schoolId is null
+                          ? "No operator actions yet."
+                          : "This school has no audit entries in range.")" />
+    }
+    else
+    {
+        <MudTable Items="_rows" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>When</MudTh>
+                <MudTh>Action</MudTh>
+                <MudTh>Who</MudTh>
+                <MudTh>@(_schoolId is null ? "Scope" : "From")</MudTh>
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="When">@context.OccurredAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")</MudTd>
+                <MudTd DataLabel="Action">@context.Action</MudTd>
+                <MudTd DataLabel="Who">@(context.UserName ?? "—")</MudTd>
+                <MudTd DataLabel="Scope">
+                    @* Operator rows have no school; that IS the distinction. *@
+                    @(context.SchoolName ?? "Platform")
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                        @(context.IpAddress ?? "")
+                    </MudText>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private List<AuditEventDto> _rows = [];
+    private List<TenantDto> _schools = [];
+    private string? _search;
+    private Guid? _schoolId;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _schools = (await TenantsApi.GetTenantsAsync(null, null, 1, 100)).Items.ToList();
+        }
+        catch (HttpRequestException)
+        {
+            // The log still works without the school filter.
+        }
+
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _rows = await Client.GetPlatformAuditAsync(_search, _schoolId);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

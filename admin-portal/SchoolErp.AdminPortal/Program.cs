@@ -52,6 +52,7 @@ builder.Services.AddScoped<TransportClient>();
 builder.Services.AddScoped<TimetableClient>();
 builder.Services.AddScoped<StaffClient>();
 builder.Services.AddScoped<AuditClient>();
+builder.Services.AddScoped<PlatformClient>();
 builder.Services.AddScoped<SessionsClient>();
 builder.Services.AddScoped<MfaClient>();
 builder.Services.AddScoped<LibraryClient>();

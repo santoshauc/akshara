@@ -1,0 +1,162 @@
+@page "/platform/operators"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@inject PlatformClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Operators — Akshara</PageTitle>
+
+<AkPageHeader Title="Platform operators"
+              Subtitle="The people who can administer every school. One account each — a shared login leaves nobody accountable." />
+
+<MudPaper Elevation="2" Class="pa-6 mb-4">
+    <MudText Typo="Typo.h6" Class="mb-3">Add an operator</MudText>
+    <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+        <MudTextField @bind-Value="_name" Label="Full name" Style="min-width: 200px;" />
+        <MudTextField @bind-Value="_email" Label="Email" Style="min-width: 240px;" />
+        <MudTextField @bind-Value="_password" Label="Temporary password"
+                      HelperText="At least 12 characters" Style="min-width: 220px;" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                   StartIcon="@Icons.Material.Filled.PersonAdd" OnClick="AddAsync">
+            @(_busy ? "Adding…" : "Add operator")
+        </MudButton>
+    </MudStack>
+</MudPaper>
+
+<MudPaper Elevation="2" Class="pa-6">
+    @if (_loading)
+    {
+        <AkTableSkeleton Columns="5" />
+    }
+    else if (_operators.Count == 0)
+    {
+        <AkEmptyState Title="No operators" Description="Add the first one above." />
+    }
+    else
+    {
+        <MudTable Items="_operators" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Name</MudTh>
+                <MudTh>Email</MudTh>
+                <MudTh>MFA</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh />
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Name">@context.FullName</MudTd>
+                <MudTd DataLabel="Email">@context.Email</MudTd>
+                <MudTd DataLabel="MFA">
+                    @* Not decoration: without MFA this account cannot use any
+                       platform screen, so the state explains their access. *@
+                    @if (context.MfaEnabled)
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Success">On</MudChip>
+                    }
+                    else
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Warning">Not set up</MudChip>
+                    }
+                </MudTd>
+                <MudTd DataLabel="Status">
+                    <AkStatusBadge Label="@(context.IsActive ? "Active" : "Disabled")"
+                                   Tone="@(context.IsActive ? AkStatusBadge.StatusTone.Success : AkStatusBadge.StatusTone.Neutral)" />
+                </MudTd>
+                <MudTd Class="text-right">
+                    <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                               Disabled="@_busy"
+                               OnClick="@(() => ToggleAsync(context))">
+                        @(context.IsActive ? "Disable" : "Enable")
+                    </MudButton>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    private List<PlatformOperatorDto> _operators = [];
+    private string _name = string.Empty;
+    private string _email = string.Empty;
+    private string _password = string.Empty;
+    private bool _busy;
+    private bool _loading = true;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _operators = await Client.GetOperatorsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task AddAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_name) || string.IsNullOrWhiteSpace(_email) ||
+            string.IsNullOrWhiteSpace(_password))
+        {
+            Snackbar.Add("Name, email and a temporary password are all required.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateOperatorAsync(_name.Trim(), _email.Trim(), _password);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(
+                $"{_name.Trim()} added. They must enable MFA before they can act.",
+                Severity.Success);
+            _name = _email = _password = string.Empty;
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task ToggleAsync(PlatformOperatorDto op)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.SetOperatorActiveAsync(op.Id, !op.IsActive);
+            if (error is not null)
+            {
+                // The server refuses self-disable and the last active operator.
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+}

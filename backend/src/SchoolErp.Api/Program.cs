@@ -108,11 +108,17 @@ try
 
     builder.Services.AddAuthorization(options =>
         // Platform endpoints demand a principal with NO tenant claim — school
-        // tokens are refused regardless of what permissions they carry.
+        // tokens are refused regardless of what permissions they carry — AND
+        // one whose owner has MFA on. An operator can edit every school, so
+        // signing in without a second factor buys them nothing but the
+        // Security page on which to enable it.
         options.AddPolicy(PlatformOnlyAttribute.PolicyName, policy => policy
             .RequireAuthenticatedUser()
             .RequireAssertion(context =>
-                context.User.FindFirst(TenantResolutionMiddleware.TenantClaim) is null)));
+                context.User.FindFirst(TenantResolutionMiddleware.TenantClaim) is null &&
+                context.User.FindFirst(
+                    SchoolErp.Infrastructure.Identity.JwtTokenService
+                        .PlatformMfaSetupRequiredClaim) is null)));
     builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
     builder.Services.AddSingleton<IAuthorizationHandler, PermissionAuthorizationHandler>();
 

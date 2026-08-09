@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 61 unit + 149 integration = **210 green** (`dotnet test` from `school-erp/`).
+Test suite: 61 unit + 157 integration = **218 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -824,6 +824,52 @@ HR/payroll (own product).
   `errors`; 404 → one INF line; and a genuine fault (a platform account
   hitting a tenant-scoped query) still logs ERR with the whole stack.
 - Suite: 61 unit + 135 integration green.
+
+## Platform hardening (feature/platform-hardening)
+
+The most powerful account in the system was the least controlled: one shared
+login, MFA optional, and its actions recorded but unreadable. Three fixes.
+
+- **Operator log.** `GET /platform/audit` ([PlatformOnly]). CORRECTION to an
+  earlier note: the events were never mis-stamped — the audit QUERY already
+  handled a tenant-less caller. They became unreadable when the tenant guard
+  started refusing platform accounts at `/audit`. Two changes beyond adding
+  the endpoint:
+  - The old platform default was EVERY school's rows at once. That firehose
+    buries the handful of rows that hold an operator to account, so the
+    default is now operator actions and a school is opt-in via `schoolId`.
+  - "Operator action" means tenant-less AND `UserId != null`. Anonymous public
+    traffic (the website enquiry form) also lands without a tenant and is not
+    something an operator did — spotted in the live log, not in a test.
+  - A school admin passing `schoolId` still gets only their own school.
+- **MFA for operators.** Refusing the sign-in outright would brick an operator
+  who has not enrolled — including the first one, who has nowhere to enrol
+  from. So an un-enrolled platform account still signs in, its token carries
+  `platform_mfa_setup_required`, and the `platform-only` POLICY refuses on that
+  claim. They get the Security page and nothing else. Verified with real TOTP
+  codes: before enrolling, /platform/*, /tenants and /billing all 403 while
+  /auth/mfa and /auth/sessions stay 200; after enrolling, all 200.
+- **Operator accounts.** `IPlatformOperatorService` — deliberately NOT part of
+  the tenant-scoped user service, since everything here is `TenantId == null`
+  and sharing that code is how an operator eventually appears in a school's
+  staff list. Create (12-char minimum temp password), enable/disable with
+  session revocation, password reset. Refuses to disable yourself, and refuses
+  to disable the last active operator.
+- Portal: `/platform/operators` and `/platform/audit` pages, plus a banner
+  explaining the 403s to an un-enrolled operator.
+- NAV CHANGE: platform accounts were shown Academics, Students, Fees and the
+  rest, all of which now answer "Select a school first". Those items are
+  `SchoolOnly` now, so an operator sees Dashboard, Schools, Operators and
+  Operator log.
+- GOTCHA: unknown Blazor component PARAMETERS are a runtime failure, not a
+  build error — `AkPageHeader.Description` (the real one is `Subtitle`) built
+  clean and blew up as an ErrorBoundary in the browser. Component APIs must be
+  checked, not guessed.
+- 9 integration tests (platform vs school audit scoping, the anonymous-row
+  exclusion, MFA claim present/absent, operator create/duplicate/disable/
+  last-operator). Suite: 61 unit + 157 integration green.
+- STILL OPEN: no scoped impersonation for support (an operator cannot see a
+  school's data at all), and no cross-school platform overview.
 
 ## Login without a school code (feature/login-without-school-code)
 
