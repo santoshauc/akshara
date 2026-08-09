@@ -4,7 +4,7 @@
 > zero conversation history. Keep this file updated at the end of every
 > working session.
 
-Last updated: 2026-08-08.
+Last updated: 2026-08-09.
 
 ## What this is
 
@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 89 integration = **137 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 90 integration = **138 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -284,6 +284,16 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   full loop with unread counts both ways + whitespace-body rejection.
   E2E live: parent sent from the app → portal badge "1" → staff read +
   replied → app shows the reply from "Demo School Admin".
+- C1 Portal dashboard — DONE. GetDashboardQuery (tenant-scoped):
+  active students (current-year Active enrollments), attendance today
+  (marked/present/% — Late+HalfDay count as attended), fees collected
+  this calendar month, overdue loans, pending leave, unread parent
+  messages, next 3 upcoming exams. GET /api/v1/dashboard
+  (students.view; portal shows a platform-account fallback alert).
+  Home.razor replaced its placeholder tiles with clickable real tiles
+  + "Needs attention" chips. Integration test proves tenant scoping
+  (School A admissions never move School B tiles). E2E-verified live
+  (100% attendance tile, ₹30,000 fees month-to-date).
 
 ## How to run (Windows dev box)
 

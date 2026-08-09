@@ -1,33 +1,149 @@
 @page "/"
 @attribute [Authorize]
+@inject DashboardClient Client
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
 
 <PageTitle>Dashboard — SchoolErp</PageTitle>
 
 <MudText Typo="Typo.h4" Class="mb-6">Dashboard</MudText>
 
-<MudGrid>
-    <MudItem xs="12" sm="6" md="3">
-        <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
-            <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
-            <div>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Schools</MudText>
-                <MudText Typo="Typo.h5">—</MudText>
-            </div>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12" sm="6" md="3">
-        <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
-            <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Secondary" Size="Size.Large" />
-            <div>
-                <MudText Typo="Typo.body2" Class="mud-text-secondary">Students</MudText>
-                <MudText Typo="Typo.h5">—</MudText>
-            </div>
-        </MudPaper>
-    </MudItem>
-    <MudItem xs="12">
-        <MudAlert Severity="Severity.Info">
-            Platform analytics land here as modules come online. Start with
-            <MudLink Href="tenants">Schools</MudLink> to onboard a school.
-        </MudAlert>
-    </MudItem>
-</MudGrid>
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_data is { } data)
+{
+    <MudGrid>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4" Style="cursor:pointer;"
+                      @onclick="@(() => Navigation.NavigateTo("attendance"))">
+                <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Success" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Attendance today</MudText>
+                    <MudText Typo="Typo.h5">
+                        @(data.AttendanceMarkedToday == 0
+                            ? "Not marked"
+                            : $"{data.AttendanceTodayPercent:0.#}%")
+                    </MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @(data.AttendanceMarkedToday == 0
+                            ? $"{data.ActiveStudents} active students"
+                            : $"{data.PresentToday} of {data.AttendanceMarkedToday} marked present")
+                    </MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4" Style="cursor:pointer;"
+                      @onclick="@(() => Navigation.NavigateTo("fees"))">
+                <MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" Color="Color.Primary" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Fees collected this month</MudText>
+                    <MudText Typo="Typo.h5">₹@data.FeesCollectedThisMonth.ToString("N0")</MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4" Style="cursor:pointer;"
+                      @onclick="@(() => Navigation.NavigateTo("library"))">
+                <MudIcon Icon="@Icons.Material.Filled.MenuBook"
+                         Color="@(data.OverdueLoans > 0 ? Color.Error : Color.Default)" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Overdue library books</MudText>
+                    <MudText Typo="Typo.h5">@data.OverdueLoans</MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
+                <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Secondary" Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Active students</MudText>
+                    <MudText Typo="Typo.h5">@data.ActiveStudents</MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-3">Upcoming exams</MudText>
+                @if (data.UpcomingExams.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary">Nothing scheduled ahead.</MudText>
+                }
+                @foreach (var exam in data.UpcomingExams)
+                {
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
+                        <MudIcon Icon="@Icons.Material.Filled.Event" Size="Size.Small"
+                                 Class="mud-text-secondary" />
+                        <MudText>@exam.Name</MudText>
+                        <MudSpacer />
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            @exam.StartDate.ToString("dd MMM yyyy")
+                        </MudText>
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-3">Needs attention</MudText>
+                <MudStack Spacing="2">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
+                              @onclick="@(() => Navigation.NavigateTo("leave"))">
+                        <MudChip Size="Size.Small"
+                                 Color="@(data.PendingLeaveRequests > 0 ? Color.Warning : Color.Default)">
+                            @data.PendingLeaveRequests
+                        </MudChip>
+                        <MudText>Pending leave requests</MudText>
+                    </MudStack>
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
+                              @onclick="@(() => Navigation.NavigateTo("messages"))">
+                        <MudChip Size="Size.Small"
+                                 Color="@(data.UnreadParentMessages > 0 ? Color.Error : Color.Default)">
+                            @data.UnreadParentMessages
+                        </MudChip>
+                        <MudText>Unread parent messages</MudText>
+                    </MudStack>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">
+        Sign in with a school account to see the dashboard. Platform (Super Admin)
+        accounts manage <MudLink Href="tenants">Schools</MudLink> instead.
+    </MudAlert>
+}
+
+@code {
+    private DashboardDto? _data;
+    private bool _loading = true;
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _data = await Client.GetAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        catch
+        {
+            // 403 for platform accounts — the info alert covers it.
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

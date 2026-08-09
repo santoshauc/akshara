@@ -89,3 +89,18 @@ public sealed record MessageThreadDto(
     string LastMessage,
     DateTimeOffset LastMessageAt,
     int UnreadForStaff);
+
+/// <summary>Upcoming exam tile line (mirrors UpcomingExamDto).</summary>
+public sealed record UpcomingExamDto(string Name, DateOnly StartDate);
+
+/// <summary>Dashboard numbers (mirrors DashboardDto).</summary>
+public sealed record DashboardDto(
+    int ActiveStudents,
+    int AttendanceMarkedToday,
+    int PresentToday,
+    decimal AttendanceTodayPercent,
+    decimal FeesCollectedThisMonth,
+    int OverdueLoans,
+    int PendingLeaveRequests,
+    int UnreadParentMessages,
+    List<UpcomingExamDto> UpcomingExams);

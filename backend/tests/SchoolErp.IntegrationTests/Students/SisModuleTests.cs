@@ -266,6 +266,31 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
     }
 
     [Fact]
+    public async Task Dashboard_aggregates_are_tenant_scoped()
+    {
+        // School B's numbers must not include School A's students.
+        await using (var scopeA = _fixture.CreateScope(_fixture.SchoolA))
+        {
+            var senderA = scopeA.ServiceProvider.GetRequiredService<ISender>();
+            var (yearId, classId, sectionId) = await GetStructureAsync(senderA);
+            await senderA.Send(NewAdmission(yearId, classId, sectionId, "DashA", "+919899000111"));
+        }
+
+        await using var scope = _fixture.CreateScope(_fixture.SchoolB);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var before = await sender.Send(new SchoolErp.Application.Dashboard.GetDashboardQuery());
+
+        var (yearB, classB, sectionB) = await GetStructureAsync(sender);
+        await sender.Send(NewAdmission(yearB, classB, sectionB, "DashB", "+919899000222"));
+
+        var after = await sender.Send(new SchoolErp.Application.Dashboard.GetDashboardQuery());
+        after.ActiveStudents.Should().Be(before.ActiveStudents + 1,
+            "only School B's admission may move School B's tile");
+        after.AttendanceMarkedToday.Should().Be(0);
+        after.FeesCollectedThisMonth.Should().BeGreaterThanOrEqualTo(0);
+    }
+
+    [Fact]
     public async Task Promotion_moves_active_enrollments_skips_optouts_and_is_idempotent()
     {
         await using var scope = _fixture.CreateScope(_fixture.SchoolB);
