@@ -20,6 +20,8 @@ public interface IPushSender
 /// row per registered device of that phone number. Runs inside the caller's
 /// tenant scope and transaction — same guarantees as the outbox itself.
 /// </summary>
+[System.Diagnostics.CodeAnalysis.SuppressMessage("Naming", "CA1711:Identifiers should not have incorrect suffix",
+    Justification = "It genuinely enqueues: every call appends outbox queue rows.")]
 public static class NotificationQueue
 {
     public static async Task QueueGuardianAsync(

@@ -49,9 +49,9 @@ public sealed class GetSubstitutionPlanQueryHandler
     public GetSubstitutionPlanQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<SubstitutionSlotDto>> Handle(
-        GetSubstitutionPlanQuery request, CancellationToken ct)
+        GetSubstitutionPlanQuery request, CancellationToken cancellationToken)
     {
-        if (!await _db.Teachers.AnyAsync(t => t.Id == request.TeacherId, ct)
+        if (!await _db.Teachers.AnyAsync(t => t.Id == request.TeacherId, cancellationToken)
                 .ConfigureAwait(false))
         {
             throw new NotFoundException("Teacher", request.TeacherId);
@@ -78,7 +78,7 @@ public sealed class GetSubstitutionPlanQueryHandler
                     : _db.Sections.Where(s => s.Id == t.SectionId)
                         .Select(s => s.Name).First(),
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         if (absentSlots.Count == 0)
         {
             return [];
@@ -90,7 +90,7 @@ public sealed class GetSubstitutionPlanQueryHandler
             .Where(t => t.DayOfWeek == day && t.IsPublished && t.TeacherId != null &&
                         t.TeacherId != request.TeacherId)
             .Select(t => new { TeacherId = t.TeacherId!.Value, t.StartTime, t.EndTime })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         var covering = await _db.TimetableSubstitutions.AsNoTracking()
             .Where(s => s.Date == request.Date)
             .Select(s => new
@@ -100,13 +100,13 @@ public sealed class GetSubstitutionPlanQueryHandler
                 s.TimetableEntry.EndTime,
                 s.TimetableEntryId,
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var candidates = await _db.Teachers.AsNoTracking()
             .Where(t => t.IsActive && t.Id != request.TeacherId)
             .OrderBy(t => t.FullName)
             .Select(t => new FreeTeacherDto(t.Id, t.FullName))
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var existingCovers = covering.ToDictionary(c => c.TimetableEntryId, c => c.TeacherId);
 
@@ -159,21 +159,21 @@ public sealed class ApplySubstitutionsCommandHandler
 
     public ApplySubstitutionsCommandHandler(IApplicationDbContext db) => _db = db;
 
-    public async Task<int> Handle(ApplySubstitutionsCommand request, CancellationToken ct)
+    public async Task<int> Handle(ApplySubstitutionsCommand request, CancellationToken cancellationToken)
     {
         var entryIds = request.Items.Select(i => i.TimetableEntryId).ToList();
         var entries = await _db.TimetableEntries
             .Where(t => entryIds.Contains(t.Id))
-            .ToDictionaryAsync(t => t.Id, ct).ConfigureAwait(false);
+            .ToDictionaryAsync(t => t.Id, cancellationToken).ConfigureAwait(false);
         var teacherIds = request.Items.Select(i => i.SubstituteTeacherId).Distinct().ToList();
         var activeTeachers = await _db.Teachers
             .Where(t => teacherIds.Contains(t.Id) && t.IsActive)
             .Select(t => t.Id)
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var existing = await _db.TimetableSubstitutions
             .Where(s => s.Date == request.Date && entryIds.Contains(s.TimetableEntryId))
-            .ToDictionaryAsync(s => s.TimetableEntryId, ct).ConfigureAwait(false);
+            .ToDictionaryAsync(s => s.TimetableEntryId, cancellationToken).ConfigureAwait(false);
 
         foreach (var item in request.Items)
         {
@@ -210,7 +210,7 @@ public sealed class ApplySubstitutionsCommandHandler
             }
         }
 
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
         return request.Items.Count;
     }
 }
@@ -228,7 +228,7 @@ public sealed class GetSubstitutionsQueryHandler
     public GetSubstitutionsQueryHandler(IApplicationDbContext db) => _db = db;
 
     public async Task<IReadOnlyList<SubstitutionDto>> Handle(
-        GetSubstitutionsQuery request, CancellationToken ct) =>
+        GetSubstitutionsQuery request, CancellationToken cancellationToken) =>
         await _db.TimetableSubstitutions.AsNoTracking()
             .Where(s => s.Date == request.Date)
             .OrderBy(s => s.TimetableEntry!.Period)
@@ -243,5 +243,5 @@ public sealed class GetSubstitutionsQueryHandler
                 _db.Teachers.Where(t => t.Id == s.AbsentTeacherId)
                     .Select(t => t.FullName).FirstOrDefault() ?? "—",
                 s.SubstituteTeacher!.FullName))
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 }

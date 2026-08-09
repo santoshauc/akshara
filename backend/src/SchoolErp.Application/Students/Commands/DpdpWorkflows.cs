@@ -32,10 +32,10 @@ public sealed class ExportStudentDataQueryHandler : IRequestHandler<ExportStuden
         _clock = clock;
     }
 
-    public async Task<byte[]> Handle(ExportStudentDataQuery request, CancellationToken ct)
+    public async Task<byte[]> Handle(ExportStudentDataQuery request, CancellationToken cancellationToken)
     {
         var student = await _db.Students.AsNoTracking()
-            .FirstOrDefaultAsync(s => s.Id == request.StudentId, ct)
+            .FirstOrDefaultAsync(s => s.Id == request.StudentId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Student), request.StudentId);
 
@@ -50,7 +50,7 @@ public sealed class ExportStudentDataQueryHandler : IRequestHandler<ExportStuden
                 Relation = g.Guardian.Relation.ToString(),
                 g.IsPrimary,
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var enrollments = await _db.Enrollments.AsNoTracking()
             .Where(e => e.StudentId == request.StudentId)
@@ -62,13 +62,13 @@ public sealed class ExportStudentDataQueryHandler : IRequestHandler<ExportStuden
                 e.RollNumber,
                 Status = e.Status.ToString(),
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var attendance = await _db.AttendanceRecords.AsNoTracking()
             .Where(a => a.StudentId == request.StudentId)
             .OrderBy(a => a.Date)
             .Select(a => new { a.Date, a.Period, Status = a.Status.ToString(), a.Remarks })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var payments = await _db.FeePayments.AsNoTracking()
             .Where(p => p.StudentId == request.StudentId)
@@ -77,17 +77,17 @@ public sealed class ExportStudentDataQueryHandler : IRequestHandler<ExportStuden
                 p.ReceiptNumber, p.Amount, p.PaidOn,
                 Mode = p.Mode.ToString(), p.Reference,
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var concessions = await _db.FeeConcessions.AsNoTracking()
             .Where(c => c.StudentId == request.StudentId)
             .Select(c => new { c.Amount, c.Reason })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var loans = await _db.BookLoans.AsNoTracking()
             .Where(l => l.StudentId == request.StudentId)
             .Select(l => new { l.Book!.Title, l.IssuedOn, l.DueOn, l.ReturnedOn })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var leaves = await _db.LeaveRequests.AsNoTracking()
             .Where(l => l.StudentId == request.StudentId)
@@ -96,13 +96,13 @@ public sealed class ExportStudentDataQueryHandler : IRequestHandler<ExportStuden
                 l.FromDate, l.ToDate, l.Reason,
                 Status = l.Status.ToString(), l.DecisionNote,
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var messages = await _db.StudentMessages.AsNoTracking()
             .Where(m => m.StudentId == request.StudentId)
             .OrderBy(m => m.CreatedAt)
             .Select(m => new { m.SentByStaff, m.SenderName, m.Body, SentAt = m.CreatedAt })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var export = new
         {
@@ -167,10 +167,10 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
         _fileStorage = fileStorage;
     }
 
-    public async Task Handle(EraseStudentDataCommand request, CancellationToken ct)
+    public async Task Handle(EraseStudentDataCommand request, CancellationToken cancellationToken)
     {
         var student = await _db.Students
-            .FirstOrDefaultAsync(s => s.Id == request.StudentId, ct)
+            .FirstOrDefaultAsync(s => s.Id == request.StudentId, cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Student), request.StudentId);
 
@@ -179,7 +179,7 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
         if (student.PhotoUrl is { } photoUrl &&
             photoUrl.StartsWith(filePrefix, StringComparison.Ordinal))
         {
-            await _fileStorage.DeleteAsync(photoUrl[filePrefix.Length..], ct)
+            await _fileStorage.DeleteAsync(photoUrl[filePrefix.Length..], cancellationToken)
                 .ConfigureAwait(false);
         }
 
@@ -202,12 +202,12 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
         var guardianIds = await _db.StudentGuardians
             .Where(g => g.StudentId == request.StudentId)
             .Select(g => g.GuardianId)
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         foreach (var guardianId in guardianIds)
         {
             var hasOtherChildren = await _db.StudentGuardians
                 .AnyAsync(g => g.GuardianId == guardianId &&
-                               g.StudentId != request.StudentId, ct)
+                               g.StudentId != request.StudentId, cancellationToken)
                 .ConfigureAwait(false);
             if (hasOtherChildren)
             {
@@ -215,7 +215,7 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
             }
 
             var guardian = await _db.Guardians
-                .FirstOrDefaultAsync(g => g.Id == guardianId, ct)
+                .FirstOrDefaultAsync(g => g.Id == guardianId, cancellationToken)
                 .ConfigureAwait(false);
             if (guardian is null)
             {
@@ -225,7 +225,7 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
             // Push tokens registered against the guardian's phone die with it.
             var tokens = await _db.PushTokens
                 .Where(t => t.Phone == guardian.Phone)
-                .ToListAsync(ct).ConfigureAwait(false);
+                .ToListAsync(cancellationToken).ConfigureAwait(false);
             foreach (var token in tokens)
             {
                 _db.PushTokens.Remove(token);
@@ -242,7 +242,7 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
         // Free-text that carries personal context gets redacted in place.
         var messages = await _db.StudentMessages
             .Where(m => m.StudentId == request.StudentId)
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         foreach (var message in messages)
         {
             message.Body = "[erased]";
@@ -251,13 +251,13 @@ public sealed class EraseStudentDataCommandHandler : IRequestHandler<EraseStuden
 
         var leaves = await _db.LeaveRequests
             .Where(l => l.StudentId == request.StudentId)
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
         foreach (var leave in leaves)
         {
             leave.Reason = "[erased]";
             leave.DecisionNote = null;
         }
 
-        await _db.SaveChangesAsync(ct).ConfigureAwait(false);
+        await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }
 }

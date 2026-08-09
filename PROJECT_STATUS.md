@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 96 integration = **144 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 97 integration = **145 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -390,6 +390,25 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   guards; dashboard tile deltas). E2E live: Sanvi Verma enquiry —
   registered, follow-up due highlight, Contacted, converted to
   ADM-2026-0004, dashboard tiles show counts.
+- D3 Management insights — DONE. Permission insights.view (backfilled;
+  SchoolAdmin only — the teacher bundle doesn't include it).
+  GET insights/management (GetManagementInsightsQuery): 30-day daily
+  roll-call % trend, 6-month fee series (quiet months zero-filled) +
+  outstanding (base fees: structure − concessions − payments, floored
+  per student; late fines excluded, captioned as such), per-class
+  attendance % this month, per-published-exam average % (current
+  year), enquiry funnel, substitutions count this month. Portal
+  "Insights" page: MudChart line (trend), bars (fees, class
+  attendance, exam averages), donut (funnel), substitutions tile —
+  each with a plain-language caption ("Collections up X% vs last
+  month", best/lowest class) and a friendly empty state. Integration
+  test seeds attendance + fees + published exam + enquiries and
+  asserts every series. E2E live: all six panels render with demo
+  data (100% trend, ₹30,000 collected / ₹85,000 outstanding, Grade 5
+  60%, Mid-Term 1 average, 50% funnel conversion donut, 2 subs).
+  Also: cleared pre-existing CA1725/CA1862/CA1711 analyzer warnings
+  (full-rebuild-only) — builds are zero-warning again apart from the
+  accepted OTel NU1902 advisory.
 
 ## How to run (Windows dev box)
 

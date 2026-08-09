@@ -1,0 +1,266 @@
+@page "/insights"
+@attribute [Authorize]
+@inject InsightsClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Insights — SchoolErp</PageTitle>
+
+<MudText Typo="Typo.h4" Class="mb-2">Insights</MudText>
+<MudText Typo="Typo.body2" Class="mud-text-secondary mb-6">
+    How the school is doing — attendance, collections, results and admissions,
+    all for your school only.
+</MudText>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_data is { } data)
+{
+    <MudGrid>
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6">Attendance — last 30 days</MudText>
+                @if (data.AttendanceTrend.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary mt-4">
+                        No roll-call marked in the last 30 days yet.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        @AttendanceCaption(data)
+                    </MudText>
+                    <MudChart ChartType="ChartType.Line" ChartSeries="@_attendanceSeries"
+                              XAxisLabels="@_attendanceLabels" Width="100%" Height="280px"
+                              ChartOptions="@_percentAxis" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudStack Row="true" AlignItems="AlignItems.Center">
+                    <MudText Typo="Typo.h6">Fee collections — last 6 months</MudText>
+                    <MudSpacer />
+                    <MudChip Size="Size.Small"
+                             Color="@(data.FeesOutstanding > 0 ? Color.Warning : Color.Success)">
+                        ₹@data.FeesOutstanding.ToString("N0") outstanding
+                    </MudChip>
+                </MudStack>
+                @if (data.FeeSeries.All(p => p.Collected == 0))
+                {
+                    <MudText Class="mud-text-secondary mt-4">
+                        No fee payments recorded in the last 6 months yet.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        @FeeCaption(data)
+                    </MudText>
+                    <MudChart ChartType="ChartType.Bar" ChartSeries="@_feeSeries"
+                              XAxisLabels="@_feeLabels" Width="100%" Height="280px" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Outstanding is base fees for the current year (structure −
+                        concessions − payments); late fines are added at collection.
+                    </MudText>
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6">Attendance by class — this month</MudText>
+                @if (data.ClassAttendance.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary mt-4">
+                        No roll-call marked this month yet.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        @ClassCaption(data)
+                    </MudText>
+                    <MudChart ChartType="ChartType.Bar" ChartSeries="@_classSeries"
+                              XAxisLabels="@_classLabels" Width="100%" Height="280px"
+                              ChartOptions="@_percentAxis" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6">Exam averages — current year (published)</MudText>
+                @if (data.ExamAverages.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary mt-4">
+                        No published exam results this year yet.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        Average marks achieved across every paper of each published exam.
+                    </MudText>
+                    <MudChart ChartType="ChartType.Bar" ChartSeries="@_examSeries"
+                              XAxisLabels="@_examLabels" Width="100%" Height="280px"
+                              ChartOptions="@_percentAxis" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6">Admissions funnel</MudText>
+                @if (FunnelTotal(data) == 0)
+                {
+                    <MudText Class="mud-text-secondary mt-4">
+                        No enquiries yet — register them on the
+                        <MudLink Href="admissions">Admissions</MudLink> page.
+                    </MudText>
+                }
+                else
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
+                        @FunnelCaption(data)
+                    </MudText>
+                    <MudChart ChartType="ChartType.Donut" InputData="@_funnelData"
+                              InputLabels="@_funnelLabels" Width="260px" Height="260px" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
+                <MudIcon Icon="@Icons.Material.Filled.SwapHoriz" Color="Color.Secondary"
+                         Size="Size.Large" />
+                <div>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        Substitutions arranged this month
+                    </MudText>
+                    <MudText Typo="Typo.h5">@data.SubstitutionsThisMonth</MudText>
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Covers arranged for absent teachers — a rough signal of
+                        staffing pressure.
+                    </MudText>
+                </div>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">
+        Insights are available to school administrator accounts.
+    </MudAlert>
+}
+
+@code {
+    private ManagementInsightsDto? _data;
+    private bool _loading = true;
+
+    private List<ChartSeries> _attendanceSeries = [];
+    private string[] _attendanceLabels = [];
+    private List<ChartSeries> _feeSeries = [];
+    private string[] _feeLabels = [];
+    private List<ChartSeries> _classSeries = [];
+    private string[] _classLabels = [];
+    private List<ChartSeries> _examSeries = [];
+    private string[] _examLabels = [];
+    private double[] _funnelData = [];
+    private string[] _funnelLabels = [];
+
+    private readonly ChartOptions _percentAxis = new() { YAxisTicks = 20, MaxNumYAxisTicks = 6 };
+
+    protected override async Task OnInitializedAsync()
+    {
+        try
+        {
+            _data = await Client.GetManagementAsync();
+            if (_data is { } data)
+            {
+                BuildSeries(data);
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildSeries(ManagementInsightsDto data)
+    {
+        _attendanceSeries =
+            [new ChartSeries { Name = "Attendance %", Data = data.AttendanceTrend.Select(p => (double)p.Percent).ToArray() }];
+        // Every label on a 30-point axis collides — keep every 5th.
+        _attendanceLabels = data.AttendanceTrend
+            .Select((p, i) => i % 5 == 0 ? p.Date.ToString("dd MMM") : "")
+            .ToArray();
+
+        _feeSeries =
+            [new ChartSeries { Name = "Collected (₹)", Data = data.FeeSeries.Select(p => (double)p.Collected).ToArray() }];
+        _feeLabels = data.FeeSeries.Select(p => p.Month).ToArray();
+
+        _classSeries =
+            [new ChartSeries { Name = "Attendance %", Data = data.ClassAttendance.Select(c => (double)c.Percent).ToArray() }];
+        _classLabels = data.ClassAttendance.Select(c => c.ClassName).ToArray();
+
+        _examSeries =
+            [new ChartSeries { Name = "Average %", Data = data.ExamAverages.Select(e => (double)e.AveragePercent).ToArray() }];
+        _examLabels = data.ExamAverages.Select(e => e.ExamName).ToArray();
+
+        _funnelData =
+        [
+            data.EnquiryFunnel.New, data.EnquiryFunnel.Contacted, data.EnquiryFunnel.Visit,
+            data.EnquiryFunnel.Admitted, data.EnquiryFunnel.Lost,
+        ];
+        _funnelLabels = ["New", "Contacted", "Visit", "Admitted", "Lost"];
+    }
+
+    private static string AttendanceCaption(ManagementInsightsDto data)
+    {
+        var average = data.AttendanceTrend.Average(p => p.Percent);
+        return $"Average attendance {average:0.#}% across {data.AttendanceTrend.Count} marked day(s).";
+    }
+
+    private static string FeeCaption(ManagementInsightsDto data)
+    {
+        var current = data.FeeSeries[^1].Collected;
+        var previous = data.FeeSeries[^2].Collected;
+        if (previous == 0)
+        {
+            return $"₹{current:N0} collected this month.";
+        }
+
+        var change = Math.Round((current - previous) * 100m / previous, 0);
+        var direction = change >= 0 ? "up" : "down";
+        return $"Collections {direction} {Math.Abs(change):0}% vs last month (₹{current:N0} so far).";
+    }
+
+    private static string ClassCaption(ManagementInsightsDto data)
+    {
+        var best = data.ClassAttendance.MaxBy(c => c.Percent)!;
+        var lowest = data.ClassAttendance.MinBy(c => c.Percent)!;
+        return best.ClassName == lowest.ClassName
+            ? $"{best.ClassName} at {best.Percent:0.#}%."
+            : $"Best: {best.ClassName} ({best.Percent:0.#}%) · needs attention: {lowest.ClassName} ({lowest.Percent:0.#}%).";
+    }
+
+    private static int FunnelTotal(ManagementInsightsDto data) =>
+        data.EnquiryFunnel.New + data.EnquiryFunnel.Contacted + data.EnquiryFunnel.Visit +
+        data.EnquiryFunnel.Admitted + data.EnquiryFunnel.Lost;
+
+    private static string FunnelCaption(ManagementInsightsDto data)
+    {
+        var total = FunnelTotal(data);
+        var rate = Math.Round(data.EnquiryFunnel.Admitted * 100m / total, 0);
+        return $"{total} enquiries so far — {data.EnquiryFunnel.Admitted} admitted ({rate:0}% conversion).";
+    }
+}

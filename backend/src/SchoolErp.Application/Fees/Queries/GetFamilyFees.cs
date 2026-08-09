@@ -47,14 +47,14 @@ public sealed class GetParentFamilyFeesQueryHandler
     }
 
     public async Task<FamilyFeeSummaryDto> Handle(
-        GetParentFamilyFeesQuery request, CancellationToken ct)
+        GetParentFamilyFeesQuery request, CancellationToken cancellationToken)
     {
         var childIds = (await _access
-                .GetChildIdsAsync(request.UserId, request.UserPhone, ct)
+                .GetChildIdsAsync(request.UserId, request.UserPhone, cancellationToken)
                 .ConfigureAwait(false))
             .Distinct()
             .ToList();
-        return await FamilyFees.ComposeAsync(_db, _sender, childIds, ct)
+        return await FamilyFees.ComposeAsync(_db, _sender, childIds, cancellationToken)
             .ConfigureAwait(false);
     }
 }
@@ -80,9 +80,9 @@ public sealed class GetStudentFamilyFeesQueryHandler
     }
 
     public async Task<FamilyFeeSummaryDto> Handle(
-        GetStudentFamilyFeesQuery request, CancellationToken ct)
+        GetStudentFamilyFeesQuery request, CancellationToken cancellationToken)
     {
-        if (!await _db.Students.AnyAsync(s => s.Id == request.StudentId, ct)
+        if (!await _db.Students.AnyAsync(s => s.Id == request.StudentId, cancellationToken)
                 .ConfigureAwait(false))
         {
             throw new NotFoundException(nameof(Student), request.StudentId);
@@ -91,15 +91,15 @@ public sealed class GetStudentFamilyFeesQueryHandler
         var guardianIds = await _db.StudentGuardians.AsNoTracking()
             .Where(g => g.StudentId == request.StudentId)
             .Select(g => g.GuardianId)
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var familyIds = await _db.StudentGuardians.AsNoTracking()
             .Where(g => guardianIds.Contains(g.GuardianId))
             .Select(g => g.StudentId)
             .Distinct()
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
-        return await FamilyFees.ComposeAsync(_db, _sender, familyIds, ct)
+        return await FamilyFees.ComposeAsync(_db, _sender, familyIds, cancellationToken)
             .ConfigureAwait(false);
     }
 }
@@ -109,12 +109,12 @@ internal static class FamilyFees
 {
     public static async Task<FamilyFeeSummaryDto> ComposeAsync(
         IApplicationDbContext db, ISender sender, IReadOnlyList<Guid> childIds,
-        CancellationToken ct)
+        CancellationToken cancellationToken)
     {
         var currentYearId = await db.AcademicYears.AsNoTracking()
             .Where(y => y.IsCurrent)
             .Select(y => (Guid?)y.Id)
-            .FirstOrDefaultAsync(ct).ConfigureAwait(false);
+            .FirstOrDefaultAsync(cancellationToken).ConfigureAwait(false);
         if (currentYearId is not { } yearId || childIds.Count == 0)
         {
             return new FamilyFeeSummaryDto([], 0);
@@ -134,7 +134,7 @@ internal static class FamilyFees
                         (e.Section != null ? e.Section.Name : ""))
                     .FirstOrDefault(),
             })
-            .ToListAsync(ct).ConfigureAwait(false);
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
 
         var lines = new List<FamilyChildFeeDto>();
         foreach (var child in children)
@@ -145,7 +145,7 @@ internal static class FamilyFees
             }
 
             var summary = await sender
-                .Send(new GetStudentFeeSummaryQuery(child.Id, yearId), ct)
+                .Send(new GetStudentFeeSummaryQuery(child.Id, yearId), cancellationToken)
                 .ConfigureAwait(false);
             lines.Add(new FamilyChildFeeDto(
                 child.Id,

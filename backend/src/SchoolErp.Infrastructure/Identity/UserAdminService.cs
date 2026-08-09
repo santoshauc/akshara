@@ -77,8 +77,9 @@ public sealed class UserAdminService : IUserAdminService
         email = string.IsNullOrWhiteSpace(email) ? null : email.Trim();
         phone = string.IsNullOrWhiteSpace(phone) ? null : phone.Trim();
 
-        if (email is not null && await _db.Users.AnyAsync(
-                u => u.TenantId == TenantId && u.NormalizedEmail == email.ToUpperInvariant(), ct)
+        var normalizedEmail = email?.ToUpperInvariant();
+        if (normalizedEmail is not null && await _db.Users.AnyAsync(
+                u => u.TenantId == TenantId && u.NormalizedEmail == normalizedEmail, ct)
             .ConfigureAwait(false))
         {
             throw new ConflictException($"A user with email '{email}' already exists.");
@@ -196,8 +197,9 @@ public sealed class UserAdminService : IUserAdminService
         CancellationToken ct = default)
     {
         var trimmed = name.Trim();
+        var normalizedName = trimmed.ToUpperInvariant();
         if (await _db.Roles.AnyAsync(
-                r => r.TenantId == TenantId && r.NormalizedName == trimmed.ToUpperInvariant(), ct)
+                r => r.TenantId == TenantId && r.NormalizedName == normalizedName, ct)
             .ConfigureAwait(false))
         {
             throw new ConflictException($"Role '{trimmed}' already exists.");

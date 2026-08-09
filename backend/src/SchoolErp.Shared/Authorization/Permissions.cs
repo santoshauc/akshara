@@ -116,6 +116,11 @@ public static class Permissions
         public const string Manage = "admissions.manage";
     }
 
+    public static class Insights
+    {
+        public const string View = "insights.view";
+    }
+
     /// <summary>Every permission constant, discovered once via reflection.</summary>
     public static IReadOnlyList<string> All { get; } = typeof(Permissions)
         .GetNestedTypes(BindingFlags.Public | BindingFlags.Static)
