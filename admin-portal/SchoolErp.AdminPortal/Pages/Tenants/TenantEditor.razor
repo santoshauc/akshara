@@ -130,6 +130,14 @@ else
                 <MudItem xs="12" sm="2">
                     <MudNumericField @bind-Value="_smsCredits" Label="SMS credits" Min="0" />
                 </MudItem>
+                <MudItem xs="12">
+                    <MudSwitch @bind-Checked="_whatsAppEnabled" Color="Color.Success"
+                               Label="Send parent notices on WhatsApp" />
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        Delivers via the WhatsApp Business API and skips SMS credits;
+                        if a send fails the message falls back to SMS automatically.
+                    </MudText>
+                </MudItem>
             }
             <MudItem xs="12">
                 <MudText Typo="Typo.body2" Class="mb-2 mud-text-secondary">Enabled modules</MudText>
@@ -194,6 +202,7 @@ else
     private string _language = "en";
     private int _storageLimitMb = 5120;
     private int _smsCredits;
+    private bool _whatsAppEnabled;
     private string? _primaryColor;
     private DateTime? _subscriptionExpires;
     private string? _secondaryColor;
@@ -259,6 +268,7 @@ else
                 _language = t.DefaultLanguage;
                 _storageLimitMb = t.StorageLimitMb;
                 _smsCredits = t.SmsCredits;
+                _whatsAppEnabled = t.WhatsAppEnabled;
                 _primaryColor = t.ThemePrimaryColor;
                 _subscriptionExpires = t.SubscriptionExpiresOn?.ToDateTime(TimeOnly.MinValue);
                 _secondaryColor = t.ThemeSecondaryColor;
@@ -316,7 +326,7 @@ else
                     _plan,
                     _subscriptionExpires is { } exp ? DateOnly.FromDateTime(exp) : null,
                     _modules | TenantModules.Core,
-                    _storageLimitMb, _smsCredits, "Asia/Kolkata", _language));
+                    _storageLimitMb, _smsCredits, _whatsAppEnabled, "Asia/Kolkata", _language));
                 _error = error;
                 if (updated is not null)
                 {

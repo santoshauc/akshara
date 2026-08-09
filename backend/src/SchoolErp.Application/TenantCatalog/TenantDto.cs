@@ -24,6 +24,9 @@ public sealed record TenantDto
     public TenantModules EnabledModules { get; init; }
     public int StorageLimitMb { get; init; }
     public int SmsCredits { get; init; }
+
+    /// <summary>Prefer WhatsApp for parent notifications (SMS fallback).</summary>
+    public bool WhatsAppEnabled { get; init; }
     public string TimeZoneId { get; init; } = string.Empty;
     public string DefaultLanguage { get; init; } = string.Empty;
     public TenantStatus Status { get; init; }
@@ -55,6 +58,7 @@ public static class TenantMappings
             EnabledModules = tenant.EnabledModules,
             StorageLimitMb = tenant.StorageLimitMb,
             SmsCredits = tenant.SmsCredits,
+            WhatsAppEnabled = tenant.WhatsAppEnabled,
             TimeZoneId = tenant.TimeZoneId,
             DefaultLanguage = tenant.DefaultLanguage,
             Status = tenant.Status,

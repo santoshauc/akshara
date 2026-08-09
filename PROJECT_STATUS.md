@@ -675,6 +675,32 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## WhatsApp notifications (feature/whatsapp-notifications)
+
+- `IWhatsAppSender` mirrors `ISmsSender`; `MetaWhatsAppSender` talks to the
+  Meta Cloud API (graph.facebook.com/v21.0/{phoneNumberId}/messages) and goes
+  live on `WhatsApp:Provider=meta`. Default `dev` logs `[DEV WHATSAPP]`.
+  Business-initiated messages need an approved template, so set
+  `WhatsApp:TemplateName` (one body variable) — leaving it empty sends free
+  text, which only works inside the 24-hour service window.
+- `Tenant.WhatsAppEnabled` (migration 20260809082915_AddTenantWhatsAppEnabled)
+  is the per-school switch, editable in the tenant editor under Package &
+  modules. Off by default: WhatsApp conversation pricing is separate from
+  SMS credits and each school opts in.
+- OutboxProcessor routes `sms` rows for WhatsApp-enabled tenants to WhatsApp
+  first — no SMS credit spent. A WhatsApp failure logs and FALLS BACK to SMS
+  in the same pass (parent still notified, that one message metered). One
+  tenant-flag lookup per batch, not per message. Every existing producer
+  (absence alerts, fee reminders, receipts, notices) inherits this for free.
+- Auth OTP still goes direct through `ISmsSender`, deliberately: sign-in
+  must not depend on a channel a school can toggle. Dev OTP stays `[DEV SMS]`.
+- 3 integration tests (WhatsApp-first no credit spent, outage → SMS fallback
+  with credit spent, SMS-only school untouched). E2E on DEMO01: flag toggled
+  in the portal, queued outbox row delivered as `[DEV WHATSAPP]`, credits
+  unchanged. Suite: 50 unit + 113 integration green.
+- GOTCHA: fixture-shared credit assertions must be DELTAS — the first draft
+  asserted an absolute 10 and failed depending on test order.
+
 ## Fee installments (feature/fee-installments)
 
 - FeeStructureItem gained a nullable `Label` (max 50, "Term 1") —

@@ -46,6 +46,13 @@ public class Tenant : AuditableEntity
     public int StorageLimitMb { get; set; } = 5_120;
     public int SmsCredits { get; set; }
 
+    /// <summary>
+    /// Prefer WhatsApp for parent notifications; SMS stays the fallback when a
+    /// WhatsApp send fails. Platform-controlled per school (WhatsApp conversation
+    /// pricing differs from SMS credits).
+    /// </summary>
+    public bool WhatsAppEnabled { get; set; }
+
     // ----- Regional settings -----
     /// <summary>IANA timezone id; Indian schools default to Asia/Kolkata.</summary>
     public string TimeZoneId { get; set; } = "Asia/Kolkata";
