@@ -56,6 +56,7 @@ builder.Services.AddScoped<SessionsClient>();
 builder.Services.AddScoped<MfaClient>();
 builder.Services.AddScoped<LibraryClient>();
 builder.Services.AddScoped<FrontOfficeClient>();
+builder.Services.AddScoped<InventoryClient>();
 builder.Services.AddScoped<HostelClient>();
 builder.Services.AddScoped<LeaveClient>();
 builder.Services.AddScoped<AdmissionsClient>();

@@ -122,6 +122,12 @@ public static class Permissions
         public const string Manage = "frontoffice.manage";
     }
 
+    public static class Inventory
+    {
+        public const string View = "inventory.view";
+        public const string Manage = "inventory.manage";
+    }
+
     public static class Insights
     {
         public const string View = "insights.view";

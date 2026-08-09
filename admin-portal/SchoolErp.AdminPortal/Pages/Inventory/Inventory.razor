@@ -1,0 +1,297 @@
+@page "/inventory"
+@attribute [Authorize]
+@implements IDisposable
+@inject InventoryClient Client
+@inject LocalizationService L
+@inject ISnackbar Snackbar
+
+<PageTitle>@L["inventory.title"] — Akshara</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4">@L["inventory.title"]</MudText>
+    <MudSpacer />
+    <MudTextField @bind-Value="_search" Label="@L["inventory.search"]" Immediate="true"
+                  DebounceInterval="300" OnDebounceIntervalElapsed="ReloadItemsAsync"
+                  Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+                  Style="min-width: 200px;" />
+    <MudSwitch @bind-Checked="_lowOnly" Color="Color.Warning" Label="@L["inventory.lowOnly"]" />
+</MudStack>
+
+<MudGrid Spacing="4">
+    <MudItem xs="12" md="5">
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudText Typo="Typo.h6" Class="mb-3">@L["inventory.addItem"]</MudText>
+            <MudStack Spacing="2">
+                <MudTextField @bind-Value="_newName" Label="@L["inventory.itemName"]" />
+                <MudStack Row="true" Spacing="2">
+                    <MudTextField @bind-Value="_newCategory" Label="@L["inventory.category"]" />
+                    <MudTextField @bind-Value="_newUnit" Label="@L["inventory.unit"]"
+                                  Style="width: 110px;" />
+                </MudStack>
+                <MudStack Row="true" Spacing="2">
+                    <MudNumericField T="int" @bind-Value="_newReorder" Label="@L["inventory.reorderLevel"]"
+                                     Min="0" />
+                    <MudNumericField T="decimal?" @bind-Value="_newCost" Label="@L["inventory.unitCost"]"
+                                     Min="0" HideSpinButtons="true" />
+                </MudStack>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                           StartIcon="@Icons.Material.Filled.Add" OnClick="CreateItemAsync">
+                    @L["inventory.addItem"]
+                </MudButton>
+            </MudStack>
+
+            <MudDivider Class="my-4" />
+
+            <MudText Typo="Typo.h6" Class="mb-3">@L["inventory.recordMovement"]</MudText>
+            <MudStack Spacing="2">
+                <MudSelect T="Guid?" @bind-Value="_moveItemId" Label="@L["inventory.item"]" Dense="true">
+                    @foreach (var item in _items.Where(i => i.IsActive))
+                    {
+                        <MudSelectItem T="Guid?" Value="@item.Id">
+                            @item.Name (@item.QuantityOnHand @item.Unit)
+                        </MudSelectItem>
+                    }
+                </MudSelect>
+                <MudStack Row="true" Spacing="2">
+                    <MudSelect T="StockMovementKind" @bind-Value="_moveKind" Label="@L["inventory.kind"]"
+                               Dense="true">
+                        <MudSelectItem Value="StockMovementKind.Receipt">@L["inventory.kindReceipt"]</MudSelectItem>
+                        <MudSelectItem Value="StockMovementKind.Issue">@L["inventory.kindIssue"]</MudSelectItem>
+                        <MudSelectItem Value="StockMovementKind.WriteOff">@L["inventory.kindWriteOff"]</MudSelectItem>
+                        <MudSelectItem Value="StockMovementKind.Adjustment">@L["inventory.kindAdjustment"]</MudSelectItem>
+                    </MudSelect>
+                    <MudNumericField T="int" @bind-Value="_moveQuantity" Label="@L["inventory.quantity"]"
+                                     Min="1" Style="width: 120px;" />
+                </MudStack>
+                <MudTextField @bind-Value="_moveCounterparty" Label="@L["inventory.counterparty"]" />
+                <MudButton Variant="Variant.Filled" Color="Color.Secondary" Disabled="@_busy"
+                           StartIcon="@Icons.Material.Filled.SwapVert" OnClick="RecordMovementAsync">
+                    @L["inventory.recordMovement"]
+                </MudButton>
+                @if (_moveKind == StockMovementKind.Adjustment)
+                {
+                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                        @L["inventory.adjustmentHint"]
+                    </MudText>
+                }
+            </MudStack>
+        </MudPaper>
+    </MudItem>
+
+    <MudItem xs="12" md="7">
+        <MudPaper Elevation="2" Class="pa-6 mb-4">
+            <MudText Typo="Typo.h6" Class="mb-3">@L["inventory.stock"]</MudText>
+            @if (_items.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">@L["inventory.noItems"]</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>@L["inventory.itemName"]</th>
+                            <th>@L["inventory.category"]</th>
+                            <th style="text-align:right">@L["inventory.onHand"]</th>
+                            <th style="text-align:right">@L["inventory.reorderLevel"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var item in _items)
+                        {
+                            <tr>
+                                <td>
+                                    @item.Name
+                                    @if (!item.IsActive)
+                                    {
+                                        <MudChip Size="Size.Small" Class="ml-1">@L["inventory.retired"]</MudChip>
+                                    }
+                                </td>
+                                <td>@(item.Category ?? "—")</td>
+                                <td style="text-align:right">
+                                    <MudText Typo="Typo.body2"
+                                             Color="@(item.IsLow ? Color.Warning : Color.Default)">
+                                        @item.QuantityOnHand @item.Unit
+                                    </MudText>
+                                </td>
+                                <td style="text-align:right">@item.ReorderLevel</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+
+        <MudPaper Elevation="2" Class="pa-6">
+            <MudText Typo="Typo.h6" Class="mb-3">@L["inventory.register"]</MudText>
+            @if (_movements.Count == 0)
+            {
+                <MudText Class="mud-text-secondary">@L["inventory.noMovements"]</MudText>
+            }
+            else
+            {
+                <MudSimpleTable Dense="true" Hover="true">
+                    <thead>
+                        <tr>
+                            <th>@L["inventory.date"]</th>
+                            <th>@L["inventory.item"]</th>
+                            <th>@L["inventory.kind"]</th>
+                            <th style="text-align:right">@L["inventory.quantity"]</th>
+                            <th style="text-align:right">@L["inventory.balance"]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var movement in _movements)
+                        {
+                            <tr>
+                                <td>@movement.MovedOn.ToString("dd MMM")</td>
+                                <td>
+                                    @movement.ItemName
+                                    @if (movement.Counterparty is { } who)
+                                    {
+                                        <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                            @who
+                                        </MudText>
+                                    }
+                                </td>
+                                <td>@KindLabel(movement.Kind)</td>
+                                <td style="text-align:right">@movement.Quantity</td>
+                                <td style="text-align:right">@movement.BalanceAfter</td>
+                            </tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        </MudPaper>
+    </MudItem>
+</MudGrid>
+
+@code {
+    private List<InventoryItemDto> _items = [];
+    private List<StockMovementDto> _movements = [];
+    private bool _busy;
+    private string _search = string.Empty;
+
+    private bool _lowOnlyValue;
+
+    private bool _lowOnly
+    {
+        get => _lowOnlyValue;
+        set
+        {
+            _lowOnlyValue = value;
+            _ = ReloadItemsAsync();
+        }
+    }
+
+    private string _newName = string.Empty;
+    private string _newCategory = string.Empty;
+    private string _newUnit = "piece";
+    private int _newReorder = 10;
+    private decimal? _newCost;
+
+    private Guid? _moveItemId;
+    private StockMovementKind _moveKind = StockMovementKind.Receipt;
+    private int _moveQuantity = 1;
+    private string _moveCounterparty = string.Empty;
+
+    protected override async Task OnInitializedAsync()
+    {
+        L.Changed += OnLanguageChanged;
+        try
+        {
+            await ReloadItemsAsync();
+            await ReloadMovementsAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add(L["inventory.cannotReach"], Severity.Error);
+        }
+    }
+
+    private string KindLabel(StockMovementKind kind) => kind switch
+    {
+        StockMovementKind.Receipt => L["inventory.kindReceipt"],
+        StockMovementKind.Issue => L["inventory.kindIssue"],
+        StockMovementKind.WriteOff => L["inventory.kindWriteOff"],
+        _ => L["inventory.kindAdjustment"],
+    };
+
+    private async Task ReloadItemsAsync()
+    {
+        _items = await Client.GetItemsAsync(_search, _lowOnlyValue);
+        StateHasChanged();
+    }
+
+    private async Task ReloadMovementsAsync() => _movements = await Client.GetMovementsAsync();
+
+    private async Task CreateItemAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_newName))
+        {
+            Snackbar.Add(L["inventory.nameRequired"], Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.CreateItemAsync(new CreateInventoryItemRequest(
+                _newName.Trim(),
+                string.IsNullOrWhiteSpace(_newCategory) ? null : _newCategory.Trim(),
+                _newUnit.Trim(),
+                _newReorder,
+                _newCost));
+            if (error is null)
+            {
+                _newName = _newCategory = string.Empty;
+                _newCost = null;
+                await ReloadItemsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task RecordMovementAsync()
+    {
+        if (_moveItemId is null)
+        {
+            Snackbar.Add(L["inventory.itemRequired"], Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.RecordMovementAsync(new RecordStockMovementRequest(
+                _moveItemId.Value, _moveKind, _moveQuantity,
+                string.IsNullOrWhiteSpace(_moveCounterparty) ? null : _moveCounterparty.Trim(),
+                null, null));
+            if (error is null)
+            {
+                _moveCounterparty = string.Empty;
+                await ReloadItemsAsync();
+                await ReloadMovementsAsync();
+            }
+            else
+            {
+                Snackbar.Add(error, Severity.Error);
+            }
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+}
