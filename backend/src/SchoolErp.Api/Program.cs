@@ -11,6 +11,9 @@ using Microsoft.IdentityModel.Tokens;
 using SchoolErp.Api.Authorization;
 using SchoolErp.Api.Middleware;
 using SchoolErp.Api.Services;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
 using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Infrastructure;
@@ -34,6 +37,30 @@ try
     // --- Layers ------------------------------------------------------------
     builder.Services.AddApplication();
     builder.Services.AddInfrastructure(builder.Configuration);
+
+    // --- Observability -----------------------------------------------------
+    // OTLP activates on Otlp:Endpoint (collector URL, e.g. http://otel:4317),
+    // mirroring how Razorpay/MSG91 switch on. Without it, nothing is exported
+    // and the app behaves exactly as before. See docs/observability.md.
+    if (builder.Configuration["Otlp:Endpoint"] is { Length: > 0 } otlpEndpoint)
+    {
+        builder.Services.AddOpenTelemetry()
+            .ConfigureResource(resource => resource.AddService(
+                serviceName: "schoolerp-api",
+                serviceVersion: typeof(Program).Assembly.GetName().Version?.ToString()))
+            .WithTracing(tracing => tracing
+                .AddAspNetCoreInstrumentation(o =>
+                    // Health probes would drown real traffic in traces.
+                    o.Filter = ctx => !ctx.Request.Path.StartsWithSegments("/health"))
+                .AddHttpClientInstrumentation()
+                // Npgsql publishes its own ActivitySource — no extra package.
+                .AddSource("Npgsql")
+                .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)))
+            .WithMetrics(metrics => metrics
+                .AddAspNetCoreInstrumentation()
+                .AddHttpClientInstrumentation()
+                .AddOtlpExporter(o => o.Endpoint = new Uri(otlpEndpoint)));
+    }
 
     builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
     builder.Services.AddProblemDetails();

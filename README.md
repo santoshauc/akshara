@@ -81,3 +81,4 @@ dotnet test
 | [docs/user-manual-admin.md](docs/user-manual-admin.md) | School administrators — portal walkthrough |
 | [docs/user-manual-apps.md](docs/user-manual-apps.md) | Parents & drivers — mobile app guides |
 | [docs/security-notes.md](docs/security-notes.md) | Engineers — accepted advisories, licensing notes |
+| [docs/observability.md](docs/observability.md) | Operators — OTLP setup, dashboards, alerts |

@@ -37,7 +37,7 @@ as items land.
 | C2 | Period-wise attendance | Optional per-period marking wired to the timetable; daily view stays the default. | DONE |
 | C3 | DPDP workflows | Per-student data export (JSON), erasure request flow with audit trail. | DONE |
 | C4 | Timetable substitutions | Mark a teacher absent for a day → suggest free teachers per clashing slot → publish substitutions. | DONE |
-| C5 | Observability | OTLP exporter wired by config; dashboards runbook. | |
+| C5 | Observability | OTLP exporter wired by config; dashboards runbook. | DONE |
 
 ## Standing rules (unchanged)
 

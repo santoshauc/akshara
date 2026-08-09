@@ -341,6 +341,18 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   Vikram Sharma (EMP-002, new demo teacher) covers Anita's Monday
   P1+P2 Mathematics — plan suggested only him, both applied, list
   reads "Anita Rao → Vikram Sharma".
+- C5 Observability — DONE. ROADMAP v2 COMPLETE (A1–A5, B1–B8, C1–C5).
+  OpenTelemetry wired in Program.cs, dormant until Otlp:Endpoint is
+  configured (same config-activation pattern as Razorpay/MSG91):
+  traces (ASP.NET Core with /health filtered, HttpClient, Npgsql
+  ActivitySource) + metrics (ASP.NET Core, HttpClient) to OTLP gRPC;
+  resource schoolerp-api + assembly version. Packages aligned on 1.12
+  (exporter's moderate protobuf advisory is transitive and below the
+  CI High/Critical gate). docs/observability.md runbook: grafana/
+  otel-lgtm two-command local stack, first dashboards + alert
+  thresholds, log correlation via Serilog TraceId, and what is
+  deliberately NOT exported. Verified live: API booted with
+  Otlp__Endpoint set — clean start, health 200, no exporter errors.
 
 ## How to run (Windows dev box)
 
