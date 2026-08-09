@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 50 unit + 109 integration = **159 green** (`dotnet test` from `school-erp/`).
+Test suite: 61 unit + 129 integration = **190 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -107,9 +107,8 @@ Integration tests use Testcontainers (needs Docker running).
    (src/i18n: en source-of-truth keys, Telugu coverage compiler-enforced),
    an EN/తెలుగు toggle (login + home headers) persisted via
    SecureStore/localStorage, and every UI string translated. School-entered
-   data (names, subjects) intentionally stays as entered. Portal/SMS remain
-   English (SMS localization would need per-guardian language preference —
-   future work).
+   data (names, subjects) intentionally stays as entered. (SMS/WhatsApp/push
+   are localized too as of feature/notification-localization — see below.)
    ~~Report-card PDFs~~ DONE — QuestPDF (Community, see security-notes)
    renderer behind IReportCardRenderer; GetReportCardPdfQuery composes the
    result + student + school header. Staff endpoint
@@ -724,9 +723,7 @@ GOTCHAS (all cost real time this session):
   desktop layouts.
 
 REMAINING (in agreed order):
-1. Notification localization — per-guardian language on Guardian, localized
-   SMS/WhatsApp templates, integration test proving a Telugu guardian gets
-   Telugu. Highest reach per hour of everything left.
+1. ~~Notification localization~~ DONE — see "Notification localization" below.
 2. Fee refunds (mid-year withdrawals).
 3. Nine list pages onto the Students pattern: Teachers, Fees, Transport,
    Inventory, Front office, Library, Hostel, Users, Audit, Admissions.
@@ -743,6 +740,56 @@ REMAINING (in agreed order):
 
 NOT DOING: dashboard redesign (user asked to leave Home.razor as-is);
 HR/payroll (own product).
+
+## Notification localization (feature/notification-localization)
+
+- Closes the gap the app localization left open: the apps were bilingual but
+  every SMS, WhatsApp and push message was English. `Guardian.PreferredLanguage`
+  (migration 20260809121722_AddGuardianPreferredLanguage — column only, the
+  table already has RLS; `defaultValue: "en"` backfills existing rows).
+- `SchoolErp.Shared/Localization/NotificationStrings.cs` mirrors PortalStrings:
+  En is the source of truth, Te coverage is unit-enforced, each template has a
+  `.title` (push) and a `.body`. Templates: absence, results published, payment
+  received, bus boarded/dropped, gate pass, fee reminder.
+  `NotificationLanguages.Normalize` maps "TE"/"te-IN"/junk/null onto a language
+  we actually have, so an unknown code degrades to English instead of throwing.
+- **Callers pass a template key and args, never finished prose.**
+  `NotificationQueue.QueueGuardianAsync(db, tenant, phone, templateKey, args, ct)`
+  looks the language up by phone inside the tenant scope and renders there —
+  so SMS, the WhatsApp route and push all carry the same localized copy with
+  no per-channel work. Dates and amounts are formatted in the reader's own
+  culture (te-IN → "09 ఆగ 2026"); school-entered data (child, school, receipt
+  numbers) stays exactly as entered.
+- `SmsPayload` gained `Template` (nullable, so old rows deserialize).
+  FeeReminderJob's 6-day dedupe now matches on that marker instead of the
+  English prefix "Fee reminder:" — matching message text would have stopped
+  deduplicating the moment a guardian switched to Telugu.
+- Setting it, two ways:
+  - Office: `PUT students/guardians/{id}/language` (students.manage); the
+    student profile's Guardians panel has a per-guardian select that saves on
+    change. `GuardianInput`/`GuardianDto` carry the language too, so the
+    admission form sets it at intake (optional param — the Excel importer and
+    every existing caller are untouched). A sibling admission may correct an
+    existing guardian's language; nothing else about the record is touched.
+  - Parent: `GET/PUT parent/language`. At sign-in the two sides reconcile once
+    and the reader wins — a device that has been switched pushes its choice, a
+    fresh install adopts what the school recorded (so a reinstall can't clobber
+    an office-entered Telugu preference back to English). Later toggles push
+    directly from `setLang`.
+- 5 integration tests (Telugu vs English side by side, localized push, the same
+  text over WhatsApp, the parent toggle changing later alerts, an unsupported
+  language refused) + 6 unit tests. Suite: 61 unit + 129 integration green.
+- E2E live on DEMO01: profile select → snackbar → absence marked → API logged
+  the Telugu WhatsApp *and* the Telugu push; then the parent app toggle →
+  one PUT → next absence for the sibling also Telugu. Priya Reddy is left on
+  Telugu so the feature is demoable without setup.
+- GOTCHA: `useRef` guard on the sign-in reconciliation — without it, flipping
+  the toggle re-entered the effect (its `chosenHere` dep flips) and sent the
+  same PUT twice. Caught in the browser, not the tests.
+- PRE-EXISTING, not introduced here: every FluentValidation failure logs an
+  `ERR ... responded 500` with a stack trace in Serilog while the client
+  correctly receives 400 — the exception handler sits outside
+  `UseSerilogRequestLogging`. Verified identical on an untouched endpoint.
 
 ## Inventory module + honest Enterprise preset (feature/inventory)
 

@@ -170,6 +170,15 @@ public sealed class StudentsClient
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
 
+    /// <summary>Sets the language a guardian's alerts are written in; null on success.</summary>
+    public async Task<string?> SetGuardianLanguageAsync(
+        Guid guardianId, string language, CancellationToken ct = default)
+    {
+        var response = await _http.PutAsJsonAsync(
+            $"api/v1/students/guardians/{guardianId}/language", new { language }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
     /// <summary>Turns a server-relative file URL into an absolute one on the API host.</summary>
     public string? FileUrl(string? relativeUrl) =>
         relativeUrl is null ? null : new Uri(_http.BaseAddress!, relativeUrl).ToString();

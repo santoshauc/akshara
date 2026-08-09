@@ -1,4 +1,5 @@
 using SchoolErp.Domain.Students;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.Students;
 
@@ -13,6 +14,9 @@ public sealed record GuardianDto
     public string? Email { get; init; }
     public string? Occupation { get; init; }
     public bool IsPrimary { get; init; }
+
+    /// <summary>Language this guardian's SMS/WhatsApp/push are written in.</summary>
+    public string PreferredLanguage { get; init; } = NotificationLanguages.English;
 }
 
 /// <summary>Row shape for the students list.</summary>
@@ -67,7 +71,11 @@ public sealed record EnrollmentDto
     public EnrollmentStatus Status { get; init; }
 }
 
-/// <summary>Guardian input used during admission.</summary>
+/// <summary>
+/// Guardian input used during admission. <paramref name="PreferredLanguage"/>
+/// is optional (null or unknown ⇒ English) so every existing caller — and the
+/// Excel importer's older sheets — keep working.
+/// </summary>
 public sealed record GuardianInput(
     string FirstName,
     string LastName,
@@ -75,7 +83,8 @@ public sealed record GuardianInput(
     string Phone,
     string? Email,
     string? Occupation,
-    bool IsPrimary);
+    bool IsPrimary,
+    string? PreferredLanguage = null);
 
 /// <summary>Hand-written mappings for the students module.</summary>
 public static class StudentMappings

@@ -475,12 +475,22 @@ else if (_student is { } student)
                             </MudText>
                         </div>
                         <MudSpacer />
+                        <MudSelect T="string" Value="@guardian.PreferredLanguage" Dense="true"
+                                   Label="SMS language" Style="max-width: 150px;"
+                                   Disabled="@(_languageBusy == guardian.Id)"
+                                   ValueChanged="@(lang => SetGuardianLanguageAsync(guardian.Id, lang))">
+                            <MudSelectItem Value="@("en")">English</MudSelectItem>
+                            <MudSelectItem Value="@("te")">తెలుగు</MudSelectItem>
+                        </MudSelect>
                         @if (guardian.IsPrimary)
                         {
                             <MudChip Size="Size.Small" Color="Color.Info">Primary</MudChip>
                         }
                     </MudStack>
                 }
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Absence, fee, result and bus alerts are sent in each guardian's own language.
+                </MudText>
             </MudPaper>
         </MudItem>
     </MudGrid>
@@ -510,6 +520,7 @@ else if (_student is { } student)
     private string? _payReference;
     private bool _payBusy;
     private bool _photoBusy;
+    private Guid? _languageBusy;
     private bool _loading = true;
     private StudentInsightsDto? _insights;
 
@@ -544,6 +555,38 @@ else if (_student is { } student)
         finally
         {
             _loading = false;
+        }
+    }
+
+    /// <summary>
+    /// Saves immediately — a select that needed a separate Save button would
+    /// leave the office unsure whether the parent's language actually changed.
+    /// </summary>
+    private async Task SetGuardianLanguageAsync(Guid guardianId, string language)
+    {
+        _languageBusy = guardianId;
+        try
+        {
+            var error = await Client.SetGuardianLanguageAsync(guardianId, language);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            _student = await Client.GetStudentAsync(Id);
+            Snackbar.Add(
+                language == "te" ? "Alerts to this guardian will be in Telugu."
+                                 : "Alerts to this guardian will be in English.",
+                Severity.Success);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _languageBusy = null;
         }
     }
 

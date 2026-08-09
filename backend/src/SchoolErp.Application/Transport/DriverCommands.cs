@@ -7,6 +7,7 @@ using SchoolErp.Application.Attendance;
 using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Outbox;
 using SchoolErp.Domain.Transport;
+using SchoolErp.Shared.Localization;
 
 namespace SchoolErp.Application.Transport;
 
@@ -331,14 +332,13 @@ public sealed class MarkRiderEventCommandHandler : IRequestHandler<MarkRiderEven
         }
 
         var tenant = await _tenantLookup.FindByIdAsync(_tenantContext.TenantId, ct).ConfigureAwait(false);
-        var action = eventType == TripStudentEventType.PickedUp
-            ? "boarded the school bus"
-            : "was dropped off by the school bus";
 
         await Notifications.NotificationQueue.QueueGuardianAsync(
             _db, _tenantContext.TenantId, contact.Phone,
-            eventType == TripStudentEventType.PickedUp ? "On the bus" : "Dropped off",
-            $"{contact.StudentName} {action} just now. — {tenant?.Name ?? "School"}",
+            eventType == TripStudentEventType.PickedUp
+                ? NotificationTemplates.BusBoarded
+                : NotificationTemplates.BusDropped,
+            [contact.StudentName, tenant?.Name ?? "School"],
             ct).ConfigureAwait(false);
     }
 }

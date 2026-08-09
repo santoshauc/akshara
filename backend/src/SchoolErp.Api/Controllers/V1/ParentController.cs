@@ -21,6 +21,7 @@ using SchoolErp.Application.Insights;
 using SchoolErp.Application.Leave;
 using SchoolErp.Application.Library;
 using SchoolErp.Application.Parent;
+using SchoolErp.Application.Students.Commands;
 using SchoolErp.Application.Timetable;
 using SchoolErp.Application.Transport;
 using SchoolErp.Domain.Exams;
@@ -67,6 +68,33 @@ public sealed class ParentController : ControllerBase
     {
         var phone = await GetUserPhoneAsync();
         return Ok(await _sender.Send(new GetMyChildrenQuery(_currentUser.UserId, phone), ct));
+    }
+
+    /// <summary>
+    /// The language this parent's SMS, WhatsApp and push messages are written
+    /// in. Stored server-side so it survives a reinstall or a new phone — the
+    /// app's own EN/తెలుగు toggle writes here whenever the reader flips it.
+    /// </summary>
+    [HttpGet("language")]
+    [ProducesResponseType(typeof(LanguagePreferenceDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetNotificationLanguage(CancellationToken ct)
+    {
+        var phone = await GetUserPhoneAsync();
+        return Ok(new LanguagePreferenceDto(
+            await SchoolErp.Application.Notifications.NotificationQueue
+                .ResolveLanguageAsync(_db, phone ?? string.Empty, ct)));
+    }
+
+    /// <inheritdoc cref="GetNotificationLanguage"/>
+    [HttpPut("language")]
+    [ProducesResponseType(typeof(LanguagePreferenceDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SetNotificationLanguage(
+        [FromBody] SetLanguageRequest request, CancellationToken ct)
+    {
+        var phone = await GetUserPhoneAsync();
+        return Ok(new LanguagePreferenceDto(await _sender.Send(
+            new SetMyNotificationLanguageCommand(phone, request.Language), ct)));
     }
 
     /// <summary>A child's attendance calendar for a month.</summary>

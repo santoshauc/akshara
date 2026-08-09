@@ -237,3 +237,8 @@ export interface StudentInsights {
   childAttendancePercent: number | null;
   classAttendancePercent: number | null;
 }
+
+/** The guardian's notification language, as stored on the server ("en"/"te"). */
+export interface LanguagePreference {
+  language: string;
+}

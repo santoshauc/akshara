@@ -54,7 +54,8 @@ public sealed record GuardianDto(
     string Phone,
     string? Email,
     string? Occupation,
-    bool IsPrimary);
+    bool IsPrimary,
+    string PreferredLanguage);
 
 /// <summary>Placement as returned by the API.</summary>
 public sealed record EnrollmentDto(
@@ -99,6 +100,9 @@ public sealed record GuardianInputModel
     public string? Email { get; set; }
     public string? Occupation { get; set; }
     public bool IsPrimary { get; set; }
+
+    /// <summary>"en" or "te" — the language this guardian's SMS are sent in.</summary>
+    public string PreferredLanguage { get; set; } = "en";
 }
 
 /// <summary>Admission payload (mirrors AdmitStudentCommand).</summary>
