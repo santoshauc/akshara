@@ -102,6 +102,10 @@ public interface IApplicationDbContext
 
     DbSet<BookLoan> BookLoans { get; }
 
+    DbSet<Domain.FrontOffice.VisitorEntry> VisitorEntries { get; }
+
+    DbSet<Domain.FrontOffice.GatePass> GatePasses { get; }
+
     DbSet<HostelBuilding> Hostels { get; }
 
     DbSet<HostelRoom> HostelRooms { get; }

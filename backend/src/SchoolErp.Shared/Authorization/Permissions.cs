@@ -116,6 +116,12 @@ public static class Permissions
         public const string Manage = "admissions.manage";
     }
 
+    public static class FrontOffice
+    {
+        public const string View = "frontoffice.view";
+        public const string Manage = "frontoffice.manage";
+    }
+
     public static class Insights
     {
         public const string View = "insights.view";
