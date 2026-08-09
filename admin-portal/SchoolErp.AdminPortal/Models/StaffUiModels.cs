@@ -118,3 +118,34 @@ public sealed record DashboardPointDto(DateOnly Date, decimal Value);
 
 /// <summary>A student celebrating today.</summary>
 public sealed record BirthdayDto(string Name, string? ClassName, int TurnsAge);
+
+/// <summary>One slot in the signed-in teacher's day (mirrors TeacherPeriodDto).</summary>
+public sealed record TeacherPeriodDto(
+    int Period,
+    TimeOnly StartTime,
+    TimeOnly EndTime,
+    string SubjectName,
+    string ClassName,
+    string? SectionName,
+    bool IsSubstitution,
+    bool AttendanceMarked);
+
+/// <summary>An exam paper of theirs with no marks yet (mirrors TeacherMarksTaskDto).</summary>
+public sealed record TeacherMarksTaskDto(
+    string ExamName, string SubjectName, string ClassName, DateOnly ExamStartDate);
+
+/// <summary>Homework due for a class they teach (mirrors TeacherHomeworkTaskDto).</summary>
+public sealed record TeacherHomeworkTaskDto(
+    string Title, string SubjectName, string ClassName, string? SectionName, DateOnly DueDate);
+
+/// <summary>The teacher's own working day (mirrors MyTeacherDayDto).</summary>
+public sealed record MyTeacherDayDto(
+    string TeacherName,
+    string EmployeeCode,
+    DateOnly Date,
+    IReadOnlyList<TeacherPeriodDto> Periods,
+    IReadOnlyList<TeacherMarksTaskDto> MarksBacklog,
+    IReadOnlyList<TeacherHomeworkTaskDto> HomeworkDue,
+    int SectionsAwaitingAttendance,
+    int PendingLeaveForMyStudents,
+    int StudentsTaught);

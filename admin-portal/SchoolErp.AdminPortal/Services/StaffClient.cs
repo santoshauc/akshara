@@ -44,4 +44,13 @@ public sealed class StaffClient
         Guid teacherId, CancellationToken ct = default) =>
         await _http.GetFromJsonAsync<List<TeacherScheduleItemDto>>(
             $"api/v1/teachers/{teacherId}/schedule", ct) ?? [];
+
+    /// <summary>The signed-in teacher's own day; null when they aren't a teacher.</summary>
+    public async Task<MyTeacherDayDto?> GetMyDayAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("api/v1/teachers/me/day", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<MyTeacherDayDto>(cancellationToken: ct)
+            : null;
+    }
 }

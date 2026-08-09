@@ -675,6 +675,34 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## Teacher dashboard — "My day" (feature/teacher-dashboard)
+
+- `GET teachers/me/day` → `GetMyTeacherDayQuery`. Resolves the CALLER's
+  teacher record via `Teacher.UserId == currentUser.UserId`; there is no
+  teacherId parameter, so one teacher cannot request another's day. Carries
+  no `[HasPermission]` (it reads only the caller's own slots) and 404s when
+  the account has no linked teacher record — the portal renders that as a
+  friendly "ask your admin for a teacher login" note.
+- Shows today's periods (subject, class/section, time, attendance chip),
+  sections still awaiting roll-call, students taught, pending leave from
+  their own students, exam papers with no marks entered, and homework due
+  within 7 days. Substitutions overlay the base timetable: periods they
+  cover are added and flagged "Cover"; periods covered FOR them drop off.
+- Portal page `/my-day`, nav item for non-platform sign-ins, fully en/te.
+- Class-wide slots (`SectionId == null`) fan out to every section of the
+  class for both the attendance chase and the student roll.
+- GOTCHA (caught in the browser, not the tests): name lookups and the
+  student roll were first derived from TODAY's slots only, so homework for
+  a class the teacher meets on other days rendered "—" and "students you
+  teach" read 0 on a day with no periods. Lookups now cover the school and
+  the roll covers the teacher's whole week; only the attendance chase is
+  scoped to today.
+- 4 integration tests on a fixture with two teachers, a pinned Wednesday
+  clock (FixedClock) and a SwitchableCurrentUser: ownership isolation,
+  attendance transition, substitution hand-over, and 404 for a non-teacher.
+  The substitution test deletes its own rows in a finally block — shared
+  fixtures make test order matter otherwise. Suite: 50 unit + 117 integration.
+
 ## WhatsApp notifications (feature/whatsapp-notifications)
 
 - `IWhatsAppSender` mirrors `ISmsSender`; `MetaWhatsAppSender` talks to the

@@ -63,6 +63,12 @@
                     @L["nav.schools"]
                 </MudNavLink>
             }
+            @if (!_isPlatformUser)
+            {
+                <MudNavLink Href="my-day" Icon="@Icons.Material.Filled.Today">
+                    @L["myday.title"]
+                </MudNavLink>
+            }
             <MudDivider Class="my-2" />
             <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
                 @L["nav.academics"]
