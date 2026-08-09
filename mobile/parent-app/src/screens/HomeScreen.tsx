@@ -16,6 +16,7 @@ import {
   ChildHostel,
   ChildTransport,
   Exam,
+  FamilyFeeSummary,
   FeeSummary,
   Homework,
   LeaveRequest,
@@ -30,6 +31,7 @@ import { API_BASE_URL, BRAND } from '../config';
 import { useI18n } from '../i18n';
 import AttendanceCard from './cards/AttendanceCard';
 import BusLiveCard from './cards/BusLiveCard';
+import FamilyFeesCard from './cards/FamilyFeesCard';
 import HostelCard from './cards/HostelCard';
 import LeaveCard from './cards/LeaveCard';
 import LibraryCard from './cards/LibraryCard';
@@ -65,6 +67,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [hostel, setHostel] = useState<ChildHostel | null>(null);
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<StudentMessage[]>([]);
+  const [familyFees, setFamilyFees] = useState<FamilyFeeSummary | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -74,6 +77,10 @@ export default function HomeScreen({ onSignedOut }: Props) {
       setChildren(list);
       setSelected((current) => current ?? list[0] ?? null);
       setError(null);
+      // The combined view only earns its place with 2+ children.
+      setFamilyFees(
+        list.length > 1 ? await parentApi.getFamilyFees().catch(() => null) : null,
+      );
     } catch (e) {
       setError(e instanceof Error ? e.message : t('errLoadChildren'));
       setChildren([]);
@@ -207,6 +214,9 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
       {selected && (
         <View style={styles.cards}>
+          {familyFees && familyFees.children.length > 1 && (
+            <FamilyFeesCard family={familyFees} />
+          )}
           <AttendanceCard attendance={attendance} />
           <LeaveCard requests={leaveRequests} studentId={selected.studentId}
             onSubmitted={() => void loadChildData(selected)} />

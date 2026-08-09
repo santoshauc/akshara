@@ -94,6 +94,17 @@ public sealed class FeesController : ControllerBase
         Guid studentId, [FromQuery] Guid academicYearId, CancellationToken ct) =>
         Ok(await _sender.Send(new GetStudentFeeSummaryQuery(studentId, academicYearId), ct));
 
+    /// <summary>
+    /// The family ledger from any sibling: guardian-linked students with
+    /// their current-year balances and the combined family total.
+    /// </summary>
+    [HttpGet("students/{studentId:guid}/family")]
+    [HasPermission(Permissions.Fees.View)]
+    [ProducesResponseType(typeof(FamilyFeeSummaryDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetFamilyLedger(Guid studentId, CancellationToken ct) =>
+        Ok(await _sender.Send(new GetStudentFamilyFeesQuery(studentId), ct));
+
     /// <summary>Grants a per-student concession.</summary>
     [HttpPost("concessions")]
     [HasPermission(Permissions.Fees.Configure)]

@@ -183,6 +183,23 @@ export interface StudentMessage {
   read: boolean;
 }
 
+/** One child's line in the family fee view. */
+export interface FamilyChildFee {
+  studentId: string;
+  studentName: string;
+  className: string | null;
+  totalDue: number;
+  totalConcession: number;
+  totalPaid: number;
+  balance: number;
+}
+
+/** The whole family's fee position. */
+export interface FamilyFeeSummary {
+  children: FamilyChildFee[];
+  familyBalance: number;
+}
+
 /** Online payment order with its browser checkout URL. */
 export interface FeeOrder {
   orderId: string;

@@ -23,6 +23,16 @@ public sealed class FeesClient
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
 
+    /// <summary>The family ledger reached from any sibling; null when unavailable.</summary>
+    public async Task<FamilyFeeSummaryDto?> GetFamilyAsync(
+        Guid studentId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"api/v1/fees/students/{studentId}/family", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<FamilyFeeSummaryDto>(cancellationToken: ct)
+            : null;
+    }
+
     /// <summary>Grants a concession; null on success.</summary>
     public async Task<string?> GrantConcessionAsync(
         GrantConcessionRequest request, CancellationToken ct = default)

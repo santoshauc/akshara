@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 93 integration = **141 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 94 integration = **142 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -353,6 +353,24 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   thresholds, log correlation via Serilog TraceId, and what is
   deliberately NOT exported. Verified live: API booted with
   Otlp__Endpoint set — clean start, health 200, no exporter errors.
+
+## Roadmap v3 (insights & growth — see docs/roadmap-v3.md)
+
+- D1 Sibling fee views — DONE. GetParentFamilyFeesQuery (children via
+  ParentAccess, deduped) and GetStudentFamilyFeesQuery (siblings via
+  shared guardians) compose per-child current-year summaries through
+  the existing GetStudentFeeSummary pipeline (fines + concessions
+  included); family balance = Σ child balances; children not enrolled
+  this year are skipped. GET parent/family/fees (family guard) and
+  GET fees/students/{id}/family (fees.view). Parent app: FamilyFeesCard
+  (only with 2+ children; per-child balance rows + family total,
+  en/te). Portal profile fees panel: "Family ledger" with balance
+  chip + sibling profile links. Integration test: sibling admitted on
+  the same guardian phone → both views list 2 unique children, family
+  total = sum, parent-by-phone view matches. E2E live: Aarav Reddy
+  (Grade 6 A, new demo sibling for Priya) — app card shows both
+  children + total; portal shows the ledger with ₹25,000 balance.
+  Demo data: Grade 6 fee plan (Tuition ₹25,000 due 06 Oct) added.
 
 ## How to run (Windows dev box)
 

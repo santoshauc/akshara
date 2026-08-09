@@ -297,6 +297,43 @@ else if (_student is { } student)
                         }
                     }
 
+                    @if (_family is { } family && family.Children.Count > 1)
+                    {
+                        <MudDivider Class="my-3" />
+                        <MudText Typo="Typo.subtitle2" Class="mb-2">
+                            Family ledger
+                            <MudChip Size="Size.Small" Class="ml-1"
+                                     Color="@(family.FamilyBalance > 0 ? Color.Warning : Color.Success)">
+                                Family balance ₹@family.FamilyBalance.ToString("N0")
+                            </MudChip>
+                        </MudText>
+                        @foreach (var sibling in family.Children)
+                        {
+                            <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+                                <MudIcon Icon="@Icons.Material.Filled.FamilyRestroom"
+                                         Size="Size.Small" Class="mud-text-secondary" />
+                                @if (sibling.StudentId == Id)
+                                {
+                                    <MudText Typo="Typo.body2">
+                                        @sibling.StudentName (this student) · @sibling.ClassName
+                                    </MudText>
+                                }
+                                else
+                                {
+                                    <MudLink Typo="Typo.body2"
+                                             Href="@($"students/{sibling.StudentId}")">
+                                        @sibling.StudentName · @sibling.ClassName
+                                    </MudLink>
+                                }
+                                <MudSpacer />
+                                <MudText Typo="Typo.body2"
+                                         Color="@(sibling.Balance > 0 ? Color.Warning : Color.Success)">
+                                    ₹@sibling.Balance.ToString("N0")
+                                </MudText>
+                            </MudStack>
+                        }
+                    }
+
                     <MudDivider Class="my-3" />
                     <MudText Typo="Typo.subtitle2" Class="mb-2">Grant concession</MudText>
                     <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
@@ -393,6 +430,7 @@ else if (_student is { } student)
     private Guid? _selectedExamId;
     private StudentResultDto? _result;
     private StudentFeeSummaryDto? _fees;
+    private FamilyFeeSummaryDto? _family;
     private List<TransportRouteDto> _routes = [];
     private Guid? _transportRouteId;
     private Guid? _transportStopId;
@@ -426,6 +464,7 @@ else if (_student is { } student)
                 _selectedExamId = _exams.FirstOrDefault()?.Id;
                 await LoadResultAsync();
                 _fees = await FeesApi.GetStudentSummaryAsync(Id, currentYear.Id);
+                _family = await FeesApi.GetFamilyAsync(Id);
             }
 
             _routes = await TransportApi.GetRoutesAsync();

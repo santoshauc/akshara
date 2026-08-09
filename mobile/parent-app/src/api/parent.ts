@@ -8,6 +8,7 @@ import {
   ChildHostel,
   ChildTransport,
   Exam,
+  FamilyFeeSummary,
   FeeOrder,
   FeeSummary,
   Homework,
@@ -69,6 +70,9 @@ export async function logout(): Promise<void> {
 
 export const parentApi = {
   getChildren: () => request<Child[]>('/api/v1/parent/children'),
+
+  /** Every child's balance in one view — no switching. */
+  getFamilyFees: () => request<FamilyFeeSummary>('/api/v1/parent/family/fees'),
 
   getAttendance: (studentId: string, year: number, month: number) =>
     request<MonthAttendance>(

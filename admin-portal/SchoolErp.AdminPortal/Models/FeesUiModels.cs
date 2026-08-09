@@ -58,3 +58,17 @@ public sealed record RecordPaymentRequest(
 
 /// <summary>Receipt (mirrors PaymentReceiptDto).</summary>
 public sealed record PaymentReceiptDto(Guid PaymentId, string ReceiptNumber, decimal Amount);
+
+/// <summary>One child's family-view line (mirrors FamilyChildFeeDto).</summary>
+public sealed record FamilyChildFeeDto(
+    Guid StudentId,
+    string StudentName,
+    string? ClassName,
+    decimal TotalDue,
+    decimal TotalConcession,
+    decimal TotalPaid,
+    decimal Balance);
+
+/// <summary>Family ledger (mirrors FamilyFeeSummaryDto).</summary>
+public sealed record FamilyFeeSummaryDto(
+    List<FamilyChildFeeDto> Children, decimal FamilyBalance);

@@ -211,6 +211,16 @@ public sealed class ParentController : ControllerBase
         return File(pdf, "application/pdf", "report-card.pdf");
     }
 
+    /// <summary>
+    /// The family fee view: every linked child's current-year balance plus
+    /// the combined total — no child-switching needed.
+    /// </summary>
+    [HttpGet("family/fees")]
+    [ProducesResponseType(typeof(FamilyFeeSummaryDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetFamilyFees(CancellationToken ct) =>
+        Ok(await _sender.Send(new GetParentFamilyFeesQuery(
+            _currentUser.UserId, await GetUserPhoneAsync()), ct));
+
     /// <summary>The child's conversation with the school (marks staff messages read).</summary>
     [HttpGet("children/{studentId:guid}/messages")]
     [ProducesResponseType(typeof(IReadOnlyList<StudentMessageDto>), StatusCodes.Status200OK)]

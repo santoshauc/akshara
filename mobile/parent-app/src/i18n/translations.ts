@@ -137,6 +137,11 @@ export const en = {
   leaveApproved: 'Approved',
   leaveRejected: 'Rejected',
 
+  // Family fees
+  familyFeesTitle: 'Family fees',
+  familyTotal: 'Family total',
+  familySettled: 'Settled ✓',
+
   // Messages
   messagesTitle: 'Messages',
   messagesEmpty: 'No messages yet. Say hello to the school!',
@@ -281,6 +286,11 @@ export const te: Record<TranslationKey, string> = {
   leavePending: 'పరిశీలనలో',
   leaveApproved: 'ఆమోదించారు',
   leaveRejected: 'తిరస్కరించారు',
+
+  // Family fees
+  familyFeesTitle: 'కుటుంబ ఫీజులు',
+  familyTotal: 'కుటుంబం మొత్తం',
+  familySettled: 'చెల్లించారు ✓',
 
   // Messages
   messagesTitle: 'సందేశాలు',

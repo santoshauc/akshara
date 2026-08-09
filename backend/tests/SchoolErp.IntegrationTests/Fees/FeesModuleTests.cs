@@ -312,6 +312,40 @@ public sealed class FeesModuleTests : IClassFixture<FeesModuleFixture>
     }
 
     [Fact]
+    public async Task Family_fee_view_lists_all_siblings_once_with_combined_total()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // A sibling admitted with the SAME guardian phone links to Nita Patel.
+        var sibling = await sender.Send(new AdmitStudentCommand(
+            null, "Divya", "Patel", new DateOnly(2016, 6, 15), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), _fixture.YearId, _fixture.ClassId,
+            (await sender.Send(new GetClassesQuery()))
+                .Single(c => c.Id == _fixture.ClassId).Sections.Single().Id,
+            5,
+            [new GuardianInput("Nita", "Patel", GuardianRelation.Mother, "+919500000001", null, null, true)]));
+
+        // Staff view from EITHER sibling shows the whole family exactly once.
+        var fromDhruv = await sender.Send(new GetStudentFamilyFeesQuery(_fixture.StudentId));
+        fromDhruv.Children.Should().HaveCount(2)
+            .And.OnlyHaveUniqueItems(c => c.StudentId);
+        fromDhruv.Children.Select(c => c.StudentName)
+            .Should().Contain(["Dhruv Patel", "Divya Patel"]);
+        fromDhruv.FamilyBalance.Should().Be(fromDhruv.Children.Sum(c => c.Balance));
+
+        var fromSibling = await sender.Send(new GetStudentFamilyFeesQuery(sibling));
+        fromSibling.Children.Should().HaveCount(2);
+
+        // The parent-side view (resolved by guardian phone) matches.
+        var parentView = await sender.Send(
+            new GetParentFamilyFeesQuery(null, "+919500000001"));
+        parentView.Children.Should().HaveCount(2);
+        parentView.FamilyBalance.Should().Be(fromDhruv.FamilyBalance);
+    }
+
+    [Fact]
     public async Task Manual_online_mode_is_rejected_and_unknown_student_404s()
     {
         await using var scope = _fixture.CreateScope();
