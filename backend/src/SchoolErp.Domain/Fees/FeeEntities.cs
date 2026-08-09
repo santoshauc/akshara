@@ -52,6 +52,9 @@ public class FeeConcession : TenantEntity
 /// </summary>
 public class FeeStructureItem : TenantEntity
 {
+    /// <summary>Optional installment name shown everywhere ('Term 1').</summary>
+    public string? Label { get; set; }
+
     public Guid AcademicYearId { get; set; }
 
     public Guid SchoolClassId { get; set; }

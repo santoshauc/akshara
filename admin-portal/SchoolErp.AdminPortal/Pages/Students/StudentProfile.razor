@@ -301,7 +301,13 @@ else if (_student is { } student)
                             @foreach (var line in fees.DueLines)
                             {
                                 <tr>
-                                    <td>@line.FeeHeadName</td>
+                                    <td>
+                                        @line.FeeHeadName
+                                        @if (line.Label is { } label)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary ml-1">— @label</MudText>
+                                        }
+                                    </td>
                                     <td>₹@line.Amount.ToString("N0")</td>
                                     <td>@(line.LateFine > 0 ? $"₹{line.LateFine:N0}" : "—")</td>
                                     <td>

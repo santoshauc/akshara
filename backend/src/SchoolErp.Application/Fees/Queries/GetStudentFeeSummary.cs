@@ -50,6 +50,7 @@ public sealed class GetStudentFeeSummaryQueryHandler
                 i.DueDate,
                 i.FeeHead!.LateFineType,
                 i.FeeHead!.LateFineValue,
+                i.Label,
             })
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -69,7 +70,7 @@ public sealed class GetStudentFeeSummaryQueryHandler
                     _ => 0m,
                 }
                 : 0m;
-            return new FeeDueLineDto(line.HeadName, line.Amount, line.DueDate, overdue, fine);
+            return new FeeDueLineDto(line.HeadName, line.Amount, line.DueDate, overdue, fine, line.Label);
         }).ToList();
 
         var payments = await _db.FeePayments.AsNoTracking()
