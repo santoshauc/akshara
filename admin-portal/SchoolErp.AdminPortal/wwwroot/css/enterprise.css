@@ -37,6 +37,32 @@ body {
     border-radius: var(--ak-radius-sm);
 }
 
+/* ...but NOT inside a MudBlazor input. Those already draw their own focus
+   treatment on the notched outline, so the ring above stacked a second box
+   at a different radius around the inner <input> — which reads as a doubled
+   border. Inputs get one focus indicator: their own outline, thickened and
+   recoloured, which stays visible for keyboard users. */
+.mud-input input:focus-visible,
+.mud-input textarea:focus-visible,
+.mud-input .mud-input-slot:focus-visible,
+.mud-input-control input:focus-visible,
+.mud-select .mud-input-slot:focus-visible {
+    box-shadow: none;
+    border-radius: 0;
+}
+
+.mud-input.mud-input-outlined:focus-within .mud-input-outlined-border {
+    border-color: var(--ak-border-focus);
+    border-width: 2px;
+}
+
+/* Underlined and filled variants keep a visible focus line of the same
+   colour, so focus looks identical whichever variant a page uses. */
+.mud-input.mud-input-underline:focus-within::after,
+.mud-input.mud-input-filled:focus-within::after {
+    border-bottom-color: var(--ak-border-focus);
+}
+
 /* Skip link: first tab stop on every page, hidden until focused. */
 .ak-skip-link {
     position: absolute;
