@@ -31,7 +31,7 @@ public sealed class StudentListWorkbook : IStudentListWorkbook
             sheet.Cell(2 + r, 4).Value = row.Gender.ToString();
             sheet.Cell(2 + r, 5).Value = row.ClassName ?? "";
             sheet.Cell(2 + r, 6).Value = row.SectionName ?? "";
-            sheet.Cell(2 + r, 7).Value = row.RollNumber?.ToString() ?? "";
+            sheet.Cell(2 + r, 7).Value = row.RollNumber?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "";
             sheet.Cell(2 + r, 8).Value = row.Status.ToString();
         }
 

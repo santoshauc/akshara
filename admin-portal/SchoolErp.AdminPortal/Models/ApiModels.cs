@@ -78,3 +78,38 @@ public sealed record TenantBrandingDto(
     string? LogoUrl,
     string? ThemePrimaryColor,
     string? ThemeSecondaryColor);
+
+/// <summary>Invoice lifecycle (mirrors the API enum).</summary>
+public enum InvoiceStatus
+{
+    Issued = 1,
+    Paid = 2,
+    Void = 3,
+}
+
+/// <summary>One invoice line.</summary>
+public sealed record InvoiceLineDto(string Description, decimal Quantity, decimal UnitAmount, decimal Amount);
+
+/// <summary>A platform invoice to a school.</summary>
+public sealed record InvoiceDto(
+    Guid Id,
+    string InvoiceNumber,
+    Guid TenantId,
+    string SchoolName,
+    InvoiceStatus Status,
+    DateOnly IssuedOn,
+    DateOnly DueOn,
+    DateOnly? PaidOn,
+    decimal TotalAmount,
+    string? Notes,
+    List<InvoiceLineDto> Lines);
+
+/// <summary>What one school is consuming.</summary>
+public sealed record TenantUsageDto(
+    string SchoolName,
+    int ActiveStudents,
+    int SmsCreditsRemaining,
+    int SmsSentLast30Days,
+    int PushSentLast30Days,
+    decimal FeesCollectedLast30Days,
+    decimal OutstandingInvoiceTotal);

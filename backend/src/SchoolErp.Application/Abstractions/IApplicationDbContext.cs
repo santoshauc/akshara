@@ -112,5 +112,9 @@ public interface IApplicationDbContext
 
     DbSet<OutboxMessage> OutboxMessages { get; }
 
+    DbSet<Domain.Billing.Invoice> Invoices { get; }
+
+    DbSet<Domain.Billing.InvoiceLine> InvoiceLines { get; }
+
     Task<int> SaveChangesAsync(CancellationToken cancellationToken = default);
 }

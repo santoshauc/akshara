@@ -59,6 +59,7 @@ builder.Services.AddScoped<HostelClient>();
 builder.Services.AddScoped<LeaveClient>();
 builder.Services.AddScoped<AdmissionsClient>();
 builder.Services.AddScoped<InsightsClient>();
+builder.Services.AddScoped<BillingClient>();
 builder.Services.AddScoped<MessagesClient>();
 builder.Services.AddScoped<DashboardClient>();
 builder.Services.AddScoped<UserAdminClient>();

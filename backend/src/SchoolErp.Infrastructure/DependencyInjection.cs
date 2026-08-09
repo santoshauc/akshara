@@ -164,6 +164,8 @@ public static class DependencyInjection
             Files.StudentImportWorkbook>();
         services.AddSingleton<Application.Students.Queries.IStudentListWorkbook,
             Files.StudentListWorkbook>();
+        services.AddSingleton<Application.Billing.IInvoiceRenderer,
+            Reports.QuestPdfInvoiceRenderer>();
 
         return services;
     }

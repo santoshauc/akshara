@@ -108,6 +108,12 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     /// <summary>Online payment orders (platform-scoped, webhook-read).</summary>
     public DbSet<PaymentOrder> PaymentOrders => Set<PaymentOrder>();
 
+    /// <summary>Platform invoices to schools (platform-scoped).</summary>
+    public DbSet<Domain.Billing.Invoice> Invoices => Set<Domain.Billing.Invoice>();
+
+    /// <summary>Invoice lines (platform-scoped).</summary>
+    public DbSet<Domain.Billing.InvoiceLine> InvoiceLines => Set<Domain.Billing.InvoiceLine>();
+
     /// <summary>Notices/circulars (tenant-scoped).</summary>
     public DbSet<Notice> Notices => Set<Notice>();
 

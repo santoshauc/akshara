@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 105 integration = **153 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 107 integration = **155 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -578,12 +578,48 @@ never in production):
   school admin; default blue "Akshara Admin" as Super Admin; editor
   section verified with save round-trip.
 
+## Platform billing (invoices, SMS top-ups, usage)
+
+- Invoice + InvoiceLine entities (platform-scoped, no RLS — see
+  exception list): sequential per-year numbers ("INV-2026-0001",
+  count-based, unique index arbitrates), Issued → Paid/Void lifecycle
+  (paid stays paid; only issued can be voided), denormalized
+  TotalAmount = Σ round(qty × unit). Migration AddInvoices.
+- Application/Billing: CreateInvoice (validated lines), MarkInvoicePaid
+  / VoidInvoice (409 on re-settle), RecordSmsTopUp (credits land on the
+  tenant AND an issued invoice records the receivable in one command —
+  they can't drift), GetInvoices (filter by school, names joined),
+  GetInvoicePdf (QuestPDF A4, Akshara-branded, PAID/VOID stamp),
+  GetTenantUsage — platform tables read directly (outbox SMS/push
+  counts by TenantId, outstanding invoice sum), RLS tables (students,
+  fee payments) read via a fresh scope pinned to the target tenant
+  (ITenantContextSetter — same pattern as background jobs).
+- API: /billing/* — usage, invoices CRUD-ish, pdf, sms-topup; all
+  tenants.manage (operator-only).
+- Portal: Schools menu → "Billing & usage" per school: usage cards
+  (active students, SMS credits + 30-day SMS/push split, fees
+  collected 30d, outstanding), SMS pack buttons (5k/10k/25k at an
+  editable ₹/SMS), invoice builder with quick lines ("Annual licence
+  (N students)" prefilled from live usage, onboarding fee, custom),
+  sortable invoice ledger with Mark paid / Void / PDF download.
+- 2 integration tests (lifecycle incl. PDF magic bytes; top-up +
+  usage coherence). E2E live: top-up 5k → INV-2026-0001 ₹1,750;
+  licence invoice 23 × ₹70 = INV-2026-0002 ₹1,610 → marked paid;
+  PDF downloaded (52 KB).
+- GOTCHA (bit us live): `dotnet ef migrations add` followed by
+  `database update --no-build` applies NOTHING — the new migration
+  isn't compiled yet, and update still prints "Done." Build (or drop
+  --no-build) between add and update, and check `migrations list`
+  for "(Pending)" when in doubt.
+
 ## Conventions (follow these when adding modules)
 
 - Every business entity extends `TenantEntity`; every migration creating a
   tenant table MUST call `migrationBuilder.EnableTenantRls("table")` (and
   `DisableTenantRls` in Down). Platform-scoped exceptions (documented in each
-  entity): `outbox_messages`, `payment_orders`, `refresh_tokens`, `otp_codes`.
+  entity): `outbox_messages`, `payment_orders`, `refresh_tokens`, `otp_codes`,
+  `invoices`, `invoice_lines` (platform billing — the school is the subject,
+  the operator is the audience; every endpoint demands tenants.manage).
 - Module pattern: Domain entity → EF config (`Infrastructure/Persistence/Configurations`)
   → DbSet on `IApplicationDbContext` + `AppDbContext` → CQRS command/query with
   FluentValidation validator → controller with `[HasPermission(...)]` →

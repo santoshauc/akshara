@@ -56,6 +56,9 @@
                 <MudMenuItem OnClick="@(() => Navigation.NavigateTo($"tenants/{context.Id}/edit"))">
                     Edit
                 </MudMenuItem>
+                <MudMenuItem OnClick="@(() => Navigation.NavigateTo($"tenants/{context.Id}/billing"))">
+                    Billing &amp; usage
+                </MudMenuItem>
                 @if (context.Status != TenantStatus.Active && context.Status != TenantStatus.Archived)
                 {
                     <MudMenuItem OnClick="@(() => ChangeStatusAsync(context, TenantStatus.Active))">Activate</MudMenuItem>

@@ -1,0 +1,349 @@
+@page "/tenants/{Id:guid}/billing"
+@attribute [Authorize]
+@inject BillingClient Client
+@inject NavigationManager Navigation
+@inject ISnackbar Snackbar
+@inject IJSRuntime Js
+
+<PageTitle>Billing — Akshara</PageTitle>
+
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
+    <MudIconButton Icon="@Icons.Material.Filled.ArrowBack"
+                   OnClick="@(() => Navigation.NavigateTo("tenants"))" />
+    <MudText Typo="Typo.h4">Billing — @(_usage?.SchoolName ?? "…")</MudText>
+</MudStack>
+
+@if (_loading)
+{
+    <MudProgressLinear Indeterminate="true" />
+}
+else if (_usage is { } usage)
+{
+    <MudGrid Class="mb-2">
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Active students</MudText>
+                <MudText Typo="Typo.h5">@usage.ActiveStudents</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">SMS credits left</MudText>
+                <MudText Typo="Typo.h5"
+                         Style="@(usage.SmsCreditsRemaining < 500 ? "color: var(--mud-palette-error);" : "")">
+                    @usage.SmsCreditsRemaining.ToString("N0")
+                </MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    30 days: @usage.SmsSentLast30Days SMS · @usage.PushSentLast30Days push (free)
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Fees collected (30 d)</MudText>
+                <MudText Typo="Typo.h5">₹@usage.FeesCollectedLast30Days.ToString("N0")</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="3">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Outstanding invoices</MudText>
+                <MudText Typo="Typo.h5"
+                         Style="@(usage.OutstandingInvoiceTotal > 0 ? "color: var(--mud-palette-warning);" : "")">
+                    ₹@usage.OutstandingInvoiceTotal.ToString("N0")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-1">SMS top-up</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            Credits land on the school immediately; an issued invoice records the
+            receivable. Pushes stay free — nudge schools onto the parent app.
+        </MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            @foreach (var pack in Packs)
+            {
+                <MudButton Variant="Variant.Outlined" Disabled="_busy"
+                           OnClick="@(() => TopUpAsync(pack))">
+                    @pack.ToString("N0") · ₹@((pack * _smsUnitPrice).ToString("N0"))
+                </MudButton>
+            }
+            <MudNumericField T="decimal" @bind-Value="_smsUnitPrice" Label="₹ / SMS"
+                             Min="0.05m" Max="5m" Step="0.05m" Style="width: 110px;" />
+        </MudStack>
+    </MudPaper>
+
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">New invoice</MudText>
+        <MudStack Row="true" Spacing="2" Class="mb-2" Wrap="Wrap.Wrap">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                       OnClick="@(() => AddLine($"Annual licence {DateTime.Today.Year}-{(DateTime.Today.Year + 1) % 100:00}", usage.ActiveStudents, 70))">
+                + Annual licence (@usage.ActiveStudents students)
+            </MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                       OnClick="@(() => AddLine("Onboarding & data import", 1, 15000))">
+                + Onboarding fee
+            </MudButton>
+            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                       OnClick="@(() => AddLine("", 1, 0))">
+                + Custom line
+            </MudButton>
+        </MudStack>
+
+        @foreach (var (line, index) in _lines.Select((l, i) => (l, i)))
+        {
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-1" Wrap="Wrap.Wrap">
+                <MudTextField @bind-Value="line.Description" Label="Description" Style="min-width: 320px;" />
+                <MudNumericField T="decimal" @bind-Value="line.Quantity" Label="Qty" Min="0.01m" Style="width: 100px;" />
+                <MudNumericField T="decimal" @bind-Value="line.UnitAmount" Label="Unit ₹" Min="0m" Style="width: 130px;" />
+                <MudText Typo="Typo.body2" Style="min-width: 110px;">
+                    = ₹@(Math.Round(line.Quantity * line.UnitAmount, 0).ToString("N0"))
+                </MudText>
+                <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                               OnClick="@(() => _lines.RemoveAt(index))" />
+            </MudStack>
+        }
+
+        @if (_lines.Count > 0)
+        {
+            <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mt-3" Wrap="Wrap.Wrap">
+                <MudDatePicker @bind-Date="_dueOn" Label="Due on" Editable="true" Style="width: 170px;" />
+                <MudTextField @bind-Value="_notes" Label="Notes (optional)" Style="min-width: 260px;" />
+                <MudText Typo="Typo.subtitle1" Class="ml-auto">
+                    Total ₹@_lines.Sum(l => Math.Round(l.Quantity * l.UnitAmount, 0)).ToString("N0")
+                </MudText>
+                <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
+                           OnClick="CreateInvoiceAsync">
+                    Issue invoice
+                </MudButton>
+            </MudStack>
+        }
+    </MudPaper>
+
+    <MudPaper Elevation="2" Class="pa-4">
+        <MudText Typo="Typo.h6" Class="pa-2">Invoices</MudText>
+        <MudTable Items="_invoices" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh><MudTableSortLabel SortBy="@(new Func<InvoiceDto, object>(i => i.InvoiceNumber))">Number</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@(new Func<InvoiceDto, object>(i => i.IssuedOn))">Issued</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@(new Func<InvoiceDto, object>(i => i.DueOn))">Due</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@(new Func<InvoiceDto, object>(i => i.TotalAmount))">Total</MudTableSortLabel></MudTh>
+                <MudTh><MudTableSortLabel SortBy="@(new Func<InvoiceDto, object>(i => i.Status))">Status</MudTableSortLabel></MudTh>
+                <MudTh />
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd>
+                    @context.InvoiceNumber
+                    @if (context.Lines.Count > 0)
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @context.Lines[0].Description@(context.Lines.Count > 1 ? $" +{context.Lines.Count - 1}" : "")
+                        </MudText>
+                    }
+                </MudTd>
+                <MudTd>@context.IssuedOn.ToString("dd MMM yyyy")</MudTd>
+                <MudTd>@context.DueOn.ToString("dd MMM yyyy")</MudTd>
+                <MudTd>₹@context.TotalAmount.ToString("N0")</MudTd>
+                <MudTd>
+                    <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">
+                        @context.Status
+                    </MudChip>
+                </MudTd>
+                <MudTd Style="white-space: nowrap;">
+                    <MudIconButton Icon="@Icons.Material.Filled.PictureAsPdf" Size="Size.Small"
+                                   Title="Download PDF" OnClick="@(() => DownloadPdfAsync(context))" />
+                    @if (context.Status == InvoiceStatus.Issued)
+                    {
+                        <MudButton Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined"
+                                   Disabled="_busy" OnClick="@(() => MarkPaidAsync(context))">
+                            Mark paid
+                        </MudButton>
+                        <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Text"
+                                   Disabled="_busy" OnClick="@(() => VoidAsync(context))">
+                            Void
+                        </MudButton>
+                    }
+                </MudTd>
+            </RowTemplate>
+            <NoRecordsContent>
+                <MudText Class="mud-text-secondary pa-4">No invoices yet.</MudText>
+            </NoRecordsContent>
+            <PagerContent>
+                <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
+            </PagerContent>
+        </MudTable>
+    </MudPaper>
+}
+else
+{
+    <MudAlert Severity="Severity.Info">School not found.</MudAlert>
+}
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private static readonly int[] Packs = [5_000, 10_000, 25_000];
+
+    private TenantUsageDto? _usage;
+    private List<InvoiceDto> _invoices = [];
+    private bool _loading = true;
+    private bool _busy;
+    private decimal _smsUnitPrice = 0.35m;
+    private DateTime? _dueOn = DateTime.Today.AddDays(30);
+    private string? _notes;
+
+    private sealed class LineModel
+    {
+        public string Description { get; set; } = string.Empty;
+        public decimal Quantity { get; set; } = 1;
+        public decimal UnitAmount { get; set; }
+    }
+
+    private readonly List<LineModel> _lines = [];
+
+    protected override async Task OnParametersSetAsync()
+    {
+        _loading = true;
+        try
+        {
+            _usage = await Client.GetUsageAsync(Id);
+            _invoices = await Client.GetInvoicesAsync(Id);
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private static Color StatusColor(InvoiceStatus status) => status switch
+    {
+        InvoiceStatus.Paid => Color.Success,
+        InvoiceStatus.Void => Color.Default,
+        _ => Color.Warning,
+    };
+
+    private void AddLine(string description, decimal quantity, decimal unitAmount) =>
+        _lines.Add(new LineModel { Description = description, Quantity = quantity, UnitAmount = unitAmount });
+
+    private async Task RefreshAsync()
+    {
+        _usage = await Client.GetUsageAsync(Id);
+        _invoices = await Client.GetInvoicesAsync(Id);
+    }
+
+    private async Task TopUpAsync(int credits)
+    {
+        _busy = true;
+        try
+        {
+            var (invoice, error) = await Client.SmsTopUpAsync(
+                Id, credits, _smsUnitPrice, DateOnly.FromDateTime(DateTime.Today.AddDays(30)));
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(
+                $"{credits:N0} credits added · invoice {invoice!.InvoiceNumber} issued for ₹{invoice.TotalAmount:N0}.",
+                Severity.Success);
+            await RefreshAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task CreateInvoiceAsync()
+    {
+        if (_dueOn is null || _lines.Count == 0)
+        {
+            Snackbar.Add("Add at least one line and a due date.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var (invoice, error) = await Client.CreateInvoiceAsync(
+                Id,
+                DateOnly.FromDateTime(_dueOn.Value),
+                _lines.Select(l => new InvoiceLineDto(l.Description, l.Quantity, l.UnitAmount, 0)).ToList(),
+                _notes);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"Invoice {invoice!.InvoiceNumber} issued for ₹{invoice.TotalAmount:N0}.", Severity.Success);
+            _lines.Clear();
+            _notes = null;
+            await RefreshAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task MarkPaidAsync(InvoiceDto invoice)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.MarkPaidAsync(invoice.Id, DateOnly.FromDateTime(DateTime.Today));
+            Snackbar.Add(error ?? $"{invoice.InvoiceNumber} marked paid.",
+                error is null ? Severity.Success : Severity.Error);
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task VoidAsync(InvoiceDto invoice)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.VoidAsync(invoice.Id);
+            Snackbar.Add(error ?? $"{invoice.InvoiceNumber} voided.",
+                error is null ? Severity.Info : Severity.Error);
+            await RefreshAsync();
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task DownloadPdfAsync(InvoiceDto invoice)
+    {
+        var bytes = await Client.GetPdfAsync(invoice.Id);
+        if (bytes is null)
+        {
+            Snackbar.Add("Could not fetch the PDF.", Severity.Error);
+            return;
+        }
+
+        await Js.InvokeVoidAsync("schoolErpDownload",
+            $"{invoice.InvoiceNumber}.pdf", "application/pdf", Convert.ToBase64String(bytes));
+    }
+}
