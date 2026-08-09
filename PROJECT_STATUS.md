@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 61 unit + 157 integration = **218 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 157 integration = **222 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -868,6 +868,13 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
 - 9 integration tests (platform vs school audit scoping, the anonymous-row
   exclusion, MFA claim present/absent, operator create/duplicate/disable/
   last-operator). Suite: 61 unit + 157 integration green.
+- `Jwt:RequirePlatformMfa` — TRUE by default (in `JwtOptions`), set FALSE in
+  appsettings.Development.json only. Without that, the seeded demo operator
+  could sign in but every platform screen 403'd, which made Schools,
+  onboarding, branding and billing look like they had vanished. Same
+  config-activation pattern as the dev SMS and payment gateways: production
+  inherits the hard default. 4 unit tests pin it (default on, marked when on,
+  unmarked when off, school accounts never marked).
 - STILL OPEN: no scoped impersonation for support (an operator cannot see a
   school's data at all), and no cross-school platform overview.
 
