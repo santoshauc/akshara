@@ -27,6 +27,15 @@ public sealed class AuthTestFixture : IAsyncLifetime
     public const string LockoutEmail = "lockme@demo.school";
     public const string ParentPhone = "+911111111111";
 
+    /// <summary>Second school, for the one-identity-two-schools case.</summary>
+    public const string SecondSchoolCode = "DEMO02";
+
+    public const string SharedEmail = "both@demo.school";
+
+    public const string SharedPhone = "+912222222222";
+
+    public const string PlatformEmail = "super@schoolerp.local";
+
     private readonly PostgreSqlContainer _container = new PostgreSqlBuilder()
         .WithImage("postgres:16-alpine")
         .WithDatabase("schoolerp_auth_test")
@@ -37,6 +46,8 @@ public sealed class AuthTestFixture : IAsyncLifetime
     private ServiceProvider _provider = null!;
 
     public Guid TenantId { get; } = Guid.NewGuid();
+
+    public Guid SecondTenantId { get; } = Guid.NewGuid();
 
     /// <summary>Captures outbound SMS so tests can read OTP codes.</summary>
     public RecordingSmsSender SmsSender { get; } = new();
@@ -120,6 +131,31 @@ public sealed class AuthTestFixture : IAsyncLifetime
 
         var parent = NewUser("parent@demo.school", ParentPhone, "Demo Parent");
         (await userManager.CreateAsync(parent, AdminPassword)).Succeeded.Should().BeTrue();
+
+        // A second school, and one person who belongs to BOTH — a teacher who
+        // works at two schools, a parent with children at two. Email and phone
+        // are only unique WITHIN a school, so this is legal and must be handled.
+        db.Tenants.Add(new Tenant
+        {
+            Id = SecondTenantId,
+            Code = SecondSchoolCode,
+            Name = "Second Public School",
+            Subdomain = "second",
+            Status = TenantStatus.Active,
+            SmsCredits = 1_000,
+        });
+        await db.SaveChangesAsync();
+
+        var here = NewUser(SharedEmail, SharedPhone, "Works At Both");
+        (await userManager.CreateAsync(here, AdminPassword)).Succeeded.Should().BeTrue();
+
+        var there = NewUser(SharedEmail, SharedPhone, "Works At Both");
+        there.TenantId = SecondTenantId;
+        (await userManager.CreateAsync(there, AdminPassword)).Succeeded.Should().BeTrue();
+
+        var platform = NewUser(PlatformEmail, "+919876543212", "Super Admin");
+        platform.TenantId = null;
+        (await userManager.CreateAsync(platform, AdminPassword)).Succeeded.Should().BeTrue();
 
         await db.SaveChangesAsync();
     }

@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 61 unit + 143 integration = **204 green** (`dotnet test` from `school-erp/`).
+Test suite: 61 unit + 149 integration = **210 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -824,6 +824,47 @@ HR/payroll (own product).
   `errors`; 404 → one INF line; and a genuine fault (a platform account
   hitting a tenant-scoped query) still logs ERR with the whole stack.
 - Suite: 61 unit + 135 integration green.
+
+## Login without a school code (feature/login-without-school-code)
+
+- Nobody types a school code any more. Staff sign in with email/phone +
+  password; parents with their mobile number. The school is inferred.
+- It could NOT be a lookup: email and phone are unique only WITHIN a school
+  (that is why `ApplicationUser.UserName` is an opaque key). So login gathers
+  every account matching the identity, **authenticates first**, and decides
+  after: one match signs in, several return a school picker.
+  - Order is the security property. Asking "which school?" before the password
+    is proven would turn the form into a directory of where an email has an
+    account. A wrong password returns plain InvalidCredentials with an EMPTY
+    school list — pinned by a test.
+  - Candidates are capped at 5: a wrong password costs one hash per candidate.
+- Parent OTP: one code issued per candidate school (same hash), throttled per
+  PHONE rather than per (tenant, phone). The SMS drops the school name when
+  there is more than one instead of guessing. On an ambiguous verify the codes
+  are left UNCONSUMED, so choosing a school finishes the same sign-in without
+  a second SMS.
+- `AuthError.ChooseSchool` + `AuthResult.Schools`; the API answers 200 with
+  `{chooseSchool, schools}` (like the MFA challenge — the credentials were
+  right). `schoolCode` is now optional on all three auth payloads.
+- The JWT carries a `school_code` claim, DISPLAY ONLY (the tenant GUID stays
+  the authority), because the portal chrome needs to know which school's
+  branding to fetch and nobody types it any more.
+- REGRESSION ACCEPTED: the parent app's pre-login branding is gone — it was
+  driven by the typed code. Branding applies after sign-in. One fewer field
+  beat a logo on the login screen; revisit via subdomain if that is wrong.
+- Password RESET still takes a school code: it is deliberately silent, so an
+  ambiguous identity has no safe way to ask which school was meant.
+- GOTCHA (caught in the browser): `Blazored.LocalStorage.SetItemAsync`
+  JSON-ENCODES, so the school code was stored as `"DEMO01"` with quotes while
+  MainLayout reads it with a raw `localStorage.getItem` — branding silently
+  vanished. Use `SetItemAsStringAsync` for anything JS reads directly.
+- 6 integration tests (no code for staff/platform/parent, two-school pickers
+  for both password and OTP, wrong password leaks no school list).
+  Suite: 61 unit + 149 integration green. E2E: portal and parent app both
+  sign in with no code; branding follows; platform sign-in stays unbranded.
+- NOT DONE: one parent session spanning children at DIFFERENT schools. The
+  JWT carries one tenant and RLS binds one tenant per request, so that is a
+  separate architectural piece, not a login tweak.
 
 ## ID card back (feature/id-card-back)
 

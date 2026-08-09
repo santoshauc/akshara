@@ -27,9 +27,17 @@
 
             @if (_mfaToken is null)
             {
-                <MudTextField @bind-Value="_schoolCode" Label="@L["login.schoolCode"]"
-                              HelperText="@L["login.schoolCodeHelp"]"
-                              Variant="Variant.Outlined" Immediate="true" />
+                @if (_schools.Count > 0)
+                {
+                    <MudSelect T="string" @bind-Value="_schoolCode" Label="@L["login.chooseSchool"]"
+                               HelperText="@L["login.chooseSchoolHelp"]"
+                               Variant="Variant.Outlined">
+                        @foreach (var school in _schools)
+                        {
+                            <MudSelectItem T="string" Value="@school.Code">@school.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                }
                 <MudTextField @bind-Value="_login" Label="@L["login.emailOrPhone"]"
                               Variant="Variant.Outlined" Immediate="true" />
                 <MudTextField @bind-Value="_password" Label="@L["login.password"]"
@@ -94,7 +102,10 @@
 
     public void Dispose() => L.Changed -= OnLanguageChanged;
 
+    // Only ever set when the server comes back asking which school — the
+    // sign-in form does not ask for a code up front any more.
     private string _schoolCode = string.Empty;
+    private List<SchoolChoiceModel> _schools = [];
     private string _login = string.Empty;
     private string _password = string.Empty;
     private string _mfaCode = string.Empty;
@@ -123,20 +134,19 @@
             {
                 _mfaToken = outcome.MfaToken;
             }
+            else if (outcome.Schools.Count > 0)
+            {
+                // The credentials were right but fit more than one school, so
+                // the form grows a picker and the user submits once more.
+                _schools = outcome.Schools;
+                _schoolCode = outcome.Schools[0].Code;
+                _error = L["login.chooseSchoolHelp"];
+            }
             else if (outcome.Succeeded)
             {
-                // Remembered so the app chrome can fetch this school's branding.
-                // Platform (Super Admin) sign-ins have no code — clear any
-                // previous school's branding instead of wearing it.
-                if (string.IsNullOrWhiteSpace(_schoolCode))
-                {
-                    await Js.InvokeVoidAsync("localStorage.removeItem", "akshara.schoolCode");
-                }
-                else
-                {
-                    await Js.InvokeVoidAsync("localStorage.setItem",
-                        "akshara.schoolCode", _schoolCode.Trim().ToUpperInvariant());
-                }
+                // The school code now rides in the token, so the chrome can
+                // brand itself without ever having asked for one.
+                await AuthApi.RememberSchoolForBrandingAsync();
                 Navigation.NavigateTo(string.IsNullOrWhiteSpace(ReturnUrl) ? "" : ReturnUrl);
             }
             else

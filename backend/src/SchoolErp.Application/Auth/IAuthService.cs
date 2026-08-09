@@ -18,7 +18,17 @@ public enum AuthError
 
     /// <summary>The school's subscription has lapsed; sign-in is blocked.</summary>
     SubscriptionExpired,
+
+    /// <summary>
+    /// The credentials are valid at more than one school (the same person
+    /// works at two, or a parent has children at two). Raised only AFTER the
+    /// password or OTP is proven, so it never reveals where an account exists.
+    /// </summary>
+    ChooseSchool,
 }
+
+/// <summary>One school the caller could sign in to, for the disambiguation step.</summary>
+public sealed record SchoolChoice(string Code, string Name);
 
 /// <summary>Issued token pair. <c>ExpiresInSeconds</c> refers to the access token.</summary>
 public sealed record AuthTokens(string AccessToken, int ExpiresInSeconds, string RefreshToken);
@@ -31,12 +41,18 @@ public sealed record AuthTokens(string AccessToken, int ExpiresInSeconds, string
 public sealed record AuthResult(
     bool Succeeded, AuthError Error, AuthTokens? Tokens, string? MfaChallenge = null)
 {
+    /// <summary>Schools to choose between when <see cref="AuthError.ChooseSchool"/>.</summary>
+    public IReadOnlyList<SchoolChoice> Schools { get; init; } = [];
+
     public static AuthResult Success(AuthTokens tokens) => new(true, AuthError.None, tokens);
 
     public static AuthResult Fail(AuthError error) => new(false, error, null);
 
     public static AuthResult MfaRequired(string challenge) =>
         new(false, AuthError.MfaRequired, null, challenge);
+
+    public static AuthResult ChooseSchool(IReadOnlyList<SchoolChoice> schools) =>
+        new(false, AuthError.ChooseSchool, null) { Schools = schools };
 }
 
 /// <summary>Material the user needs to add SchoolErp to an authenticator app.</summary>
@@ -63,21 +79,22 @@ public interface IAuthService
 {
     /// <summary>
     /// Password login for staff/admin. <paramref name="login"/> is an email or
-    /// phone; the school is identified by <paramref name="schoolCode"/>.
-    /// Failed attempts count toward account lockout. <paramref name="deviceName"/>
-    /// labels the session in "My devices".
+    /// phone, and the school is inferred from it — <paramref name="schoolCode"/>
+    /// is optional and only needed to settle an
+    /// <see cref="AuthError.ChooseSchool"/>. Failed attempts count toward
+    /// lockout; <paramref name="deviceName"/> labels the session in "My devices".
     /// </summary>
     Task<AuthResult> LoginWithPasswordAsync(
-        string schoolCode, string login, string password, string? ipAddress,
+        string? schoolCode, string login, string password, string? ipAddress,
         string? deviceName = null, CancellationToken ct = default);
 
     /// <summary>Requests an OTP for a parent phone. Always returns silently — the caller
     /// must not be able to probe which phone numbers exist.</summary>
-    Task RequestOtpAsync(string schoolCode, string phone, CancellationToken ct = default);
+    Task RequestOtpAsync(string? schoolCode, string phone, CancellationToken ct = default);
 
     /// <summary>Completes OTP login. Attempts are limited; codes are single-use.</summary>
     Task<AuthResult> LoginWithOtpAsync(
-        string schoolCode, string phone, string code, string? ipAddress,
+        string? schoolCode, string phone, string code, string? ipAddress,
         string? deviceName = null, CancellationToken ct = default);
 
     /// <summary>

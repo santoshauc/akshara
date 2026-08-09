@@ -38,7 +38,7 @@ public sealed class AuthApiClient
                 return new LoginOutcome(await ProblemResponse.ReadTitleAsync(response), null);
             }
 
-            return new LoginOutcome("Invalid school code, login or password.", null);
+            return new LoginOutcome("Invalid login or password.", null);
         }
 
         var body = await response.Content.ReadFromJsonAsync<LoginResponseDto>();
@@ -47,9 +47,31 @@ public sealed class AuthApiClient
             return new LoginOutcome(null, body.MfaToken);
         }
 
+        if (body?.ChooseSchool == true)
+        {
+            return new LoginOutcome(null, null) { Schools = body.Schools ?? [] };
+        }
+
         await _tokens.SetAsync(body!.AccessToken!, body.RefreshToken!);
         _authState.NotifyStateChanged();
         return new LoginOutcome(null, null);
+    }
+
+    /// <summary>
+    /// Stores the signed-in school's code for the chrome's branding lookup.
+    /// It comes from the token now that nobody types it; a platform sign-in
+    /// has none and must not wear the last school's colours.
+    /// </summary>
+    public async Task RememberSchoolForBrandingAsync()
+    {
+        var code = await _authState.GetSchoolCodeAsync();
+        if (string.IsNullOrWhiteSpace(code))
+        {
+            await _tokens.RemoveSchoolCodeAsync();
+            return;
+        }
+
+        await _tokens.SetSchoolCodeAsync(code);
     }
 
     /// <summary>Second step of an MFA login. Returns null and stores the

@@ -17,29 +17,34 @@ import {
   StudentMessage,
   MonthAttendance,
   Notice,
+  SchoolChoice,
   StudentInsights,
   StudentResult,
   TimetableEntry,
 } from './types';
 
 /** Requests an SMS OTP. Always succeeds from the caller's perspective. */
-export async function requestOtp(schoolCode: string, phone: string): Promise<void> {
+export async function requestOtp(schoolCode: string | null, phone: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/otp/request`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ schoolCode, phone }),
   });
   if (!response.ok) {
-    throw new ApiError(response.status, 'Could not request a code. Check the school code.');
+    throw new ApiError(response.status, 'Could not request a code. Check the number.');
   }
 }
 
-/** Completes OTP login and stores the session. */
+/**
+ * Completes OTP login and stores the session. When the number belongs to more
+ * than one school the server answers with a choice instead of tokens; the code
+ * stays valid, so calling again with a school finishes the same sign-in.
+ */
 export async function verifyOtp(
-  schoolCode: string,
+  schoolCode: string | null,
   phone: string,
   code: string,
-): Promise<void> {
+): Promise<{ chooseSchool: boolean; schools: SchoolChoice[] }> {
   const response = await fetch(`${API_BASE_URL}/api/v1/auth/otp/verify`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -49,8 +54,16 @@ export async function verifyOtp(
     throw new ApiError(response.status, 'Invalid or expired code.');
   }
 
-  const tokens = (await response.json()) as AuthTokens;
-  await tokenStore.set(tokens);
+  const body = (await response.json()) as AuthTokens & {
+    chooseSchool?: boolean;
+    schools?: SchoolChoice[];
+  };
+  if (body.chooseSchool) {
+    return { chooseSchool: true, schools: body.schools ?? [] };
+  }
+
+  await tokenStore.set(body);
+  return { chooseSchool: false, schools: [] };
 }
 
 /** Revokes the session server-side and clears local tokens. */

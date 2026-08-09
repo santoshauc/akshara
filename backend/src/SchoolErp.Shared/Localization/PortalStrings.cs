@@ -40,8 +40,9 @@ public static class PortalStrings
 
         // Login
         ["login.title"] = "Sign in",
-        ["login.schoolCode"] = "School code",
-        ["login.schoolCodeHelp"] = "Leave empty for platform (Super Admin) sign-in",
+        ["login.chooseSchool"] = "School",
+        ["login.chooseSchoolHelp"] =
+            "This login works at more than one school — choose which one to open.",
         ["login.emailOrPhone"] = "Email or phone",
         ["login.password"] = "Password",
         ["login.signIn"] = "Sign in",
@@ -281,8 +282,9 @@ public static class PortalStrings
 
         // Login
         ["login.title"] = "సైన్ ఇన్",
-        ["login.schoolCode"] = "స్కూల్ కోడ్",
-        ["login.schoolCodeHelp"] = "ప్లాట్‌ఫారమ్ (సూపర్ అడ్మిన్) సైన్-ఇన్ కోసం ఖాళీగా వదలండి",
+        ["login.chooseSchool"] = "పాఠశాల",
+        ["login.chooseSchoolHelp"] =
+            "ఈ లాగిన్ ఒకటి కంటే ఎక్కువ పాఠశాలలకు పనిచేస్తుంది — ఏది తెరవాలో ఎంచుకోండి.",
         ["login.emailOrPhone"] = "ఇమెయిల్ లేదా ఫోన్",
         ["login.password"] = "పాస్‌వర్డ్",
         ["login.signIn"] = "సైన్ ఇన్",

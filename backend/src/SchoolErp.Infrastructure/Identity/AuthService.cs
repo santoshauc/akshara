@@ -49,12 +49,14 @@ public sealed partial class AuthService : IAuthService
     // ----- Password login --------------------------------------------------
 
     public async Task<AuthResult> LoginWithPasswordAsync(
-        string schoolCode, string login, string password, string? ipAddress,
+        string? schoolCode, string login, string password, string? ipAddress,
         string? deviceName = null, CancellationToken ct = default)
     {
+        // The school is normally implied by who is signing in, so the code is
+        // optional. When given (the disambiguation step, or an explicit API
+        // caller) it narrows the candidates; otherwise every account with this
+        // email or phone is a candidate and the password decides.
         Guid? tenantId = null;
-
-        // An empty school code means platform sign-in (Super Admin — no tenant).
         if (!string.IsNullOrWhiteSpace(schoolCode))
         {
             var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
@@ -63,22 +65,50 @@ public sealed partial class AuthService : IAuthService
                 return AuthResult.Fail(AuthError.SchoolNotFound);
             }
 
-            if (tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime)))
-            {
-                return AuthResult.Fail(AuthError.SubscriptionExpired);
-            }
-
             tenantId = tenant.Id;
         }
 
-        var user = await FindTenantUserAsync(tenantId, login, ct).ConfigureAwait(false);
-        if (user is null)
+        var candidates = await FindLoginCandidatesAsync(tenantId, login, ct)
+            .ConfigureAwait(false);
+        if (candidates.Count == 0)
         {
             // Burn comparable time so missing users are indistinguishable
             // from wrong passwords.
             _ = new PasswordHasher<ApplicationUser>().HashPassword(null!, password);
             return AuthResult.Fail(AuthError.InvalidCredentials);
         }
+
+        // Authenticate FIRST, disambiguate second. Asking "which school?" before
+        // the password is proven would turn the login form into a directory of
+        // where a given email or phone has an account.
+        var matched = new List<ApplicationUser>();
+        foreach (var candidate in candidates)
+        {
+            if (await _userManager.CheckPasswordAsync(candidate, password).ConfigureAwait(false))
+            {
+                matched.Add(candidate);
+            }
+            else
+            {
+                await _userManager.AccessFailedAsync(candidate).ConfigureAwait(false);
+                LogFailedLogin(_logger, candidate.Id);
+            }
+        }
+
+        if (matched.Count == 0)
+        {
+            return await _userManager.IsLockedOutAsync(candidates[0]).ConfigureAwait(false)
+                ? AuthResult.Fail(AuthError.LockedOut)
+                : AuthResult.Fail(AuthError.InvalidCredentials);
+        }
+
+        if (matched.Count > 1)
+        {
+            return AuthResult.ChooseSchool(
+                await DescribeSchoolsAsync(matched, ct).ConfigureAwait(false));
+        }
+
+        var user = matched[0];
 
         if (!user.IsActive)
         {
@@ -90,13 +120,10 @@ public sealed partial class AuthService : IAuthService
             return AuthResult.Fail(AuthError.LockedOut);
         }
 
-        if (!await _userManager.CheckPasswordAsync(user, password).ConfigureAwait(false))
+        // Checked once the school is known, which with no code is only now.
+        if (await IsSubscriptionExpiredAsync(user.TenantId, ct).ConfigureAwait(false))
         {
-            await _userManager.AccessFailedAsync(user).ConfigureAwait(false);
-            LogFailedLogin(_logger, user.Id);
-            return await _userManager.IsLockedOutAsync(user).ConfigureAwait(false)
-                ? AuthResult.Fail(AuthError.LockedOut)
-                : AuthResult.Fail(AuthError.InvalidCredentials);
+            return AuthResult.Fail(AuthError.SubscriptionExpired);
         }
 
         await _userManager.ResetAccessFailedCountAsync(user).ConfigureAwait(false);
@@ -245,93 +272,178 @@ public sealed partial class AuthService : IAuthService
 
     // ----- OTP login -------------------------------------------------------
 
-    public async Task RequestOtpAsync(string schoolCode, string phone, CancellationToken ct = default)
+    public async Task RequestOtpAsync(string? schoolCode, string phone, CancellationToken ct = default)
     {
-        var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
-        if (tenant is null || !tenant.IsActive ||
-            tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime)))
+        // A parent knows their phone number, not a school code. Every school
+        // where that number has an active account is a candidate; one code is
+        // issued for all of them and the verify step settles which.
+        var tenants = await FindOtpTenantsAsync(schoolCode, phone, ct).ConfigureAwait(false);
+        if (tenants.Count == 0)
         {
             return; // Silent: callers must not learn which schools/phones exist.
         }
 
-        var user = await FindTenantUserByPhoneAsync(tenant.Id, phone, ct).ConfigureAwait(false);
-        if (user is null || !user.IsActive)
-        {
-            return;
-        }
-
         var now = _clock.GetUtcNow();
 
-        // Throttle: at most 3 codes per phone per 15 minutes.
+        // Throttle: at most 3 codes per phone per 15 minutes, counted across
+        // schools — the limit protects the phone's owner, not a tenant.
         var recent = await _db.Set<OtpCode>()
             .IgnoreQueryFilters()
-            .CountAsync(o => o.TenantId == tenant.Id && o.Phone == phone &&
-                             o.CreatedAt > now.AddMinutes(-15), ct)
+            .CountAsync(o => o.Phone == phone && o.CreatedAt > now.AddMinutes(-15), ct)
             .ConfigureAwait(false);
         if (recent >= 3)
         {
-            LogOtpThrottled(_logger, tenant.Id);
+            LogOtpThrottled(_logger, tenants[0].Id);
             return;
         }
 
         var code = RandomNumberGenerator.GetInt32(100_000, 1_000_000)
             .ToString(System.Globalization.CultureInfo.InvariantCulture);
+        var codeHash = JwtTokenService.Hash(code);
 
-        _db.Set<OtpCode>().Add(new OtpCode
+        foreach (var tenant in tenants)
         {
-            TenantId = tenant.Id,
-            Phone = phone,
-            CodeHash = JwtTokenService.Hash(code),
-            ExpiresAt = now.Add(OtpLifetime),
-        });
+            _db.Set<OtpCode>().Add(new OtpCode
+            {
+                TenantId = tenant.Id,
+                Phone = phone,
+                CodeHash = codeHash,
+                ExpiresAt = now.Add(OtpLifetime),
+            });
+        }
+
         await _db.SaveChangesAsync(ct).ConfigureAwait(false);
 
+        // Naming the school only works when there is one; otherwise saying the
+        // wrong name is worse than saying none.
+        var origin = tenants.Count == 1 ? $"your {tenants[0].Name}" : "your school";
         await _smsSender.SendAsync(
             phone,
-            $"{code} is your {tenant.Name} login code. Valid for 5 minutes. Do not share it.",
+            $"{code} is {origin} login code. Valid for 5 minutes. Do not share it.",
             ct).ConfigureAwait(false);
     }
 
-    public async Task<AuthResult> LoginWithOtpAsync(
-        string schoolCode, string phone, string code, string? ipAddress,
-        string? deviceName = null, CancellationToken ct = default)
+    /// <summary>
+    /// Active, in-subscription schools where this phone has an active account.
+    /// A school code, when supplied, narrows it to that one.
+    /// </summary>
+    private async Task<List<TenantInfo>> FindOtpTenantsAsync(
+        string? schoolCode, string phone, CancellationToken ct)
     {
-        var tenant = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
-        if (tenant is null || !tenant.IsActive)
-        {
-            return AuthResult.Fail(AuthError.SchoolNotFound);
-        }
-
-        if (tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime)))
-        {
-            return AuthResult.Fail(AuthError.SubscriptionExpired);
-        }
-
-        var now = _clock.GetUtcNow();
-        var otp = await _db.Set<OtpCode>()
-            .IgnoreQueryFilters()
-            .Where(o => o.TenantId == tenant.Id && o.Phone == phone && o.ConsumedAt == null)
-            .OrderByDescending(o => o.CreatedAt)
-            .FirstOrDefaultAsync(ct)
+        var normalized = phone.Trim();
+        var tenantIds = await _db.Users
+            .Where(u => u.PhoneNumber == normalized && u.IsActive && u.TenantId != null)
+            .Select(u => u.TenantId!.Value)
+            .Distinct()
+            .Take(5)
+            .ToListAsync(ct)
             .ConfigureAwait(false);
 
-        if (otp is null || !otp.IsUsable(now))
+        var today = DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime);
+        var tenants = new List<TenantInfo>();
+        foreach (var id in tenantIds)
+        {
+            if (await _tenantLookup.FindByIdAsync(id, ct).ConfigureAwait(false) is not { } tenant ||
+                !tenant.IsActive || tenant.IsSubscriptionExpired(today))
+            {
+                continue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(schoolCode) &&
+                !string.Equals(tenant.Code, schoolCode.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            tenants.Add(tenant);
+        }
+
+        return tenants;
+    }
+
+    public async Task<AuthResult> LoginWithOtpAsync(
+        string? schoolCode, string phone, string code, string? ipAddress,
+        string? deviceName = null, CancellationToken ct = default)
+    {
+        var now = _clock.GetUtcNow();
+
+        // One code was issued per candidate school; pick up every live row for
+        // this phone and let the code decide which schools it opens.
+        var live = await _db.Set<OtpCode>()
+            .IgnoreQueryFilters()
+            .Where(o => o.Phone == phone && o.ConsumedAt == null)
+            .OrderByDescending(o => o.CreatedAt)
+            .Take(10)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+
+        var usable = live.Where(o => o.IsUsable(now)).ToList();
+        if (usable.Count == 0)
         {
             return AuthResult.Fail(AuthError.OtpExpired);
         }
 
-        if (!CryptographicOperations.FixedTimeEquals(
-                Convert.FromBase64String(otp.CodeHash),
-                Convert.FromBase64String(JwtTokenService.Hash(code))))
+        var expected = Convert.FromBase64String(JwtTokenService.Hash(code));
+        var correct = usable
+            .Where(o => CryptographicOperations.FixedTimeEquals(
+                Convert.FromBase64String(o.CodeHash), expected))
+            .ToList();
+
+        if (correct.Count == 0)
         {
-            otp.Attempts++;
+            foreach (var attempted in usable)
+            {
+                attempted.Attempts++;
+            }
+
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
             return AuthResult.Fail(AuthError.InvalidOtp);
         }
 
+        // A school code narrows a correct code to one school — this is the
+        // second leg of the disambiguation below.
+        if (!string.IsNullOrWhiteSpace(schoolCode))
+        {
+            var chosen = await _tenantLookup.FindByCodeAsync(schoolCode, ct).ConfigureAwait(false);
+            if (chosen is null || !chosen.IsActive)
+            {
+                return AuthResult.Fail(AuthError.SchoolNotFound);
+            }
+
+            correct = correct.Where(o => o.TenantId == chosen.Id).ToList();
+            if (correct.Count == 0)
+            {
+                return AuthResult.Fail(AuthError.InvalidOtp);
+            }
+        }
+
+        if (correct.Count > 1)
+        {
+            // Leave the codes unconsumed: the caller comes straight back with
+            // the same code and their chosen school.
+            var candidates = new List<ApplicationUser>();
+            foreach (var row in correct)
+            {
+                if (await FindTenantUserByPhoneAsync(row.TenantId, phone, ct)
+                        .ConfigureAwait(false) is { } candidate)
+                {
+                    candidates.Add(candidate);
+                }
+            }
+
+            return AuthResult.ChooseSchool(
+                await DescribeSchoolsAsync(candidates, ct).ConfigureAwait(false));
+        }
+
+        var otp = correct[0];
+        if (await IsSubscriptionExpiredAsync(otp.TenantId, ct).ConfigureAwait(false))
+        {
+            return AuthResult.Fail(AuthError.SubscriptionExpired);
+        }
+
         otp.ConsumedAt = now;
 
-        var user = await FindTenantUserByPhoneAsync(tenant.Id, phone, ct).ConfigureAwait(false);
+        var user = await FindTenantUserByPhoneAsync(otp.TenantId, phone, ct).ConfigureAwait(false);
         if (user is null || !user.IsActive)
         {
             await _db.SaveChangesAsync(ct).ConfigureAwait(false);
@@ -628,9 +740,85 @@ public sealed partial class AuthService : IAuthService
                 .ConfigureAwait(false);
         }
 
-        return _tokenService.CreateAccessToken(user, roleNames, permissions);
+        // The client themes itself from this; sign-in no longer asks for it.
+        var schoolCode = user.TenantId is { } tenantId
+            ? (await _tenantLookup.FindByIdAsync(tenantId, CancellationToken.None)
+                .ConfigureAwait(false))?.Code
+            : null;
+
+        return _tokenService.CreateAccessToken(user, roleNames, permissions, schoolCode);
     }
 
+    /// <summary>
+    /// Accounts that could be the one signing in. A school code pins it to that
+    /// school; without one, every school plus the platform is a candidate —
+    /// email and phone are unique WITHIN a school, never across the platform,
+    /// which is why <c>UserName</c> exists as an opaque key.
+    /// <para>
+    /// Capped: a wrong password costs one hash per candidate, and the cap keeps
+    /// that bounded however many schools happen to share an address.
+    /// </para>
+    /// </summary>
+    private async Task<List<ApplicationUser>> FindLoginCandidatesAsync(
+        Guid? tenantId, string login, CancellationToken ct)
+    {
+        const int maxCandidates = 5;
+        var normalized = login.Trim();
+        var normalizedUpper = normalized.ToUpperInvariant();
+
+        var query = _db.Users.Where(u =>
+            u.NormalizedEmail == normalizedUpper || u.PhoneNumber == normalized);
+        if (tenantId is { } id)
+        {
+            query = query.Where(u => u.TenantId == id);
+        }
+
+        return await query
+            .OrderBy(u => u.TenantId)
+            .Take(maxCandidates)
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+    }
+
+    /// <summary>School code and name for each candidate, for the picker.</summary>
+    private async Task<IReadOnlyList<SchoolChoice>> DescribeSchoolsAsync(
+        IReadOnlyList<ApplicationUser> users, CancellationToken ct)
+    {
+        var choices = new List<SchoolChoice>();
+        foreach (var user in users)
+        {
+            if (user.TenantId is not { } id)
+            {
+                choices.Add(new SchoolChoice(string.Empty, "Platform (Super Admin)"));
+                continue;
+            }
+
+            if (await _tenantLookup.FindByIdAsync(id, ct).ConfigureAwait(false) is { } tenant)
+            {
+                choices.Add(new SchoolChoice(tenant.Code, tenant.Name));
+            }
+        }
+
+        return choices;
+    }
+
+    private async Task<bool> IsSubscriptionExpiredAsync(Guid? tenantId, CancellationToken ct)
+    {
+        if (tenantId is not { } id)
+        {
+            return false; // platform accounts have no subscription
+        }
+
+        var tenant = await _tenantLookup.FindByIdAsync(id, ct).ConfigureAwait(false);
+        return tenant is not null &&
+            tenant.IsSubscriptionExpired(DateOnly.FromDateTime(_clock.GetUtcNow().UtcDateTime));
+    }
+
+    /// <summary>
+    /// Single account within one school. Still used by password reset, which
+    /// keeps its school code: reset is deliberately silent, so an ambiguous
+    /// identity has no safe way to ask the caller which school they meant.
+    /// </summary>
     private Task<ApplicationUser?> FindTenantUserAsync(Guid? tenantId, string login, CancellationToken ct)
     {
         var normalized = login.Trim();

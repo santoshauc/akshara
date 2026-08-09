@@ -38,10 +38,17 @@ public sealed class JwtTokenService
     public TimeSpan RefreshTokenLifetime => TimeSpan.FromDays(_options.RefreshTokenDays);
 
     /// <summary>Creates a signed access token for the user.</summary>
+    /// <summary>
+    /// <paramref name="schoolCode"/> is carried purely so the client can theme
+    /// itself: sign-in no longer asks for a code, so without it the portal has
+    /// no way to know which school's branding to fetch. Never used for
+    /// authorization — the tenant GUID claim is the authority.
+    /// </summary>
     public string CreateAccessToken(
         ApplicationUser user,
         IEnumerable<string> roles,
-        IEnumerable<string> permissions)
+        IEnumerable<string> permissions,
+        string? schoolCode = null)
     {
         var now = _clock.GetUtcNow();
 
@@ -56,6 +63,10 @@ public sealed class JwtTokenService
         if (user.TenantId is { } tenantId)
         {
             claims.Add(new Claim("tenant", tenantId.ToString()));
+            if (!string.IsNullOrWhiteSpace(schoolCode))
+            {
+                claims.Add(new Claim("school_code", schoolCode));
+            }
         }
 
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
