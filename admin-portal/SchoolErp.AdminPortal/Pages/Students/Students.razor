@@ -8,37 +8,36 @@
 @inject IJSRuntime Js
 @inject LocalizationService L
 
-<PageTitle>Students — Akshara</PageTitle>
+<PageTitle>@L["students.title"] — Akshara</PageTitle>
 
-<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">@L["students.title"]</MudText>
-    <MudSpacer />
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.Download"
-               OnClick="ExportAsync">
-        @L["students.export"]
-    </MudButton>
-    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.UploadFile"
-               OnClick="@(() => _importOpen = !_importOpen)">
-        @L["students.import"]
-    </MudButton>
-    <MudButton Variant="Variant.Filled" Color="Color.Primary"
-               StartIcon="@Icons.Material.Filled.PersonAdd"
-               OnClick="@(() => Navigation.NavigateTo("students/admit"))">
-        @L["students.admit"]
-    </MudButton>
-</MudStack>
+@* Command bar: secondary actions first, primary rightmost — the Dynamics
+   convention, so the eye lands on the action that creates a record. *@
+<AkPageHeader Title="@L["students.title"]"
+              Subtitle="@L["students.subtitle"]"
+              Breadcrumbs="_crumbs">
+    <Actions>
+        <MudButton Variant="Variant.Text" StartIcon="@Icons.Material.Outlined.FileDownload"
+                   OnClick="ExportAsync">
+            @L["students.export"]
+        </MudButton>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.UploadFile"
+                   OnClick="@(() => _importOpen = !_importOpen)"
+                   aria-expanded="@(_importOpen ? "true" : "false")">
+            @L["students.import"]
+        </MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Outlined.PersonAddAlt"
+                   OnClick="@(() => Navigation.NavigateTo("students/admit"))">
+            @L["students.admit"]
+        </MudButton>
+    </Actions>
+</AkPageHeader>
 
 @if (_importOpen)
 {
-    <MudPaper Elevation="2" Class="pa-6 mb-4">
-        <MudText Typo="Typo.h6" Class="mb-1">@L["students.importTitle"]</MudText>
-        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-            @L["students.importHelp"]
-        </MudText>
+    <AkCard Title="@L["students.importTitle"]" Hint="@L["students.importHelp"]" Class="mb-4">
         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Outlined.FileDownload"
                        Disabled="_importBusy" OnClick="DownloadTemplateAsync">
                 @L["students.downloadTemplate"]
             </MudButton>
@@ -47,7 +46,7 @@
                 <ButtonTemplate>
                     <MudButton HtmlTag="label" for="@context.Id"
                                Variant="Variant.Filled" Color="Color.Primary"
-                               StartIcon="@Icons.Material.Filled.UploadFile"
+                               StartIcon="@Icons.Material.Outlined.UploadFile"
                                Disabled="_importBusy">
                         @(_importBusy ? L["students.importing"] : L["students.uploadTemplate"])
                     </MudButton>
@@ -59,111 +58,214 @@
         {
             @if (result.Errors.Count == 0)
             {
-                <MudAlert Severity="Severity.Success" Class="mt-3">
-                    Imported @result.Imported student(s). They appear in the list below;
-                    guardians can sign in to the parent app with their phone numbers.
+                <MudAlert Severity="Severity.Success" Class="mt-3" Dense="true">
+                    @string.Format(L["students.importOk"], result.Imported)
                 </MudAlert>
             }
             else
             {
-                <MudAlert Severity="Severity.Error" Class="mt-3">
+                <MudAlert Severity="Severity.Error" Class="mt-3" Dense="true">
                     @(result.Imported == 0
-                        ? $"Nothing was imported — fix the rows below and upload the file again ({result.Errors.Count} problem(s) in {result.TotalRows} row(s))."
-                        : $"Imported {result.Imported} of {result.TotalRows}; the rows below failed.")
+                        ? string.Format(L["students.importNone"], result.Errors.Count, result.TotalRows)
+                        : string.Format(L["students.importPartial"], result.Imported, result.TotalRows))
                 </MudAlert>
-                <MudSimpleTable Dense="true" Class="mt-2">
-                    <thead>
-                        <tr><th style="width: 90px;">@L["students.rowHeader"]</th><th>@L["students.problemHeader"]</th></tr>
-                    </thead>
-                    <tbody>
-                        @foreach (var error in result.Errors)
-                        {
-                            <tr><td>@error.RowNumber</td><td>@error.Message</td></tr>
-                        }
-                    </tbody>
-                </MudSimpleTable>
+                <div class="ak-table-wrap mt-2">
+                    <table class="ak-table" style="width: 100%;">
+                        <thead>
+                            <tr>
+                                <th style="width: 90px;">@L["students.rowHeader"]</th>
+                                <th>@L["students.problemHeader"]</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach (var error in result.Errors)
+                            {
+                                <tr>
+                                    <td class="ak-num">@error.RowNumber</td>
+                                    <td>@error.Message</td>
+                                </tr>
+                            }
+                        </tbody>
+                    </table>
+                </div>
             }
         }
-    </MudPaper>
+    </AkCard>
 }
 
-<MudPaper Elevation="2" Class="pa-4 mb-4">
-    <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-        <MudTextField @bind-Value="_search" Label="@L["students.search"]"
-                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
+<AkCard Flush="true">
+    @* Toolbar governs the list below it, Power BI style: one place to shape
+       what you are looking at. *@
+    <div class="ak-toolbar">
+        <MudTextField @bind-Value="_search" Placeholder="@L["students.search"]"
+                      Variant="Variant.Outlined" Margin="Margin.Dense"
+                      Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Outlined.Search"
                       Immediate="true" DebounceInterval="400"
-                      OnDebounceIntervalElapsed="ReloadAsync" Style="min-width: 260px;" />
+                      OnDebounceIntervalElapsed="ReloadAsync"
+                      Style="width: 260px;"
+                      aria-label="@L["students.search"]" />
+
         <MudSelect T="Guid?" @bind-Value="_classId" Label="@L["students.class"]" Clearable="true"
-                   Style="min-width: 160px;" SelectedValuesChanged="@(_ => OnClassChangedAsync())">
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                   Style="width: 150px;" SelectedValuesChanged="@(_ => OnClassChangedAsync())">
             @foreach (var schoolClass in _classes)
             {
                 <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
             }
         </MudSelect>
+
         <MudSelect T="Guid?" @bind-Value="_sectionId" Label="@L["students.section"]" Clearable="true"
-                   Style="min-width: 140px;" Disabled="@(_classId is null)"
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                   Style="width: 130px;" Disabled="@(_classId is null)"
                    SelectedValuesChanged="@(_ => ReloadAsync())">
             @foreach (var sec in SectionsOfSelectedClass)
             {
                 <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
             }
         </MudSelect>
+
         <MudSelect T="StudentStatus?" @bind-Value="_status" Label="@L["students.status"]" Clearable="true"
-                   Style="min-width: 160px;" SelectedValuesChanged="@(_ => ReloadAsync())">
-            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Active">Active</MudSelectItem>
-            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Suspended">Suspended</MudSelectItem>
-            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Withdrawn">Withdrawn</MudSelectItem>
-            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Alumni">Alumni</MudSelectItem>
+                   Variant="Variant.Outlined" Margin="Margin.Dense" Dense="true"
+                   Style="width: 150px;" SelectedValuesChanged="@(_ => ReloadAsync())">
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Active">@L["status.active"]</MudSelectItem>
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Suspended">@L["status.suspended"]</MudSelectItem>
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Withdrawn">@L["status.withdrawn"]</MudSelectItem>
+            <MudSelectItem T="StudentStatus?" Value="StudentStatus.Alumni">@L["status.alumni"]</MudSelectItem>
         </MudSelect>
-    </MudStack>
-</MudPaper>
+    </div>
 
-<MudTable T="StudentListItemDto" ServerData="LoadServerDataAsync" @ref="_table" Hover="true" Elevation="2"
-          OnRowClick="@(args => Navigation.NavigateTo($"students/{args.Item!.Id}"))" Style="cursor: pointer;">
-    <HeaderContent>
-        <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="admissionNumber">
-                @L["students.admissionNo"]
-            </MudTableSortLabel>
-        </MudTh>
-        <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="name" InitialDirection="SortDirection.Ascending">
-                @L["students.name"]
-            </MudTableSortLabel>
-        </MudTh>
-        <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="class">@L["students.class"]</MudTableSortLabel>
-        </MudTh>
-        <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="section">@L["students.section"]</MudTableSortLabel>
-        </MudTh>
-        <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="roll">@L["students.roll"]</MudTableSortLabel>
-        </MudTh>
-        <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="status">@L["students.status"]</MudTableSortLabel>
-        </MudTh>
-    </HeaderContent>
-    <RowTemplate>
-        <MudTd DataLabel="@L["students.admissionNo"]">
-            <MudText Typo="Typo.body2" Class="font-weight-bold">@context.AdmissionNumber</MudText>
-        </MudTd>
-        <MudTd DataLabel="@L["students.name"]">@context.FirstName @context.LastName</MudTd>
-        <MudTd DataLabel="@L["students.class"]">@(context.ClassName ?? "—")</MudTd>
-        <MudTd DataLabel="@L["students.section"]">@(context.SectionName ?? "—")</MudTd>
-        <MudTd DataLabel="@L["students.roll"]">@(context.RollNumber?.ToString() ?? "—")</MudTd>
-        <MudTd DataLabel="@L["students.status"]">
-            <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
-        </MudTd>
-    </RowTemplate>
-    <NoRecordsContent>
-        <MudText Class="pa-6">@L["students.none"]</MudText>
-    </NoRecordsContent>
-    <PagerContent>
-        <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
-    </PagerContent>
-</MudTable>
+    <AkFilterChips Filters="ActiveFilters" ResultCount="_totalCount"
+                   OneRecordLabel="@L["list.oneRecord"]"
+                   ManyRecordsLabel="@L["list.manyRecords"]"
+                   ClearAllLabel="@L["list.clearAll"]"
+                   RemoveLabel="@L["list.removeFilter"]"
+                   OnRemove="RemoveFilterAsync" OnClearAll="ClearFiltersAsync" />
 
+    <AkBulkBar SelectedCount="_selected.Count" OnClear="@(() => _selected.Clear())"
+               OneSelectedLabel="@L["list.oneSelected"]"
+               ManySelectedLabel="@L["list.manySelected"]"
+               ClearLabel="@L["list.clearSelection"]"
+               BulkActionsLabel="@L["list.bulkActions"]">
+        <MudButton Variant="Variant.Outlined" Size="Size.Small"
+                   StartIcon="@Icons.Material.Outlined.FileDownload"
+                   OnClick="ExportAsync">
+            @L["students.export"]
+        </MudButton>
+    </AkBulkBar>
+
+    @if (_loadFailed)
+    {
+        <AkErrorState Title="@L["students.loadFailedTitle"]"
+                      Description="@L["students.loadFailedBody"]"
+                      RetryLabel="@L["error.retry"]"
+                      OnRetry="ReloadAsync" />
+    }
+    else
+    {
+        <div class="ak-table-wrap">
+            <MudTable T="StudentListItemDto" ServerData="LoadServerDataAsync" @ref="_table"
+                      Hover="true" Elevation="0" Dense="true" Class="ak-table ak-stacked"
+                      MultiSelection="true" @bind-SelectedItems="_selected"
+                      OnRowClick="@(args => Navigation.NavigateTo($"students/{args.Item!.Id}"))"
+                      Style="cursor: pointer;">
+                <HeaderContent>
+                    <MudTh>
+                        <MudTableSortLabel T="StudentListItemDto" SortLabel="admissionNumber">
+                            @L["students.admissionNo"]
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel T="StudentListItemDto" SortLabel="name"
+                                           InitialDirection="SortDirection.Ascending">
+                            @L["students.name"]
+                        </MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel T="StudentListItemDto" SortLabel="class">@L["students.class"]</MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel T="StudentListItemDto" SortLabel="roll">@L["students.roll"]</MudTableSortLabel>
+                    </MudTh>
+                    <MudTh>
+                        <MudTableSortLabel T="StudentListItemDto" SortLabel="status">@L["students.status"]</MudTableSortLabel>
+                    </MudTh>
+                    <MudTh Style="width: 44px;">
+                        <span class="ak-sr-only">@L["list.rowActions"]</span>
+                    </MudTh>
+                </HeaderContent>
+                <RowTemplate>
+                    <MudTd DataLabel="@L["students.admissionNo"]">
+                        <span class="ak-cell-primary">@context.AdmissionNumber</span>
+                    </MudTd>
+                    <MudTd DataLabel="@L["students.name"]">
+                        <span class="ak-cell-primary">@context.FirstName @context.LastName</span>
+                    </MudTd>
+                    <MudTd DataLabel="@L["students.class"]">
+                        @(context.ClassName ?? "—")
+                        @* Named 'sectionName', not 'section' — Razor treats a
+                           bare @section as the section directive. *@
+                        @if (context.SectionName is { } sectionName)
+                        {
+                            <span class="ak-cell-meta">@L["students.section"] @sectionName</span>
+                        }
+                    </MudTd>
+                    <MudTd DataLabel="@L["students.roll"]" Class="ak-num">
+                        @(context.RollNumber?.ToString() ?? "—")
+                    </MudTd>
+                    <MudTd DataLabel="@L["students.status"]">
+                        <AkStatusBadge Label="@StatusLabel(context.Status)"
+                                       Tone="@ToneFor(context.Status)" />
+                    </MudTd>
+                    <MudTd>
+                        <div class="ak-row-actions">
+                            <MudTooltip Text="@L["students.openRecord"]">
+                                <MudIconButton Size="Size.Small"
+                                               Icon="@Icons.Material.Outlined.ChevronRight"
+                                               aria-label="@($"{L["students.openRecord"]}: {context.FirstName} {context.LastName}")"
+                                               OnClick="@(() => Navigation.NavigateTo($"students/{context.Id}"))" />
+                            </MudTooltip>
+                        </div>
+                    </MudTd>
+                </RowTemplate>
+                <LoadingContent>
+                    <AkTableSkeleton Rows="8" Columns="6" LoadingLabel="@L["list.loading"]" />
+                </LoadingContent>
+                <NoRecordsContent>
+                    @if (HasActiveFilters)
+                    {
+                        <AkEmptyState Title="@L["students.noMatchTitle"]"
+                                      Description="@L["students.noMatchBody"]"
+                                      Icon="@Icons.Material.Outlined.SearchOff">
+                            <Action>
+                                <MudButton Variant="Variant.Outlined" OnClick="ClearFiltersAsync">
+                                    @L["list.clearAll"]
+                                </MudButton>
+                            </Action>
+                        </AkEmptyState>
+                    }
+                    else
+                    {
+                        <AkEmptyState Title="@L["students.noneTitle"]"
+                                      Description="@L["students.noneBody"]"
+                                      Icon="@Icons.Material.Outlined.Groups">
+                            <Action>
+                                <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                                           StartIcon="@Icons.Material.Outlined.PersonAddAlt"
+                                           OnClick="@(() => Navigation.NavigateTo("students/admit"))">
+                                    @L["students.admit"]
+                                </MudButton>
+                            </Action>
+                        </AkEmptyState>
+                    }
+                </NoRecordsContent>
+                <PagerContent>
+                    <MudTablePager PageSizeOptions="new[] { 25, 50, 100 }"
+                                   RowsPerPageString="@L["list.rowsPerPage"]" />
+                </PagerContent>
+            </MudTable>
+        </div>
+    }
+</AkCard>
 @code {
     protected override void OnInitialized() => L.Changed += OnLanguageChanged;
 
@@ -182,6 +284,96 @@
     private ImportStudentsResultDto? _importResult;
     private string? _sortBy;
     private bool _sortDesc;
+
+    private HashSet<StudentListItemDto> _selected = [];
+    private int? _totalCount;
+    private bool _loadFailed;
+
+    private readonly List<AkPageHeader.Crumb> _crumbs =
+        [new("Akshara", ""), new("Students")];
+
+    private bool HasActiveFilters =>
+        !string.IsNullOrWhiteSpace(_search) || _classId is not null ||
+        _sectionId is not null || _status is not null;
+
+    /// <summary>
+    /// What the list is currently filtered by, shown as removable chips. A
+    /// count that silently excludes rows is how people lose trust in a list.
+    /// </summary>
+    private IReadOnlyList<AkFilterChips.AppliedFilter> ActiveFilters
+    {
+        get
+        {
+            var filters = new List<AkFilterChips.AppliedFilter>(4);
+            if (!string.IsNullOrWhiteSpace(_search))
+            {
+                filters.Add(new("search", L["students.search"], _search));
+            }
+
+            if (_classId is { } classId)
+            {
+                var name = _classes.FirstOrDefault(c => c.Id == classId)?.Name ?? "—";
+                filters.Add(new("class", L["students.class"], name));
+            }
+
+            if (_sectionId is { } sectionId)
+            {
+                var name = SectionsOfSelectedClass.FirstOrDefault(s => s.Id == sectionId)?.Name ?? "—";
+                filters.Add(new("section", L["students.section"], name));
+            }
+
+            if (_status is { } status)
+            {
+                filters.Add(new("status", L["students.status"], StatusLabel(status)));
+            }
+
+            return filters;
+        }
+    }
+
+    private async Task RemoveFilterAsync(string key)
+    {
+        switch (key)
+        {
+            case "search": _search = string.Empty; break;
+            // Dropping the class drops its section too — a section filter
+            // without its parent class would silently match nothing.
+            case "class": _classId = null; _sectionId = null; break;
+            case "section": _sectionId = null; break;
+            case "status": _status = null; break;
+        }
+
+        await ReloadAsync();
+    }
+
+    private async Task ClearFiltersAsync()
+    {
+        _search = string.Empty;
+        _classId = null;
+        _sectionId = null;
+        _status = null;
+        await ReloadAsync();
+    }
+
+    private string StatusLabel(StudentStatus status) => status switch
+    {
+        StudentStatus.Active => L["status.active"],
+        StudentStatus.Suspended => L["status.suspended"],
+        StudentStatus.Withdrawn => L["status.withdrawn"],
+        _ => L["status.alumni"],
+    };
+
+    /// <summary>
+    /// Semantic tone per status. Withdrawn and Alumni are both "no longer
+    /// here", but only one of them is a problem, so they do not share a tone.
+    /// </summary>
+    private static AkStatusBadge.StatusTone ToneFor(StudentStatus status) => status switch
+    {
+        StudentStatus.Active => AkStatusBadge.StatusTone.Success,
+        StudentStatus.Suspended => AkStatusBadge.StatusTone.Warning,
+        StudentStatus.Withdrawn => AkStatusBadge.StatusTone.Error,
+        _ => AkStatusBadge.StatusTone.Neutral,
+    };
 
     private async Task DownloadTemplateAsync()
     {
@@ -264,13 +456,23 @@
         {
             var result = await Client.GetStudentsAsync(
                 _search, _classId, _sectionId, _status,
-                state.Page + 1, state.PageSize == 0 ? 20 : state.PageSize,
+                state.Page + 1, state.PageSize == 0 ? 25 : state.PageSize,
                 _sortBy, _sortDesc);
+            _loadFailed = false;
+            _totalCount = result.TotalCount;
+            // The table owns the load, but the count and filter chips live on
+            // the parent — without this they stay blank until some other
+            // interaction happens to re-render the page.
+            await InvokeAsync(StateHasChanged);
             return new TableData<StudentListItemDto> { Items = result.Items, TotalItems = result.TotalCount };
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            // The list renders an error state with Retry rather than a toast
+            // that vanishes — a blank grid with no explanation reads as "no
+            // students", which is a very different thing from "not loaded".
+            _loadFailed = true;
+            _totalCount = null;
             return new TableData<StudentListItemDto> { Items = [], TotalItems = 0 };
         }
     }

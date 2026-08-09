@@ -561,6 +561,15 @@ body {
     margin-left: auto;
 }
 
+/* Toolbar controls size to their content, never stretch. MudBlazor inputs
+   are width:100% by default, so without this the last control in the row
+   absorbs all remaining space and the toolbar wraps to three lines. */
+.ak-toolbar > .mud-input-control,
+.ak-toolbar > .mud-select,
+.ak-toolbar > .mud-textfield {
+    flex: 0 0 auto;
+}
+
 .ak-bulkbar {
     display: flex;
     align-items: center;
@@ -837,5 +846,84 @@ body {
 
     .ak-page-actions > * {
         flex: 1 1 auto;
+    }
+}
+
+/* ------------------------------------------------------- filter summary -- */
+
+/* A filtered list always shows what it is filtered by. Sits directly under
+   the toolbar so the count and the conditions read as one statement. */
+.ak-filterbar {
+    display: flex;
+    align-items: center;
+    gap: var(--ak-space-2);
+    flex-wrap: wrap;
+    padding: var(--ak-space-2) var(--ak-space-4);
+    border-bottom: 1px solid var(--ak-border);
+    background: var(--ak-surface-sunken);
+}
+
+.ak-filterbar__count {
+    font-size: var(--ak-text-xs);
+    font-weight: var(--ak-weight-semibold);
+    color: var(--ak-text-secondary);
+    white-space: nowrap;
+}
+
+.ak-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--ak-space-1);
+    height: 22px;
+    padding: 0 var(--ak-space-1) 0 var(--ak-space-2);
+    border: 1px solid var(--ak-border-strong);
+    border-radius: var(--ak-radius-sm);
+    background: var(--ak-surface);
+    font-size: var(--ak-text-xs);
+    white-space: nowrap;
+}
+
+.ak-filter-chip__field {
+    color: var(--ak-text-muted);
+}
+
+.ak-filter-chip__value {
+    color: var(--ak-text);
+    font-weight: var(--ak-weight-medium);
+}
+
+.ak-filter-chip__clear {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    border-radius: var(--ak-radius-sm);
+    background: none;
+    color: var(--ak-text-muted);
+    cursor: pointer;
+}
+
+.ak-filter-chip__clear:hover {
+    background: var(--ak-surface-sunken);
+    color: var(--ak-text);
+}
+
+.ak-filter-chip__clear .mud-icon-root {
+    font-size: 12px;
+}
+
+/* Touch targets: the 16px hit area above is fine for a mouse but not a
+   finger, so coarse pointers get a padded box around the same glyph. */
+@media (pointer: coarse) {
+    .ak-filter-chip {
+        height: 32px;
+    }
+
+    .ak-filter-chip__clear {
+        width: 28px;
+        height: 28px;
     }
 }

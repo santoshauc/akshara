@@ -16,6 +16,8 @@
    breaks MudBlazor's appbar/drawer/content coordination (drawer offsets,
    toggle glitches). The login page uses EmptyLayout, and [Authorize] pages
    redirect before content renders, so the chrome is safe to render always. *@
+<MudBreakpointProvider OnBreakpointChanged="OnBreakpointChanged" />
+
 <MudLayout>
     <a class="ak-skip-link" href="#ak-main">@L["chrome.skipToContent"]</a>
 
@@ -83,9 +85,12 @@
         </MudMenu>
     </MudAppBar>
 
+    @* Mini rail on desktop keeps navigation one click away; on a phone it
+       would eat a sixth of the screen, so there it becomes an overlay. *@
     <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
-               Variant="@DrawerVariant.Mini" OpenMiniOnHover="false"
-               Class="@($"ak-drawer {(_drawerOpen ? "" : "ak-drawer--rail")}")">
+               Variant="@(_isCompact ? DrawerVariant.Temporary : DrawerVariant.Mini)"
+               OpenMiniOnHover="false"
+               Class="@($"ak-drawer {(_drawerOpen || _isCompact ? "" : "ak-drawer--rail")}")">
         <nav class="ak-nav" aria-label="@L["chrome.mainNav"]">
             <MudNavMenu>
                 @foreach (var section in VisibleSections)
@@ -154,6 +159,30 @@
     }
 
     private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+
+    private bool _isCompact;
+
+    /// <summary>
+    /// Tracks whether we are on a phone/small tablet. The drawer switches
+    /// from a persistent rail to an overlay, and starts closed so content
+    /// gets the full width.
+    /// </summary>
+    private void OnBreakpointChanged(Breakpoint breakpoint)
+    {
+        var compact = breakpoint is Breakpoint.Xs or Breakpoint.Sm;
+        if (compact == _isCompact)
+        {
+            return;
+        }
+
+        _isCompact = compact;
+        if (compact)
+        {
+            _drawerOpen = false;
+        }
+
+        StateHasChanged();
+    }
 
     /// <summary>
     /// Dark mode has to move in lockstep across both styling layers:

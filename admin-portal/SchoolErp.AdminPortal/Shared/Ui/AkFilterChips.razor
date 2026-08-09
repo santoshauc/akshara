@@ -1,0 +1,62 @@
+@*
+    Active-filter summary, in the ServiceNow tradition: a list is never
+    silently filtered. Each applied filter is shown, individually removable,
+    with the resulting record count beside it — a count that excludes rows
+    without saying so is a support ticket waiting to happen.
+*@
+
+@if (Filters.Count > 0 || ResultCount is not null)
+{
+    <div class="ak-filterbar" role="status" aria-live="polite">
+        @if (ResultCount is { } count)
+        {
+            <span class="ak-filterbar__count">
+                @(count == 1 ? OneRecordLabel : string.Format(ManyRecordsLabel, count))
+            </span>
+        }
+
+        @foreach (var filter in Filters)
+        {
+            <span class="ak-filter-chip">
+                <span class="ak-filter-chip__field">@filter.Field</span>
+                <span class="ak-filter-chip__value">@filter.Value</span>
+                <button type="button" class="ak-filter-chip__clear"
+                        aria-label="@($"{RemoveLabel}: {filter.Field} {filter.Value}")"
+                        @onclick="@(() => OnRemove.InvokeAsync(filter.Key))">
+                    <MudIcon Icon="@Icons.Material.Filled.Close" aria-hidden="true" />
+                </button>
+            </span>
+        }
+
+        @if (Filters.Count > 1)
+        {
+            <MudButton Variant="Variant.Text" Size="Size.Small"
+                       OnClick="@(() => OnClearAll.InvokeAsync())">
+                @ClearAllLabel
+            </MudButton>
+        }
+    </div>
+}
+
+@code {
+    /// <summary>One applied filter. Key identifies it back to the caller.</summary>
+    public sealed record AppliedFilter(string Key, string Field, string Value);
+
+    [Parameter] public IReadOnlyList<AppliedFilter> Filters { get; set; } = [];
+
+    /// <summary>Rows matching the current filters; null hides the count.</summary>
+    [Parameter] public int? ResultCount { get; set; }
+
+    [Parameter] public EventCallback<string> OnRemove { get; set; }
+
+    [Parameter] public EventCallback OnClearAll { get; set; }
+
+    [Parameter] public string OneRecordLabel { get; set; } = "1 record";
+
+    /// <summary>Composite format string; {0} is the count.</summary>
+    [Parameter] public string ManyRecordsLabel { get; set; } = "{0} records";
+
+    [Parameter] public string ClearAllLabel { get; set; } = "Clear all";
+
+    [Parameter] public string RemoveLabel { get; set; } = "Remove filter";
+}
