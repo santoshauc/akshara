@@ -8,7 +8,18 @@
 
 <PageTitle>Dashboard — Akshara</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-6">@L["home.title"]</MudText>
+<MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
+    <MudText Typo="Typo.h4">@L["home.title"]</MudText>
+    <MudSpacer />
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FactCheck"
+               OnClick="@(() => Navigation.NavigateTo("attendance"))">@L["home.qaMarkAttendance"]</MudButton>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.PersonAdd"
+               OnClick="@(() => Navigation.NavigateTo("students/admit"))">@L["home.qaAdmitStudent"]</MudButton>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Payments"
+               OnClick="@(() => Navigation.NavigateTo("fees"))">@L["home.qaCollectFee"]</MudButton>
+    <MudButton Size="Size.Small" Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.UploadFile"
+               OnClick="@(() => Navigation.NavigateTo("students"))">@L["home.qaImport"]</MudButton>
+</MudStack>
 
 @if (_loading)
 {
@@ -16,61 +27,122 @@
 }
 else if (_data is { } data)
 {
+    @if (data.SubscriptionExpiresOn is { } expiry && expiry <= DateOnly.FromDateTime(DateTime.Today.AddDays(30)))
+    {
+        <MudAlert Severity="Severity.Warning" Class="mb-4" Dense="true">
+            @string.Format(L["home.subscriptionExpires"], expiry.ToString("dd MMM yyyy"))
+        </MudAlert>
+    }
+
     <MudGrid>
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4" Style="cursor:pointer;"
+        <MudItem xs="6" sm="4" md="2">
+            <MudPaper Elevation="2" Class="pa-4" Style="cursor:pointer;"
                       @onclick="@(() => Navigation.NavigateTo("attendance"))">
-                <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Success" Size="Size.Large" />
-                <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.attendanceToday"]</MudText>
-                    <MudText Typo="Typo.h5">
-                        @(data.AttendanceMarkedToday == 0
-                            ? L["home.notMarked"]
-                            : $"{data.AttendanceTodayPercent:0.#}%")
-                    </MudText>
-                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                        @(data.AttendanceMarkedToday == 0
-                            ? $"{data.ActiveStudents} {L["home.activeStudentsSuffix"]}"
-                            : $"{data.PresentToday} {string.Format(L["home.markedPresent"], data.AttendanceMarkedToday)}")
-                    </MudText>
-                </div>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.attendanceToday"]</MudText>
+                <MudText Typo="Typo.h5">
+                    @(data.AttendanceMarkedToday == 0 ? L["home.notMarked"] : $"{data.AttendanceTodayPercent:0.#}%")
+                </MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @(data.AttendanceMarkedToday == 0
+                        ? $"{data.ActiveStudents} {L["home.activeStudentsSuffix"]}"
+                        : $"{data.PresentToday} {string.Format(L["home.markedPresent"], data.AttendanceMarkedToday)}")
+                </MudText>
             </MudPaper>
         </MudItem>
-
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4" Style="cursor:pointer;"
+        <MudItem xs="6" sm="4" md="2">
+            <MudPaper Elevation="2" Class="pa-4" Style="cursor:pointer;"
                       @onclick="@(() => Navigation.NavigateTo("fees"))">
-                <MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" Color="Color.Primary" Size="Size.Large" />
-                <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.feesThisMonth"]</MudText>
-                    <MudText Typo="Typo.h5">₹@data.FeesCollectedThisMonth.ToString("N0")</MudText>
-                </div>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.feesThisMonth"]</MudText>
+                <MudText Typo="Typo.h5">₹@data.FeesCollectedThisMonth.ToString("N0")</MudText>
             </MudPaper>
         </MudItem>
-
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4" Style="cursor:pointer;"
+        <MudItem xs="6" sm="4" md="2">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.feesOutstanding"]</MudText>
+                <MudText Typo="Typo.h5"
+                         Style="@(data.FeesOutstanding > 0 ? "color: var(--mud-palette-warning);" : "")">
+                    ₹@data.FeesOutstanding.ToString("N0")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.activeStudents"]</MudText>
+                <MudText Typo="Typo.h5">@data.ActiveStudents</MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="6" sm="4" md="2">
+            <MudPaper Elevation="2" Class="pa-4" Style="cursor:pointer;"
                       @onclick="@(() => Navigation.NavigateTo("library"))">
-                <MudIcon Icon="@Icons.Material.Filled.MenuBook"
-                         Color="@(data.OverdueLoans > 0 ? Color.Error : Color.Default)" Size="Size.Large" />
-                <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.overdueBooks"]</MudText>
-                    <MudText Typo="Typo.h5">@data.OverdueLoans</MudText>
-                </div>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.overdueBooks"]</MudText>
+                <MudText Typo="Typo.h5"
+                         Style="@(data.OverdueLoans > 0 ? "color: var(--mud-palette-error);" : "")">
+                    @data.OverdueLoans
+                </MudText>
             </MudPaper>
         </MudItem>
-
-        <MudItem xs="12" sm="6" md="3">
-            <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
-                <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Secondary" Size="Size.Large" />
-                <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.activeStudents"]</MudText>
-                    <MudText Typo="Typo.h5">@data.ActiveStudents</MudText>
-                </div>
+        <MudItem xs="6" sm="4" md="2">
+            <MudPaper Elevation="2" Class="pa-4">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.smsCredits"]</MudText>
+                <MudText Typo="Typo.h5"
+                         Style="@(data.SmsCredits < 500 ? "color: var(--mud-palette-error);" : "")">
+                    @data.SmsCredits.ToString("N0")
+                </MudText>
+                @if (data.SmsCredits < 500)
+                {
+                    <MudText Typo="Typo.caption" Color="Color.Error">@L["home.smsLow"]</MudText>
+                }
             </MudPaper>
         </MudItem>
 
         <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-2">@L["home.attendanceTrend"]</MudText>
+                @if (data.AttendanceTrend.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary">@L["home.noTrend"]</MudText>
+                }
+                else
+                {
+                    <MudChart ChartType="ChartType.Line" ChartSeries="@_attendanceSeries"
+                              XAxisLabels="@_attendanceLabels" Width="100%" Height="220px"
+                              ChartOptions="@(new ChartOptions { YAxisTicks = 20, MaxNumYAxisTicks = 6 })" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        <MudItem xs="12" md="6">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6" Class="mb-2">@L["home.feeTrend"]</MudText>
+                <MudChart ChartType="ChartType.Bar" ChartSeries="@_feeSeries"
+                          XAxisLabels="@_feeLabels" Width="100%" Height="220px" />
+            </MudPaper>
+        </MudItem>
+
+        @if (data.BirthdaysToday.Count > 0)
+        {
+            <MudItem xs="12" md="4">
+                <MudPaper Elevation="2" Class="pa-6">
+                    <MudText Typo="Typo.h6" Class="mb-3">@L["home.birthdays"]</MudText>
+                    @foreach (var birthday in data.BirthdaysToday)
+                    {
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2" Spacing="2">
+                            <MudAvatar Color="Color.Secondary" Size="Size.Small">
+                                @birthday.Name[0]
+                            </MudAvatar>
+                            <div>
+                                <MudText Typo="Typo.body2">@birthday.Name</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @(birthday.ClassName ?? "—") · @string.Format(L["home.turns"], birthday.TurnsAge)
+                                </MudText>
+                            </div>
+                        </MudStack>
+                    }
+                </MudPaper>
+            </MudItem>
+        }
+
+        <MudItem xs="12" md="4">
             <MudPaper Elevation="2" Class="pa-6">
                 <MudText Typo="Typo.h6" Class="mb-3">@L["home.upcomingExams"]</MudText>
                 @if (data.UpcomingExams.Count == 0)
@@ -92,7 +164,7 @@ else if (_data is { } data)
             </MudPaper>
         </MudItem>
 
-        <MudItem xs="12" md="6">
+        <MudItem xs="12" md="@(data.BirthdaysToday.Count > 0 ? 4 : 8)">
             <MudPaper Elevation="2" Class="pa-6">
                 <MudText Typo="Typo.h6" Class="mb-3">@L["home.needsAttention"]</MudText>
                 <MudStack Spacing="2">
@@ -142,20 +214,33 @@ else
 }
 
 @code {
-    protected override void OnInitialized() => L.Changed += OnLanguageChanged;
-
-    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
-
-    public void Dispose() => L.Changed -= OnLanguageChanged;
-
     private DashboardDto? _data;
     private bool _loading = true;
 
+    private List<ChartSeries> _attendanceSeries = [];
+    private string[] _attendanceLabels = [];
+    private List<ChartSeries> _feeSeries = [];
+    private string[] _feeLabels = [];
+
     protected override async Task OnInitializedAsync()
     {
+        L.Changed += OnLanguageChanged;
         try
         {
             _data = await Client.GetAsync();
+            if (_data is { } data)
+            {
+                _attendanceSeries =
+                    [new ChartSeries { Name = "%", Data = data.AttendanceTrend.Select(p => (double)p.Value).ToArray() }];
+                _attendanceLabels = data.AttendanceTrend
+                    .Select((p, i) => i % 3 == 0 ? p.Date.ToString("dd/MM") : "")
+                    .ToArray();
+                _feeSeries =
+                    [new ChartSeries { Name = "₹", Data = data.FeeTrend.Select(p => (double)p.Value).ToArray() }];
+                _feeLabels = data.FeeTrend
+                    .Select((p, i) => i % 3 == 0 ? p.Date.ToString("dd/MM") : "")
+                    .ToArray();
+            }
         }
         catch (HttpRequestException)
         {
@@ -170,4 +255,8 @@ else
             _loading = false;
         }
     }
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
 }

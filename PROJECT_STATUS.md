@@ -656,6 +656,25 @@ never in production):
   primary colour appear on the login screen before sign-in.
 - E2E verified across all of it; suite 157 green.
 
+## Dashboard v2 (feature/dashboard-v2)
+
+- The staff dashboard is now a command centre: quick-action buttons
+  (mark attendance / admit / collect fee / import), six stat cards
+  (attendance today, collected this month, OUTSTANDING fees — same
+  floored per-student calc as insights, active students, overdue
+  books, SMS credits with a low-balance warning under 500), a 14-day
+  attendance line + 14-day daily-collections bars, TODAY'S BIRTHDAYS
+  (name, class, age — assembly announcements), upcoming exams, the
+  needs-attention list, and a subscription-expiry banner within 30
+  days. All new strings localized en/te. Demo: the first child of
+  each seeded cohort gets today's month/day as DOB so the birthday
+  card always shows.
+- GOTCHA: projecting into a positional record + OrderBy on the
+  projected property inside the EF query didn't translate — fetch
+  anonymous rows, compose records client-side.
+- Branch workflow starts here: feature/<slug> per change, merge
+  --no-ff into master when green (user directive 2026-08-09).
+
 ## Portal localization (en/te) + public enquiry form
 
 - Portal i18n mirrors the mobile apps: flat key → text dictionaries in
