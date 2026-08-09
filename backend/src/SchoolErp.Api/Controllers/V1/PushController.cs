@@ -1,5 +1,6 @@
 using System.ComponentModel.DataAnnotations;
 using Asp.Versioning;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -17,6 +18,7 @@ namespace SchoolErp.Api.Controllers.V1;
 [ApiController]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/push")]
+[Authorize]
 public sealed class PushController : ControllerBase
 {
     private readonly IApplicationDbContext _db;
@@ -76,14 +78,24 @@ public sealed class PushController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>Removes a device token (sign-out).</summary>
+    /// <summary>
+    /// Removes a device token (sign-out). Scoped to the caller's OWN tokens:
+    /// an Expo token is not a secret, so without the ownership check anyone
+    /// holding one could silence that parent's notifications.
+    /// </summary>
     [HttpDelete("tokens")]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
     public async Task<IActionResult> Unregister(
         [FromQuery][Required] string token, CancellationToken ct)
     {
+        if (_currentUser.UserId is not { } callerIdText ||
+            !Guid.TryParse(callerIdText, out var callerId))
+        {
+            return Unauthorized();
+        }
+
         var existing = await _db.PushTokens
-            .FirstOrDefaultAsync(t => t.Token == token, ct);
+            .FirstOrDefaultAsync(t => t.Token == token && t.UserId == callerId, ct);
         if (existing is not null)
         {
             _db.PushTokens.Remove(existing);

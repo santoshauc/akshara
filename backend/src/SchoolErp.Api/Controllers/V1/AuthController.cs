@@ -4,15 +4,23 @@ using Asp.Versioning;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.RateLimiting;
+using SchoolErp.Api.Authorization;
 using SchoolErp.Application.Auth;
 
 namespace SchoolErp.Api.Controllers.V1;
 
-/// <summary>Authentication endpoints: password/OTP login, refresh, logout.</summary>
+/// <summary>
+/// Authentication endpoints: password/OTP login, refresh, logout, plus the
+/// account-management ones (password change, MFA, device sessions).
+/// These belong to the ACCOUNT, not to a school — a Super Admin has no tenant
+/// and must still be able to use every one of them — hence
+/// <see cref="NoTenantRequiredAttribute"/>.
+/// </summary>
 [ApiController]
 [ApiVersion(1.0)]
 [Route("api/v{version:apiVersion}/auth")]
 [EnableRateLimiting("auth")]
+[NoTenantRequired]
 public sealed class AuthController : ControllerBase
 {
     private readonly IAuthService _authService;
