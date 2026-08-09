@@ -122,6 +122,20 @@
        component's own padding-top (the fixed appbar offset). Pad inside. *@
     <MudMainContent>
         <main id="ak-main" class="ak-page" tabindex="-1">
+            @if (_platformMfaSetupRequired)
+            {
+                <MudAlert Severity="Severity.Warning" Class="mb-4">
+                    <MudText Typo="Typo.body2">
+                        <b>Two-factor authentication is required for platform accounts.</b>
+                        This account can administer every school, so the platform screens
+                        stay locked until you turn it on.
+                    </MudText>
+                    <MudButton Variant="Variant.Filled" Color="Color.Warning" Class="mt-2"
+                               StartIcon="@Icons.Material.Filled.Security" Href="security">
+                        Set up two-factor authentication
+                    </MudButton>
+                </MudAlert>
+            }
             <ErrorBoundary @ref="_errorBoundary">
                 <ChildContent>
                     @Body
@@ -234,6 +248,7 @@
     private MudTheme _theme = AksharaTheme.Build(null, null);
     private TenantBrandingDto? _branding;
     private bool _isPlatformUser;
+    private bool _platformMfaSetupRequired;
     private bool _brandingAttempted;
 
     private string ApiBase => (Http.BaseAddress?.ToString() ?? "").TrimEnd('/');
@@ -254,6 +269,11 @@
         var state = await AuthState.GetAuthenticationStateAsync();
         _isPlatformUser = state.User.Identity?.IsAuthenticated == true &&
                           state.User.FindFirst("tenant") is null;
+        // Set while an operator has not enabled MFA. Every platform screen
+        // refuses them until they do, so the banner is the only thing that
+        // makes those 403s make sense.
+        _platformMfaSetupRequired = _isPlatformUser &&
+                                    state.User.FindFirst("platform_mfa_setup_required") is not null;
     }
 
     private void OnAuthStateChanged(Task<AuthenticationState> task) =>

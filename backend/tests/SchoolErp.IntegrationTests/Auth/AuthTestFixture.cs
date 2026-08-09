@@ -153,6 +153,16 @@ public sealed class AuthTestFixture : IAsyncLifetime
         there.TenantId = SecondTenantId;
         (await userManager.CreateAsync(there, AdminPassword)).Succeeded.Should().BeTrue();
 
+        // The platform-scoped SuperAdmin role new operators are put into.
+        db.Roles.Add(new ApplicationRole
+        {
+            Id = Guid.NewGuid(),
+            Name = "SuperAdmin",
+            NormalizedName = "SUPERADMIN",
+            TenantId = null,
+        });
+        await db.SaveChangesAsync();
+
         var platform = NewUser(PlatformEmail, "+919876543212", "Super Admin");
         platform.TenantId = null;
         (await userManager.CreateAsync(platform, AdminPassword)).Succeeded.Should().BeTrue();

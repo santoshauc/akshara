@@ -39,6 +39,12 @@ public sealed class JwtTokenService
 
     /// <summary>Creates a signed access token for the user.</summary>
     /// <summary>
+    /// Marks a platform token whose owner has not enabled MFA. Its presence
+    /// denies the platform-only policy.
+    /// </summary>
+    public const string PlatformMfaSetupRequiredClaim = "platform_mfa_setup_required";
+
+    /// <summary>
     /// <paramref name="schoolCode"/> is carried purely so the client can theme
     /// itself: sign-in no longer asks for a code, so without it the portal has
     /// no way to know which school's branding to fetch. Never used for
@@ -67,6 +73,17 @@ public sealed class JwtTokenService
             {
                 claims.Add(new Claim("school_code", schoolCode));
             }
+        }
+        else if (!user.TwoFactorEnabled)
+        {
+            // A platform account can edit every school and grant itself SMS
+            // credits, so MFA is not optional. Refusing the sign-in outright
+            // would brick an operator who has not enrolled yet — including the
+            // first one, who has nowhere to enrol from. Instead they sign in,
+            // this claim blocks every platform-only endpoint, and the Security
+            // page (which is account-scoped, not platform-scoped) stays open
+            // so they can turn MFA on and sign in again.
+            claims.Add(new Claim(PlatformMfaSetupRequiredClaim, "true"));
         }
 
         claims.AddRange(roles.Select(r => new Claim(ClaimTypes.Role, r)));
