@@ -118,8 +118,14 @@ try
 
     // --- Web ---------------------------------------------------------------
     builder.Services.AddControllers(options =>
+    {
         // Subscription-plan module gating (see RequiresModuleAttribute).
-        options.Filters.Add<SchoolErp.Api.Authorization.ModuleGateFilter>());
+        options.Filters.Add<SchoolErp.Api.Authorization.ModuleGateFilter>();
+        // Expected exceptions (validation, not-found, conflict) become problem
+        // responses here, before the exception-handler middleware can log them
+        // as faults. See ApplicationExceptionFilter for why that matters.
+        options.Filters.Add<SchoolErp.Api.Middleware.ApplicationExceptionFilter>();
+    });
 
     builder.Services
         .AddApiVersioning(options =>
@@ -176,8 +182,14 @@ try
     var app = builder.Build();
 
     // --- Pipeline ----------------------------------------------------------
-    app.UseExceptionHandler();
+    // Serilog goes OUTSIDE the exception handler so the request line carries
+    // the status the client actually received; inside it, anything the handler
+    // converts was recorded as "responded 500" first. (What keeps ordinary
+    // 400s and 404s out of the log as faults is ApplicationExceptionFilter —
+    // this ordering alone is not enough. UseExceptionHandler remains the net
+    // for exceptions raised outside the MVC pipeline.)
     app.UseSerilogRequestLogging();
+    app.UseExceptionHandler();
 
     // Minimal secure-header baseline; CSP is added when the portal is wired up.
     app.Use(async (context, next) =>

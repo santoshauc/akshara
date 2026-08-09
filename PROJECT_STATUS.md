@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 61 unit + 129 integration = **190 green** (`dotnet test` from `school-erp/`).
+Test suite: 61 unit + 135 integration = **196 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -786,10 +786,56 @@ HR/payroll (own product).
 - GOTCHA: `useRef` guard on the sign-in reconciliation — without it, flipping
   the toggle re-entered the effect (its `chosenHere` dep flips) and sent the
   same PUT twice. Caught in the browser, not the tests.
-- PRE-EXISTING, not introduced here: every FluentValidation failure logs an
-  `ERR ... responded 500` with a stack trace in Serilog while the client
-  correctly receives 400 — the exception handler sits outside
-  `UseSerilogRequestLogging`. Verified identical on an untouched endpoint.
+- Spotted here, fixed in fix/validation-log-noise (below): expected exceptions
+  were logged as faults.
+
+## Expected exceptions stopped logging as faults (fix/validation-log-noise)
+
+- Symptom: every rejected form field, every 404 lookup and every 409 wrote
+  `ERR ... An unhandled exception has occurred` plus a full stack trace, while
+  the caller correctly received 400/404/409. Real faults were buried.
+- TWO causes, and the obvious half-fix is not enough:
+  1. Serilog's request logging sat INSIDE `UseExceptionHandler`, so it saw the
+     raw exception and recorded "responded 500". Swapping the two (Serilog
+     outermost now) makes it record the status the client actually got.
+  2. The one that actually mattered: ASP.NET's exception-handler middleware
+     logs "An unhandled exception has occurred" at Error, with the stack,
+     BEFORE it consults any `IExceptionHandler`. Reordering does nothing about
+     that, and .NET 8 has no hook to suppress it (`SuppressDiagnosticsCallback`
+     is .NET 9). The fix is to keep expected exceptions away from the
+     middleware entirely.
+- `ApplicationExceptionMapper` now holds the exception→ProblemDetails mapping,
+  used by two entry points: `ApplicationExceptionFilter` (a global MVC
+  `IExceptionFilter`, where essentially every one of these is thrown) and the
+  existing `GlobalExceptionHandler` (`IExceptionHandler`), still registered as
+  the net for exceptions raised outside MVC. Unmapped exceptions are left
+  untouched by both, so a genuine fault still logs in full and 500s.
+- ALSO FIXED, found while testing: validation responses had been dropping their
+  per-field `errors`. The switch expression typed the variable as
+  `ProblemDetails`, and `WriteAsJsonAsync<ProblemDetails>` serializes by the
+  DECLARED type, so `ValidationProblemDetails.Errors` never reached the client
+  — callers only ever saw the generic title. `ObjectResult` (filter path) and
+  `WriteAsJsonAsync<object>` (handler path) both serialize by runtime type.
+- 6 tests in `IntegrationTests/Api/ExceptionMappingTests.cs` (no database —
+  they pin the pipeline contract): fields survive on a 400, 404/409 mapping,
+  concurrency → 409, and an unmapped exception left unhandled so it still
+  reaches the middleware.
+- Verified live: validation → one `INF … responded 400` and a body carrying
+  `errors`; 404 → one INF line; and a genuine fault (a platform account
+  hitting a tenant-scoped query) still logs ERR with the whole stack.
+- Suite: 61 unit + 135 integration green.
+- NOTED, NOT FIXED: platform (Super Admin) accounts calling tenant-scoped
+  endpoints — `/dashboard`, `/exams/report-card-settings` — 500 on
+  "Tenant has not been resolved for this scope" rather than a clean 4xx.
+  Pre-existing; the portal already shows a platform-account fallback.
+- GOTCHA (cost time): one integration run reported 6 failures and an inflated
+  total (138 for 135 tests) right after the dev API had been hammering Docker;
+  it took 14 minutes instead of the usual 7. A clean re-run of the identical
+  commit was 135/135. Testcontainers fixtures that lose the race to start a
+  container surface as per-class error rows, so a total that does not match
+  the test count is the tell — re-run before believing the failures. And do
+  not pipe `dotnet test` through `tail`: it discards the failure names, which
+  is what made this cost a second 7-minute run.
 
 ## Inventory module + honest Enterprise preset (feature/inventory)
 
