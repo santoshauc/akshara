@@ -17,8 +17,10 @@ public static class PlanPresets
     private const TenantModules Premium = Standard |
         TenantModules.Hostel | TenantModules.FrontOffice;
 
-    private const TenantModules Everything = Premium |
-        TenantModules.HumanResources | TenantModules.Inventory;
+    // HumanResources is deliberately NOT bundled: payroll (PF, ESI, TDS,
+    // gratuity) is its own product and nothing implements the flag yet.
+    // Selling it would be selling an empty module.
+    private const TenantModules Everything = Premium | TenantModules.Inventory;
 
     /// <summary>The module bundle a plan ships with.</summary>
     public static TenantModules ModulesFor(SubscriptionPlan plan) => plan switch

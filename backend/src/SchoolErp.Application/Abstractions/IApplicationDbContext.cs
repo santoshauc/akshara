@@ -102,6 +102,10 @@ public interface IApplicationDbContext
 
     DbSet<BookLoan> BookLoans { get; }
 
+    DbSet<Domain.Inventory.InventoryItem> InventoryItems { get; }
+
+    DbSet<Domain.Inventory.StockMovement> StockMovements { get; }
+
     DbSet<Domain.FrontOffice.VisitorEntry> VisitorEntries { get; }
 
     DbSet<Domain.FrontOffice.GatePass> GatePasses { get; }

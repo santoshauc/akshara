@@ -675,6 +675,33 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## Inventory module + honest Enterprise preset (feature/inventory)
+
+- Closes the second sold-but-unbuilt module. Two RLS tables (migration
+  20260809*_AddInventory): `inventory_items` (name unique per tenant,
+  category, unit, reorder level, unit cost, retire flag, running
+  `QuantityOnHand`) and the append-only `stock_movements` register
+  (Receipt / Issue / WriteOff / Adjustment, quantity always positive,
+  `BalanceAfter` stamped on every line).
+- The kind decides direction; an Adjustment SETS the balance (physical
+  count) rather than adding to it. Issues and write-offs are refused when
+  they would take stock negative, naming what is actually left, and the
+  refused movement leaves the balance untouched. Retired items take no
+  new movements.
+- Permissions inventory.view/manage, [RequiresModule(Inventory)] gate,
+  portal page `/inventory` (catalogue + register + low-stock filter),
+  fully en/te.
+- **HumanResources is no longer bundled in the Enterprise preset.**
+  Payroll (PF, ESI, TDS, gratuity) is its own product and nothing
+  implements the flag; shipping it in a preset was selling an empty
+  module. The enum member stays so existing hand-tuned schools keep
+  their flag, but no plan grants it.
+- 3 integration tests: balance arithmetic across all four movement kinds,
+  the negative-stock and duplicate-name refusals, and the low-stock view
+  including retirement. E2E on DEMO01: received 120, issued 18, balance
+  102, an attempted issue of 500 refused with "Only 102 piece … in stock".
+  Suite: 50 unit + 124 integration green.
+
 ## Front office module (feature/front-office)
 
 - Closes the first of three "sold but unbuilt" modules: FrontOffice ships in
