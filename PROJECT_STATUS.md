@@ -472,6 +472,33 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
 - Teacher: `DEMO01` + `+919888811122` / `Anita@2026Pass` (Anita Rao EMP-001,
   "Teacher" role — classroom permissions only).
 
+## Demo dataset (DemoDataSeeder — runs at every dev API startup, idempotent)
+
+`Persistence/Seeding/DemoDataSeeder.cs` enriches DEMO01 so demos look real
+(each block checks before inserting; safe to re-run; invoked from DevSeeder,
+never in production):
+
+- 16 seeded students (ADM-2026-0101…0116, 8 per section in Grade 5 A and
+  Grade 6 A) with one guardian each (phones `+9198765002xx` — all can OTP
+  into the parent app), on top of the hand-made students.
+- Attendance: daily roll-call for the last 30 days (Sundays skipped),
+  deterministic ~90/4/5/1 present/late/absent/half-day mix.
+- Exams: "Unit Test 1" (Jul, /50) and "Mid-Term 1" (Aug, /100), both
+  Published, papers in Maths/Science/English for both grades, marks for
+  every student (stable 42–97% ability distribution).
+- Fees: structures ensured (G5 ₹30,000, G6 ₹25,000); a third of the cohort
+  fully paid over Jun+Jul, a third part-paid in Aug, a third outstanding
+  (receipts RCP-2026-1001+); 2 concessions.
+- Timetable: Mon–Sat published class-wide slots for both grades across 4
+  teachers (Anita, Vikram, + seeded Sunita Devi EMP-003, Ravi Prasad
+  EMP-004) — drives periods/week and teaching-outcome insights.
+- Substitutions (3 covers this month), admissions pipeline (7 enquiries
+  across New/Contacted/Visit/Lost with due follow-ups), 3 notices, 3
+  homework items, 5 library books with loans (1 overdue), 1 pending leave
+  request, transport stop assignments for 4 students.
+- A fresh database is demo-ready after one API start: the shell seed runs
+  first and the enrichment runs right after it in the same startup.
+
 ## Conventions (follow these when adding modules)
 
 - Every business entity extends `TenantEntity`; every migration creating a

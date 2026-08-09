@@ -47,7 +47,9 @@ public static partial class DevSeeder
 
         if (await db.Users.AnyAsync().ConfigureAwait(false))
         {
-            return; // already seeded
+            // Shell already exists — just keep the demo dataset topped up.
+            await DemoDataSeeder.SeedAsync(services).ConfigureAwait(false);
+            return;
         }
 
         var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
@@ -135,6 +137,10 @@ public static partial class DevSeeder
 
         await db.SaveChangesAsync().ConfigureAwait(false);
         LogSeeded(logger, SuperAdminEmail, DemoAdminEmail, DemoSchoolCode);
+
+        // Freshly created shell — enrich it in the same startup so a brand-new
+        // environment is demo-ready immediately.
+        await DemoDataSeeder.SeedAsync(services).ConfigureAwait(false);
     }
 
     /// <summary>Adds any missing permission claims to seeded SchoolAdmin roles.</summary>
