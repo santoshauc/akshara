@@ -24,7 +24,7 @@
     <MudAppBar Elevation="0" Class="ak-appbar" Dense="true">
         <MudIconButton Icon="@Icons.Material.Filled.Menu" Edge="Edge.Start" Size="Size.Small"
                        aria-label="@L["chrome.toggleNav"]"
-                       aria-expanded="@(_drawerOpen ? "true" : "false")"
+                       aria-expanded="@(DrawerOpen ? "true" : "false")"
                        OnClick="ToggleDrawer" />
 
         @if (_branding?.LogoUrl is { } logoUrl)
@@ -87,15 +87,16 @@
 
     @* Mini rail on desktop keeps navigation one click away; on a phone it
        would eat a sixth of the screen, so there it becomes an overlay. *@
-    <MudDrawer @bind-Open="_drawerOpen" Elevation="0" ClipMode="DrawerClipMode.Always"
+    <MudDrawer Open="@DrawerOpen" OpenChanged="OnDrawerOpenChanged"
+               Elevation="0" ClipMode="DrawerClipMode.Always"
                Variant="@(_isCompact ? DrawerVariant.Temporary : DrawerVariant.Mini)"
                OpenMiniOnHover="false"
-               Class="@($"ak-drawer {(_drawerOpen || _isCompact ? "" : "ak-drawer--rail")}")">
+               Class="@($"ak-drawer {(!_isCompact && !_desktopDrawerOpen ? "ak-drawer--rail" : "")}")">
         <nav class="ak-nav" aria-label="@L["chrome.mainNav"]">
             <MudNavMenu>
                 @foreach (var section in VisibleSections)
                 {
-                    @if (_drawerOpen)
+                    @if (_isCompact || _desktopDrawerOpen)
                     {
                         <div class="ak-nav-section">@L[section.LabelKey]</div>
                     }
@@ -140,7 +141,14 @@
 
 
 @code {
-    private bool _drawerOpen = true;
+    // Desktop and phone keep separate intent. A single flag defaulted to
+    // true meant a phone opened with the nav covering the whole page, and
+    // closing it on a breakpoint event was too late — the first paint had
+    // already happened with the drawer over the content.
+    private bool _desktopDrawerOpen = true;
+    private bool _mobileDrawerOpen;
+
+    private bool DrawerOpen => _isCompact ? _mobileDrawerOpen : _desktopDrawerOpen;
 
     private IReadOnlyList<NavSection> VisibleSections => NavModel.For(_isPlatformUser);
 
@@ -158,7 +166,31 @@
             : $"{char.ToUpperInvariant(words[0][0])}{char.ToUpperInvariant(words[1][0])}";
     }
 
-    private void ToggleDrawer() => _drawerOpen = !_drawerOpen;
+    private void ToggleDrawer()
+    {
+        if (_isCompact)
+        {
+            _mobileDrawerOpen = !_mobileDrawerOpen;
+        }
+        else
+        {
+            _desktopDrawerOpen = !_desktopDrawerOpen;
+        }
+    }
+
+    /// <summary>Keeps our state in step when MudBlazor closes the overlay itself
+    /// (backdrop tap, Escape, or navigating to a new page).</summary>
+    private void OnDrawerOpenChanged(bool open)
+    {
+        if (_isCompact)
+        {
+            _mobileDrawerOpen = open;
+        }
+        else
+        {
+            _desktopDrawerOpen = open;
+        }
+    }
 
     private bool _isCompact;
 
@@ -178,7 +210,8 @@
         _isCompact = compact;
         if (compact)
         {
-            _drawerOpen = false;
+            // Leaving a phone: the overlay should never persist across a resize.
+            _mobileDrawerOpen = false;
         }
 
         StateHasChanged();
