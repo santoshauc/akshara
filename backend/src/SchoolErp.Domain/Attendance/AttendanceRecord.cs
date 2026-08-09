@@ -27,6 +27,9 @@ public class AttendanceRecord : TenantEntity
 
     public DateOnly Date { get; set; }
 
+    /// <summary>Timetable period number; null = the daily roll call.</summary>
+    public int? Period { get; set; }
+
     public AttendanceStatus Status { get; set; }
 
     public string? Remarks { get; set; }

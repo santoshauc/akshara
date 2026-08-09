@@ -15,14 +15,16 @@ public sealed record AttendanceEntry(Guid EnrollmentId, AttendanceStatus Status,
 
 /// <summary>
 /// Marks (or re-marks) attendance for a section on a date. Upserts one record
-/// per enrollment. Students newly marked Absent trigger an SMS to their
-/// primary guardian via the transactional outbox — written in the same
-/// transaction, delivered asynchronously by the dispatcher.
+/// per enrollment. A null <paramref name="Period"/> is the daily roll call;
+/// a period number marks that timetable slot instead. Students newly marked
+/// Absent on the DAILY roll call notify their primary guardian via the
+/// transactional outbox (per-period absences never notify — they'd spam).
 /// </summary>
 public sealed record MarkAttendanceCommand(
     Guid SectionId,
     DateOnly Date,
-    IReadOnlyList<AttendanceEntry> Entries) : IRequest<int>;
+    IReadOnlyList<AttendanceEntry> Entries,
+    int? Period = null) : IRequest<int>;
 
 /// <summary>Marking shape rules.</summary>
 public sealed class MarkAttendanceCommandValidator : AbstractValidator<MarkAttendanceCommand>
@@ -42,6 +44,8 @@ public sealed class MarkAttendanceCommandValidator : AbstractValidator<MarkAtten
         RuleFor(c => c.Date)
             .Must(d => d <= DateOnly.FromDateTime(clock.GetUtcNow().UtcDateTime.AddDays(1)))
             .WithMessage("Attendance cannot be marked for future dates.");
+
+        RuleFor(c => c.Period).InclusiveBetween(1, 12).When(c => c.Period is not null);
     }
 }
 
@@ -83,7 +87,8 @@ public sealed class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanc
         }
 
         var existing = await _db.AttendanceRecords
-            .Where(a => a.SectionId == request.SectionId && a.Date == request.Date)
+            .Where(a => a.SectionId == request.SectionId && a.Date == request.Date &&
+                        a.Period == request.Period)
             .ToDictionaryAsync(a => a.EnrollmentId, cancellationToken)
             .ConfigureAwait(false);
 
@@ -110,6 +115,7 @@ public sealed class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanc
                     StudentId = studentId,
                     SectionId = request.SectionId,
                     Date = request.Date,
+                    Period = request.Period,
                     Status = entry.Status,
                     Remarks = entry.Remarks,
                 });
@@ -120,8 +126,12 @@ public sealed class MarkAttendanceCommandHandler : IRequestHandler<MarkAttendanc
             }
         }
 
-        await QueueAbsenceNotificationsAsync(newlyAbsentStudentIds, request.Date, cancellationToken)
-            .ConfigureAwait(false);
+        // Only the daily roll call notifies guardians; per-period marks don't.
+        if (request.Period is null)
+        {
+            await QueueAbsenceNotificationsAsync(
+                newlyAbsentStudentIds, request.Date, cancellationToken).ConfigureAwait(false);
+        }
 
         return await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
     }

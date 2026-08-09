@@ -15,8 +15,16 @@ public sealed class AttendanceRecordConfiguration : IEntityTypeConfiguration<Att
 
         builder.Property(a => a.Remarks).HasMaxLength(256);
 
-        // One record per placement per day.
-        builder.HasIndex(a => new { a.TenantId, a.EnrollmentId, a.Date }).IsUnique();
+        // One DAILY record per placement per day (period rows are separate).
+        builder.HasIndex(a => new { a.TenantId, a.EnrollmentId, a.Date })
+            .IsUnique()
+            .HasFilter("period IS NULL")
+            .HasDatabaseName("ix_attendance_records_daily_unique");
+        // One record per placement per day per period.
+        builder.HasIndex(a => new { a.TenantId, a.EnrollmentId, a.Date, a.Period })
+            .IsUnique()
+            .HasFilter("period IS NOT NULL")
+            .HasDatabaseName("ix_attendance_records_period_unique");
         // Marking grid: whole section for a date.
         builder.HasIndex(a => new { a.TenantId, a.SectionId, a.Date });
         // Parent calendar: one student across a month.

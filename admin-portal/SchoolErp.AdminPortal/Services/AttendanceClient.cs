@@ -11,9 +11,10 @@ public sealed class AttendanceClient
     public AttendanceClient(HttpClient http) => _http = http;
 
     public Task<SectionAttendanceDto?> GetSectionAsync(
-        Guid sectionId, DateOnly date, CancellationToken ct = default) =>
+        Guid sectionId, DateOnly date, int? period = null, CancellationToken ct = default) =>
         _http.GetFromJsonAsync<SectionAttendanceDto>(
-            $"api/v1/attendance/sections/{sectionId}?date={date:yyyy-MM-dd}", ct);
+            $"api/v1/attendance/sections/{sectionId}?date={date:yyyy-MM-dd}" +
+            (period is { } p ? $"&period={p}" : ""), ct);
 
     public async Task<string?> MarkAsync(
         Guid sectionId, MarkAttendanceRequest request, CancellationToken ct = default)

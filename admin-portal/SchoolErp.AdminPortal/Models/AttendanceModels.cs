@@ -23,7 +23,8 @@ public sealed record SectionAttendanceDto(
 public sealed record AttendanceEntryModel(Guid EnrollmentId, AttendanceStatus Status, string? Remarks);
 
 /// <summary>Marking payload (mirrors MarkAttendanceRequest).</summary>
-public sealed record MarkAttendanceRequest(DateOnly Date, List<AttendanceEntryModel> Entries);
+public sealed record MarkAttendanceRequest(
+    DateOnly Date, List<AttendanceEntryModel> Entries, int? Period = null);
 
 /// <summary>One marked day in the month view (mirrors AttendanceDayDto).</summary>
 public sealed record AttendanceDayDto(DateOnly Date, AttendanceStatus Status, string? Remarks);

@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 90 integration = **138 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 91 integration = **139 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -294,6 +294,19 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   + "Needs attention" chips. Integration test proves tenant scoping
   (School A admissions never move School B tiles). E2E-verified live
   (100% attendance tile, ₹30,000 fees month-to-date).
+- C2 Period-wise attendance — DONE. AttendanceRecord.Period (null =
+  the daily roll call) with two partial unique indexes (daily-unique
+  filtered "period IS NULL"; period-unique filtered NOT NULL) —
+  migration AddPeriodAttendance. MarkAttendanceCommand/queries take an
+  optional Period; per-period absences NEVER queue guardian SMS; the
+  month calendar, leave marking and dashboard only read daily rows.
+  Portal attendance page grew a "Roll call" select fed by the
+  PUBLISHED timetable for that weekday (class-wide slots merged with
+  section-specific; section wins per period; Sunday maps to day 7).
+  Integration test: daily+period rows coexist independently, period
+  grid reads its own view, no SMS, calendar ignores period rows.
+  E2E live: P1·Mathematics picked from the Monday timetable, marked
+  Present, row persisted with period=1 and no daily side effects.
 
 ## How to run (Windows dev box)
 

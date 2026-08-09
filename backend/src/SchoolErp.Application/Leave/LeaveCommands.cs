@@ -194,7 +194,7 @@ public sealed class DecideLeaveRequestCommandHandler : IRequestHandler<DecideLea
         }
 
         var existing = await _db.AttendanceRecords
-            .Where(a => a.EnrollmentId == enrollment.Id &&
+            .Where(a => a.EnrollmentId == enrollment.Id && a.Period == null &&
                         a.Date >= leave.FromDate && a.Date <= leave.ToDate)
             .ToListAsync(ct)
             .ConfigureAwait(false);

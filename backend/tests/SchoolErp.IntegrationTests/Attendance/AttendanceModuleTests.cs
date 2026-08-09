@@ -270,6 +270,48 @@ public sealed class AttendanceModuleTests : IClassFixture<AttendanceModuleFixtur
     }
 
     [Fact]
+    public async Task Period_marking_is_independent_of_daily_and_never_notifies()
+    {
+        var date = new DateOnly(2026, 7, 24);
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var outboxBefore = await db.OutboxMessages.CountAsync();
+
+        // Daily roll call: Present. Period 2 (say, Maths): Absent.
+        await sender.Send(new MarkAttendanceCommand(_fixture.SectionId, date,
+            [new AttendanceEntry(_fixture.EnrollmentA, AttendanceStatus.Present, null)]));
+        await sender.Send(new MarkAttendanceCommand(_fixture.SectionId, date,
+            [new AttendanceEntry(_fixture.EnrollmentA, AttendanceStatus.Absent, "Bunked maths")],
+            Period: 2));
+
+        // Two independent rows for the same day.
+        var rows = await db.AttendanceRecords
+            .Where(a => a.EnrollmentId == _fixture.EnrollmentA && a.Date == date)
+            .ToListAsync();
+        rows.Should().HaveCount(2);
+        rows.Single(r => r.Period == null).Status.Should().Be(AttendanceStatus.Present);
+        rows.Single(r => r.Period == 2).Status.Should().Be(AttendanceStatus.Absent);
+
+        // The grid reads per view; period absences never queue guardian SMS.
+        (await sender.Send(new GetSectionAttendanceQuery(_fixture.SectionId, date)))
+            .Roster.Single(r => r.EnrollmentId == _fixture.EnrollmentA)
+            .Status.Should().Be(AttendanceStatus.Present);
+        (await sender.Send(new GetSectionAttendanceQuery(_fixture.SectionId, date, Period: 2)))
+            .Roster.Single(r => r.EnrollmentId == _fixture.EnrollmentA)
+            .Status.Should().Be(AttendanceStatus.Absent);
+        (await db.OutboxMessages.CountAsync()).Should().Be(outboxBefore,
+            "per-period absences must not notify guardians");
+
+        // The month calendar only counts the daily roll call.
+        var month = await sender.Send(new GetStudentMonthAttendanceQuery(
+            _fixture.StudentA, 2026, 7));
+        month.Days.Where(d => d.Date == date).Should().ContainSingle()
+            .Which.Status.Should().Be(AttendanceStatus.Present);
+    }
+
+    [Fact]
     public async Task Month_summary_computes_counters_and_percentage()
     {
         await using var scope = _fixture.CreateScope();

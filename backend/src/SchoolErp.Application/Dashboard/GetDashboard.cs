@@ -57,7 +57,7 @@ public sealed class GetDashboardQueryHandler : IRequestHandler<GetDashboardQuery
             : 0;
 
         var todayMarks = await _db.AttendanceRecords.AsNoTracking()
-            .Where(a => a.Date == today)
+            .Where(a => a.Date == today && a.Period == null)
             .GroupBy(_ => 1)
             .Select(g => new
             {

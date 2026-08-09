@@ -19,16 +19,17 @@ public sealed class AttendanceController : ControllerBase
 
     public AttendanceController(ISender sender) => _sender = sender;
 
-    /// <summary>The marking grid for a section on a date.</summary>
+    /// <summary>The marking grid for a section on a date (period optional).</summary>
     [HttpGet("sections/{sectionId:guid}")]
     [HasPermission(Permissions.Attendance.View)]
     [ProducesResponseType(typeof(SectionAttendanceDto), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public async Task<IActionResult> GetSectionAttendance(
-        Guid sectionId, [FromQuery] DateOnly date, CancellationToken ct) =>
-        Ok(await _sender.Send(new GetSectionAttendanceQuery(sectionId, date), ct));
+        Guid sectionId, [FromQuery] DateOnly date, [FromQuery] int? period,
+        CancellationToken ct) =>
+        Ok(await _sender.Send(new GetSectionAttendanceQuery(sectionId, date, period), ct));
 
-    /// <summary>Marks (or re-marks) a section for a date.</summary>
+    /// <summary>Marks (or re-marks) a section for a date (period optional).</summary>
     [HttpPost("sections/{sectionId:guid}")]
     [HasPermission(Permissions.Attendance.Mark)]
     [ProducesResponseType(StatusCodes.Status204NoContent)]
@@ -37,7 +38,8 @@ public sealed class AttendanceController : ControllerBase
     public async Task<IActionResult> MarkSectionAttendance(
         Guid sectionId, [FromBody] MarkAttendanceRequest request, CancellationToken ct)
     {
-        await _sender.Send(new MarkAttendanceCommand(sectionId, request.Date, request.Entries), ct);
+        await _sender.Send(new MarkAttendanceCommand(
+            sectionId, request.Date, request.Entries, request.Period), ct);
         return NoContent();
     }
 
@@ -51,5 +53,6 @@ public sealed class AttendanceController : ControllerBase
         Ok(await _sender.Send(new GetStudentMonthAttendanceQuery(studentId, year, month), ct));
 }
 
-/// <summary>Marking payload.</summary>
-public sealed record MarkAttendanceRequest(DateOnly Date, IReadOnlyList<AttendanceEntry> Entries);
+/// <summary>Marking payload. Null period = daily roll call.</summary>
+public sealed record MarkAttendanceRequest(
+    DateOnly Date, IReadOnlyList<AttendanceEntry> Entries, int? Period = null);

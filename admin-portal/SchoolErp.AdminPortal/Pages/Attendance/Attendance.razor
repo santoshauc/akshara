@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject AttendanceClient Client
 @inject AcademicsClient AcademicsApi
+@inject TimetableClient TimetableApi
 @inject ISnackbar Snackbar
 
 <PageTitle>Attendance — SchoolErp</PageTitle>
@@ -26,6 +27,18 @@
         </MudSelect>
         <MudDatePicker @bind-Date="_date" Label="Date" Editable="true" MaxDate="DateTime.Today"
                        PickerClosed="LoadGridAsync" Style="min-width: 160px;" />
+        <MudSelect T="int?" @bind-Value="_period" Label="Roll call" Dense="true"
+                   Style="min-width: 170px;" Disabled="@(_sectionId is null)"
+                   SelectedValuesChanged="@(_ => LoadGridAsync())"
+                   ToStringFunc="@PeriodLabel">
+            <MudSelectItem T="int?" Value="@((int?)null)">Daily (default)</MudSelectItem>
+            @foreach (var slot in _daySlots)
+            {
+                <MudSelectItem T="int?" Value="@((int?)slot.Period)">
+                    P@(slot.Period) · @slot.SubjectName
+                </MudSelectItem>
+            }
+        </MudSelect>
         <MudSpacer />
         @if (_grid is not null)
         {
@@ -147,10 +160,19 @@ else
         }
     }
 
+    private int? _period;
+    private List<TimetableEntryDto> _daySlots = [];
+
+    private string PeriodLabel(int? period) => period is { } p
+        ? $"P{p} · {_daySlots.FirstOrDefault(s => s.Period == p)?.SubjectName}"
+        : "Daily (default)";
+
     private Task OnClassChangedAsync()
     {
         _sectionId = null;
         _grid = null;
+        _period = null;
+        _daySlots = [];
         return Task.CompletedTask;
     }
 
@@ -165,7 +187,28 @@ else
         _dirty = false;
         try
         {
-            _grid = await Client.GetSectionAsync(_sectionId.Value, DateOnly.FromDateTime(_date.Value));
+            // Period choices come from the published timetable for that
+            // weekday — class-wide slots plus any section-specific overrides.
+            if (_classId is { } classId)
+            {
+                var isoDay = (int)DateOnly.FromDateTime(_date.Value).DayOfWeek;
+                var timetableDay = isoDay == 0 ? 7 : isoDay; // Sunday stored as 7
+                var classWide = await TimetableApi.GetAsync(classId, null);
+                var sectionSpecific = await TimetableApi.GetAsync(classId, _sectionId);
+                _daySlots = sectionSpecific.Concat(classWide)
+                    .Where(t => t.DayOfWeek == timetableDay && t.IsPublished)
+                    .GroupBy(t => t.Period)
+                    .Select(g => g.First()) // section-specific wins per period
+                    .OrderBy(t => t.Period)
+                    .ToList();
+                if (_period is { } chosen && _daySlots.All(s => s.Period != chosen))
+                {
+                    _period = null;
+                }
+            }
+
+            _grid = await Client.GetSectionAsync(
+                _sectionId.Value, DateOnly.FromDateTime(_date.Value), _period);
             _rows = _grid!.Roster.Select(r => new Row
             {
                 EnrollmentId = r.EnrollmentId,
@@ -226,15 +269,17 @@ else
 
             var error = await Client.MarkAsync(
                 _sectionId.Value,
-                new MarkAttendanceRequest(DateOnly.FromDateTime(_date.Value), entries));
+                new MarkAttendanceRequest(DateOnly.FromDateTime(_date.Value), entries, _period));
 
             if (error is null)
             {
                 var absents = entries.Count(e => e.Status == AttendanceStatus.Absent);
                 Snackbar.Add(
-                    absents > 0
-                        ? $"Attendance saved. {absents} absence notification(s) queued for parents."
-                        : "Attendance saved.",
+                    _period is { } savedPeriod
+                        ? $"Period {savedPeriod} attendance saved."
+                        : absents > 0
+                            ? $"Attendance saved. {absents} absence notification(s) queued for parents."
+                            : "Attendance saved.",
                     Severity.Success);
                 _dirty = false;
                 await LoadGridAsync();

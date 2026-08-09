@@ -8,8 +8,13 @@ using SchoolErp.Domain.Students;
 
 namespace SchoolErp.Application.Attendance.Queries;
 
-/// <summary>The marking grid: every active student of a section with the day's status.</summary>
-public sealed record GetSectionAttendanceQuery(Guid SectionId, DateOnly Date)
+/// <summary>
+/// The marking grid: every active student of a section with the day's status.
+/// A null <paramref name="Period"/> shows the daily roll call (the default);
+/// a period number shows that timetable slot's marks.
+/// </summary>
+public sealed record GetSectionAttendanceQuery(
+    Guid SectionId, DateOnly Date, int? Period = null)
     : IRequest<SectionAttendanceDto>;
 
 /// <summary>Composes roster + existing records for the date.</summary>
@@ -40,7 +45,8 @@ public sealed class GetSectionAttendanceQueryHandler
                     .Select(s => new { s.FirstName, s.LastName, s.AdmissionNumber })
                     .First(),
                 Record = _db.AttendanceRecords
-                    .Where(a => a.EnrollmentId == e.Id && a.Date == request.Date)
+                    .Where(a => a.EnrollmentId == e.Id && a.Date == request.Date &&
+                                a.Period == request.Period)
                     .Select(a => new { a.Status, a.Remarks })
                     .FirstOrDefault(),
             })
@@ -106,8 +112,12 @@ public sealed class GetStudentMonthAttendanceQueryHandler
         var monthStart = new DateOnly(request.Year, request.Month, 1);
         var monthEnd = monthStart.AddMonths(1);
 
+        // The calendar shows the daily roll call only; per-period rows are a
+        // staff drill-down and would double-count here.
         var days = await _db.AttendanceRecords.AsNoTracking()
-            .Where(a => a.StudentId == request.StudentId && a.Date >= monthStart && a.Date < monthEnd)
+            .Where(a => a.StudentId == request.StudentId &&
+                        a.Date >= monthStart && a.Date < monthEnd &&
+                        a.Period == null)
             .OrderBy(a => a.Date)
             .Select(a => new AttendanceDayDto(a.Date, a.Status, a.Remarks))
             .ToListAsync(cancellationToken)
