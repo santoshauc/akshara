@@ -1,0 +1,301 @@
+@page "/campuses"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@inject CampusesClient Client
+@inject ISnackbar Snackbar
+
+<PageTitle>Campuses — Akshara</PageTitle>
+
+<AkPageHeader Title="Campuses"
+              Subtitle="The locations this institution runs. One of them is the head campus — its address is what letterheads, ID cards and certificates print.">
+    <Actions>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add"
+                   Disabled="@_busy"
+                   OnClick="@(() => StartAdd())">
+            Add campus
+        </MudButton>
+    </Actions>
+</AkPageHeader>
+
+@if (_editing is { } draft)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            @(_editingId is null ? "Add a campus" : "Edit campus")
+        </MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="5">
+                <MudTextField @bind-Value="draft.Name" Label="Campus name"
+                              Placeholder="Main Campus" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudTextField @bind-Value="draft.Code" Label="Short code"
+                              HelperText="How staff refer to it, e.g. MAIN" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudTextField @bind-Value="draft.ContactPhone" Label="Contact phone" />
+            </MudItem>
+            <MudItem xs="12" md="6">
+                <MudTextField @bind-Value="draft.AddressLine1" Label="Address" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudTextField @bind-Value="draft.City" Label="City" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudTextField @bind-Value="draft.State" Label="State" />
+            </MudItem>
+            <MudItem xs="12" md="2">
+                <MudTextField @bind-Value="draft.PostalCode" Label="PIN code" />
+            </MudItem>
+            @if (_editingId is not null)
+            {
+                <MudItem xs="12">
+                    @* Closing rather than deleting: history (students admitted
+                       there, fees collected there) has to stay readable. *@
+                    <MudSwitch T="bool" @bind-Value="draft.IsActive" Color="Color.Primary"
+                               Label="@(draft.IsActive ? "Open" : "Closed")" />
+                </MudItem>
+            }
+        </MudGrid>
+
+        <MudStack Row="true" Spacing="2" Class="mt-4" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="SaveAsync">
+                @(_busy ? "Saving…" : _editingId is null ? "Add campus" : "Save changes")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Disabled="@_busy" OnClick="@(() => _editing = null)">
+                Cancel
+            </MudButton>
+            @if (_editingId is null && _campuses.Count == 0)
+            {
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    The first campus becomes the head campus automatically.
+                </MudText>
+            }
+        </MudStack>
+    </MudPaper>
+}
+
+<MudPaper Elevation="2" Class="pa-6">
+    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+        <MudSpacer />
+        <MudSwitch T="bool" Value="_includeClosed" ValueChanged="ToggleClosedAsync"
+                   Color="Color.Primary" Label="Show closed campuses" />
+    </MudStack>
+
+    @if (_loading)
+    {
+        <AkTableSkeleton Columns="5" />
+    }
+    else if (_failed)
+    {
+        <AkErrorState Title="Campuses could not be loaded"
+                      Description="The server did not answer. Nothing has been changed."
+                      OnRetry="LoadAsync" />
+    }
+    else if (_campuses.Count == 0)
+    {
+        <AkEmptyState Title="No campuses yet"
+                      Icon="@Icons.Material.Outlined.Apartment"
+                      Description="Add the location this institution operates from. Multi-campus trusts can add a row per branch." />
+    }
+    else
+    {
+        <MudTable Items="_campuses" Dense="true" Hover="true">
+            <HeaderContent>
+                <MudTh>Campus</MudTh>
+                <MudTh>Code</MudTh>
+                <MudTh>Address</MudTh>
+                <MudTh>Phone</MudTh>
+                <MudTh>Status</MudTh>
+                <MudTh />
+            </HeaderContent>
+            <RowTemplate>
+                <MudTd DataLabel="Campus">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                        <MudText>@context.Name</MudText>
+                        @if (context.IsPrimary)
+                        {
+                            <AkStatusBadge Label="Head campus"
+                                           Tone="AkStatusBadge.StatusTone.Info"
+                                           Icon="@Icons.Material.Filled.Star"
+                                           Title="Its address prints on documents." />
+                        }
+                    </MudStack>
+                </MudTd>
+                <MudTd DataLabel="Code">@context.Code</MudTd>
+                <MudTd DataLabel="Address">@FormatAddress(context)</MudTd>
+                <MudTd DataLabel="Phone">@(context.ContactPhone ?? "—")</MudTd>
+                <MudTd DataLabel="Status">
+                    <AkStatusBadge Label="@(context.IsActive ? "Open" : "Closed")"
+                                   Tone="@(context.IsActive ? AkStatusBadge.StatusTone.Success : AkStatusBadge.StatusTone.Neutral)" />
+                </MudTd>
+                <MudTd Class="text-right">
+                    <MudStack Row="true" Spacing="1" Justify="Justify.FlexEnd">
+                        @if (!context.IsPrimary && context.IsActive)
+                        {
+                            <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@_busy"
+                                       OnClick="@(() => SetPrimaryAsync(context))">
+                                Make head
+                            </MudButton>
+                        }
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@_busy"
+                                   OnClick="@(() => StartEdit(context))">
+                            Edit
+                        </MudButton>
+                    </MudStack>
+                </MudTd>
+            </RowTemplate>
+        </MudTable>
+    }
+</MudPaper>
+
+@code {
+    /// <summary>Mutable form state; MudBlazor two-way binding needs settable fields.</summary>
+    private sealed class Draft
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public string? AddressLine1 { get; set; }
+        public string? City { get; set; }
+        public string? State { get; set; }
+        public string? PostalCode { get; set; }
+        public string? ContactPhone { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    private List<CampusDto> _campuses = [];
+    private Draft? _editing;
+    private Guid? _editingId;
+    private bool _includeClosed;
+    private bool _loading = true;
+    private bool _failed;
+    private bool _busy;
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failed = false;
+        try
+        {
+            _campuses = await Client.GetCampusesAsync(_includeClosed);
+        }
+        catch (HttpRequestException)
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleClosedAsync(bool include)
+    {
+        _includeClosed = include;
+        await LoadAsync();
+    }
+
+    private void StartAdd()
+    {
+        _editingId = null;
+        _editing = new Draft();
+    }
+
+    private void StartEdit(CampusDto campus)
+    {
+        _editingId = campus.Id;
+        _editing = new Draft
+        {
+            Name = campus.Name,
+            Code = campus.Code,
+            AddressLine1 = campus.AddressLine1,
+            City = campus.City,
+            State = campus.State,
+            PostalCode = campus.PostalCode,
+            ContactPhone = campus.ContactPhone,
+            IsActive = campus.IsActive,
+        };
+    }
+
+    private async Task SaveAsync()
+    {
+        if (_editing is not { } draft)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Code))
+        {
+            Snackbar.Add("A campus needs a name and a short code.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = _editingId is { } id
+                ? await Client.UpdateAsync(id, new UpdateCampusRequest(
+                    draft.Name, draft.Code, draft.AddressLine1, draft.City, draft.State,
+                    draft.PostalCode, draft.ContactPhone, draft.IsActive))
+                : await Client.CreateAsync(new CreateCampusRequest(
+                    draft.Name, draft.Code, draft.AddressLine1, draft.City, draft.State,
+                    draft.PostalCode, draft.ContactPhone));
+
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(_editingId is null ? "Campus added." : "Campus updated.", Severity.Success);
+            _editing = null;
+            _editingId = null;
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SetPrimaryAsync(CampusDto campus)
+    {
+        _busy = true;
+        try
+        {
+            var error = await Client.SetPrimaryAsync(campus.Id);
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add($"{campus.Name} is now the head campus.", Severity.Success);
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string FormatAddress(CampusDto campus)
+    {
+        var parts = new[] { campus.AddressLine1, campus.City, campus.State, campus.PostalCode }
+            .Where(p => !string.IsNullOrWhiteSpace(p));
+        var address = string.Join(", ", parts);
+        return string.IsNullOrEmpty(address) ? "—" : address;
+    }
+}

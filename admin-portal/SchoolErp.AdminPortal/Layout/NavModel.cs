@@ -77,6 +77,7 @@ public static class NavModel
         new("nav.group.administration",
         [
             new("nav.schools", "tenants", Icons.Material.Outlined.Domain, PlatformOnly: true),
+            new("nav.campuses", "campuses", Icons.Material.Outlined.Apartment, SchoolOnly: true),
             new("nav.users", "users", Icons.Material.Outlined.ManageAccounts, SchoolOnly: true),
             new("nav.audit", "audit", Icons.Material.Outlined.History, SchoolOnly: true),
             new("nav.operators", "platform/operators", Icons.Material.Outlined.AdminPanelSettings, PlatformOnly: true),

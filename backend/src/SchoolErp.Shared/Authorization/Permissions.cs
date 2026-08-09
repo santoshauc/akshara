@@ -133,6 +133,13 @@ public static class Permissions
         public const string View = "insights.view";
     }
 
+    /// <summary>Campuses — a school or college can run several.</summary>
+    public static class Campuses
+    {
+        public const string View = "campuses.view";
+        public const string Manage = "campuses.manage";
+    }
+
     public static class Subscription
     {
         /// <summary>See the school's own plan, modules and invoices.</summary>

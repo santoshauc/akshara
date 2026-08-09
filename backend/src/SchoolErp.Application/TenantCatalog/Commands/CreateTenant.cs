@@ -21,7 +21,8 @@ public sealed record CreateTenantCommand(
     SubscriptionPlan Plan,
     TenantModules EnabledModules,
     string TimeZoneId = "Asia/Kolkata",
-    string DefaultLanguage = "en") : IRequest<TenantDto>;
+    string DefaultLanguage = "en",
+    InstitutionType InstitutionType = InstitutionType.School) : IRequest<TenantDto>;
 
 /// <summary>Shape rules for school onboarding.</summary>
 public sealed class CreateTenantCommandValidator : AbstractValidator<CreateTenantCommand>
@@ -98,6 +99,7 @@ public sealed class CreateTenantCommandHandler : IRequestHandler<CreateTenantCom
             ContactPhone = request.ContactPhone?.Trim(),
             City = request.City?.Trim(),
             State = request.State?.Trim(),
+            InstitutionType = request.InstitutionType,
             Plan = request.Plan,
             EnabledModules = request.EnabledModules,
             TimeZoneId = request.TimeZoneId,

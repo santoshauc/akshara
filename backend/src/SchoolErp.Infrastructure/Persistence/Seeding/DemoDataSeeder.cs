@@ -5,6 +5,7 @@ using SchoolErp.Application.Abstractions;
 using SchoolErp.Domain.Academics;
 using SchoolErp.Domain.Admissions;
 using SchoolErp.Domain.Attendance;
+using SchoolErp.Domain.Campuses;
 using SchoolErp.Domain.Communication;
 using SchoolErp.Domain.Exams;
 using SchoolErp.Domain.Fees;
@@ -13,6 +14,7 @@ using SchoolErp.Domain.Leave;
 using SchoolErp.Domain.Library;
 using SchoolErp.Domain.Staff;
 using SchoolErp.Domain.Students;
+using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Domain.Timetable;
 using SchoolErp.Domain.Transport;
 
@@ -81,6 +83,8 @@ public static partial class DemoDataSeeder
         }
 
         scope.ServiceProvider.GetRequiredService<ITenantContextSetter>().SetTenant(demo.Id);
+
+        await EnsureCampusesAsync(db, demo).ConfigureAwait(false);
 
         var today = DateOnly.FromDateTime(DateTime.UtcNow);
         var year = await EnsureAcademicSetupAsync(db).ConfigureAwait(false);
@@ -1053,6 +1057,49 @@ public static partial class DemoDataSeeder
                 StopId = stop.Id,
             });
         }
+
+        await db.SaveChangesAsync().ConfigureAwait(false);
+    }
+
+    // --- campuses ------------------------------------------------------------
+
+    /// <summary>
+    /// The head campus mirrors the school's own address, plus a second one so
+    /// the multi-campus behaviour (primary badge, campus switching) is visible
+    /// in a demo rather than only in tests.
+    /// </summary>
+    private static async Task EnsureCampusesAsync(AppDbContext db, Tenant demo)
+    {
+        if (await db.Campuses.AnyAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        db.Campuses.Add(new Campus
+        {
+            Name = "Main Campus",
+            Code = "MAIN",
+            AddressLine1 = demo.AddressLine1,
+            City = demo.City,
+            State = demo.State,
+            PostalCode = demo.PostalCode,
+            ContactPhone = demo.ContactPhone,
+            IsPrimary = true,
+            IsActive = true,
+        });
+
+        db.Campuses.Add(new Campus
+        {
+            Name = "Kompally Branch",
+            Code = "KMPLY",
+            AddressLine1 = "Survey No. 88, Kompally",
+            City = "Hyderabad",
+            State = "Telangana",
+            PostalCode = "500014",
+            ContactPhone = "+914027158900",
+            IsPrimary = false,
+            IsActive = true,
+        });
 
         await db.SaveChangesAsync().ConfigureAwait(false);
     }

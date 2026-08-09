@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 158 integration = **223 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 163 integration = **228 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -854,6 +854,46 @@ HR/payroll (own product).
 - 1 integration test (create with one board, add a second, drop one keeping
   the survivor's row, blank boards ignored). Suite: 65 unit + 158 integration.
 
+## Campuses + institution type (feature/campuses)
+
+Groundwork for the Super Admin dashboard: two facts the platform could not
+state about its own customers — where an institution operates, and whether it
+is a school or a college.
+
+- `Campus` (RLS'd, `campuses`): name, short code, address, phone, `IsPrimary`,
+  `IsActive`. Unique `(TenantId, Code)`, codes uppercased on write. Full CQRS
+  module + `api/v1/campuses`, gated by new `campuses.view`/`campuses.manage`
+  (claims backfill confirmed in the log: "2 added").
+- Rules the handlers enforce: the FIRST campus becomes primary automatically
+  (an institution always has a head location); the primary campus cannot be
+  closed; a closed campus cannot be promoted; promoting one steps the previous
+  head down in the same transaction, so there is always exactly one.
+- Campuses are closed, never deleted — students admitted there and fees
+  collected there have to stay readable.
+- Not module-gated: a multi-campus trust needs this on every plan.
+- `Tenant.InstitutionType` (School=1 / College=2) with a picker in the school
+  editor and a Type column in the Schools list. On `UpdateTenantCommand` the
+  parameter is NULLABLE and only applied when present — a defaulted value
+  would silently demote a college to a school whenever a client posted a body
+  that predates the field.
+- MIGRATION: `defaultValue: 1`, not the scaffolded `0` (not a member of the
+  enum — the documented gotcha). It also backfills a "Main Campus" per
+  existing tenant from that tenant's own address, because every school does
+  operate somewhere and zero campuses would be wrong rather than unknown.
+  The backfill INSERT must run BEFORE `EnableTenantRls("campuses")`: the
+  policy is FORCEd, so it applies to the owner role the migration runs as,
+  and the WITH CHECK would reject every row (`app.tenant_id` is unset there).
+- Portal: Campuses page under Administration (loading / error / empty triad,
+  add + edit inline, "Make head", show-closed toggle). Telugu nav key added.
+- 5 integration tests, each on its OWN freshly-minted school — "the first
+  campus becomes primary" is meaningless in a school that already has one,
+  and xUnit gives no ordering guarantee inside a class.
+- Browser-verified end to end as school admin (create Kompally Branch, move
+  the head flag and move it back, duplicate code refused with
+  "A campus with code 'MAIN' already exists.") and as Super Admin (Type
+  column, School→College→School round-trip persisting).
+  Suite: 65 unit + 163 integration.
+
 ## Platform hardening (feature/platform-hardening)
 
 The most powerful account in the system was the least controlled: one shared
@@ -1314,3 +1354,8 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
   otherwise) — it's an API host, there is no UI there.
 - In Blazor login flows, never hard-navigate right after submitting — it can
   kill the async token write to localStorage; let the SPA navigate itself.
+- A migration cannot INSERT into an RLS'd table after `EnableTenantRls`:
+  the policy is FORCEd, so it binds the owner role too, and `app.tenant_id`
+  is unset during migrations. Backfill first, enable RLS last.
+- Integration tests in one class share a fixture AND have no guaranteed
+  order. Anything that asserts on "the first X" must mint its own tenant.

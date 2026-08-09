@@ -15,6 +15,10 @@ public sealed record TenantDto
     public string? State { get; init; }
     public string? ContactEmail { get; init; }
     public string? ContactPhone { get; init; }
+
+    /// <summary>School or college — they count different things.</summary>
+    public InstitutionType InstitutionType { get; init; }
+
     /// <summary>Every board this school is affiliated to, with its own number.</summary>
     public IReadOnlyList<TenantAffiliationDto> Affiliations { get; init; } = [];
     public string? LogoUrl { get; init; }
@@ -53,6 +57,7 @@ public static class TenantMappings
             State = tenant.State,
             ContactEmail = tenant.ContactEmail,
             ContactPhone = tenant.ContactPhone,
+            InstitutionType = tenant.InstitutionType,
             Affiliations = tenant.Affiliations
                 .Select(a => new TenantAffiliationDto(a.Board, a.AffiliationNumber))
                 .ToList(),

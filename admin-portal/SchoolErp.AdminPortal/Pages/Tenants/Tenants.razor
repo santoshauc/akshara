@@ -36,6 +36,7 @@
     <HeaderContent>
         <MudTh>Code</MudTh>
         <MudTh>Name</MudTh>
+        <MudTh>Type</MudTh>
         <MudTh>Subdomain</MudTh>
         <MudTh>City</MudTh>
         <MudTh>Plan</MudTh>
@@ -45,6 +46,9 @@
     <RowTemplate>
         <MudTd DataLabel="Code"><MudText Typo="Typo.body2" Class="font-weight-bold">@context.Code</MudText></MudTd>
         <MudTd DataLabel="Name">@context.Name</MudTd>
+        <MudTd DataLabel="Type">
+            @(context.InstitutionType == InstitutionType.College ? "College" : "School")
+        </MudTd>
         <MudTd DataLabel="Subdomain">@context.Subdomain</MudTd>
         <MudTd DataLabel="City">@(context.City ?? "—")</MudTd>
         <MudTd DataLabel="Plan">@context.Plan</MudTd>

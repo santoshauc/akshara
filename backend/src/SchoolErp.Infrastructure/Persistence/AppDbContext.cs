@@ -155,6 +155,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     public DbSet<TimetableEntry> TimetableEntries => Set<TimetableEntry>();
 
     /// <summary>Library books (tenant-scoped).</summary>
+    public DbSet<Domain.Campuses.Campus> Campuses => Set<Domain.Campuses.Campus>();
+
     public DbSet<Domain.Inventory.InventoryItem> InventoryItems => Set<Domain.Inventory.InventoryItem>();
 
     public DbSet<Domain.Inventory.StockMovement> StockMovements => Set<Domain.Inventory.StockMovement>();

@@ -2,6 +2,16 @@ using SchoolErp.Domain.Common;
 
 namespace SchoolErp.Domain.TenantCatalog;
 
+/// <summary>What kind of institution a tenant is.</summary>
+public enum InstitutionType
+{
+    /// <summary>Classes, sections, guardians — the K-12 shape.</summary>
+    School = 1,
+
+    /// <summary>Departments, programmes, semesters — the higher-education shape.</summary>
+    College = 2,
+}
+
 /// <summary>
 /// A school (tenant) in the platform catalog. This aggregate is platform-scoped,
 /// not tenant-scoped: it inherits <see cref="AuditableEntity"/> directly and is
@@ -29,6 +39,13 @@ public class Tenant : AuditableEntity
     public string? PostalCode { get; set; }
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
+    /// <summary>
+    /// School or college. The platform runs both, and they count different
+    /// things (classes and sections vs departments and programmes), so the
+    /// distinction has to be recorded rather than inferred from the name.
+    /// </summary>
+    public InstitutionType InstitutionType { get; set; } = InstitutionType.School;
+
     /// <summary>
     /// Boards this school is affiliated to. More than one is normal in India —
     /// a CBSE school often runs a State board stream too, and each affiliation
