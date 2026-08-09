@@ -12,15 +12,17 @@ public sealed record FeeConcessionDto(
 
 /// <summary>One installment line of a class fee plan.</summary>
 public sealed record FeeStructureItemDto(
-    Guid Id, Guid FeeHeadId, string FeeHeadName, decimal Amount, DateOnly DueDate);
+    Guid Id, Guid FeeHeadId, string FeeHeadName, decimal Amount, DateOnly DueDate,
+    string? Label = null);
 
 /// <summary>Input line when defining a class fee plan.</summary>
-public sealed record FeeStructureItemInput(Guid FeeHeadId, decimal Amount, DateOnly DueDate);
+public sealed record FeeStructureItemInput(
+    Guid FeeHeadId, decimal Amount, DateOnly DueDate, string? Label = null);
 
 /// <summary>One due line in a student's summary. LateFine is 0 until overdue.</summary>
 public sealed record FeeDueLineDto(
     string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue,
-    decimal LateFine = 0);
+    decimal LateFine = 0, string? Label = null);
 
 /// <summary>One payment in a student's summary.</summary>
 public sealed record FeePaymentDto(

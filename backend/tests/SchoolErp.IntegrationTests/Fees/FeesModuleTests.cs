@@ -346,6 +346,40 @@ public sealed class FeesModuleTests : IClassFixture<FeesModuleFixture>
     }
 
     [Fact]
+    public async Task Installment_labels_flow_from_plan_to_student_summary()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Own class + head so the shared plan stays untouched.
+        var termClass = await sender.Send(new CreateClassCommand("Terms 6", 6, ["A"]));
+        var head = await sender.Send(new CreateFeeHeadCommand("TermTuition"));
+        await sender.Send(new DefineFeeStructureCommand(_fixture.YearId, termClass.Id,
+        [
+            new FeeStructureItemInput(head.Id, 12_000, new DateOnly(2026, 7, 10), "Term 1"),
+            new FeeStructureItemInput(head.Id, 12_000, new DateOnly(2026, 10, 10), "Term 2"),
+            new FeeStructureItemInput(head.Id, 12_000, new DateOnly(2027, 1, 10), "  "),
+        ]));
+
+        var structure = await sender.Send(new GetFeeStructureQuery(_fixture.YearId, termClass.Id));
+        structure.Select(i => i.Label)
+            .Should().BeEquivalentTo(["Term 1", "Term 2", null], "blank labels normalize to null");
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Tara", "Terms", new DateOnly(2015, 3, 3), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), _fixture.YearId, termClass.Id,
+            termClass.Sections.Single().Id, 1,
+            [new GuardianInput("Vani", "Terms", GuardianRelation.Mother, "+919500000888", null, null, true)]));
+
+        var summary = await sender.Send(new GetStudentFeeSummaryQuery(studentId, _fixture.YearId));
+        summary.DueLines.Should().HaveCount(3);
+        summary.DueLines.Select(l => l.Label)
+            .Should().BeEquivalentTo(["Term 1", "Term 2", null]);
+        summary.TotalDue.Should().Be(36_000);
+    }
+
+    [Fact]
     public async Task Manual_online_mode_is_rejected_and_unknown_student_404s()
     {
         await using var scope = _fixture.CreateScope();

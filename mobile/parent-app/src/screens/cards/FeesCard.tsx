@@ -53,7 +53,10 @@ export default function FeesCard({
           </Text>
           {fees.dueLines.map((line, index) => (
             <View key={`${line.feeHeadName}-${index}`} style={styles.line}>
-              <Text style={styles.head}>{line.feeHeadName}</Text>
+              <Text style={styles.head}>
+                {line.feeHeadName}
+                {line.label ? ` — ${line.label}` : ''}
+              </Text>
               <Text style={styles.amount}>{inr(line.amount)}</Text>
               <Text style={[styles.due, line.overdue && styles.overdue]}>
                 {line.overdue

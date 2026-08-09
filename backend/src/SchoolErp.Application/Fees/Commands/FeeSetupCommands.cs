@@ -100,6 +100,7 @@ public sealed class DefineFeeStructureCommandValidator : AbstractValidator<Defin
         RuleForEach(c => c.Items).ChildRules(item =>
         {
             item.RuleFor(i => i.Amount).GreaterThan(0).LessThanOrEqualTo(10_00_000);
+            item.RuleFor(i => i.Label).MaximumLength(50);
         });
     }
 }
@@ -153,6 +154,7 @@ public sealed class DefineFeeStructureCommandHandler : IRequestHandler<DefineFee
                 FeeHeadId = item.FeeHeadId,
                 Amount = item.Amount,
                 DueDate = item.DueDate,
+                Label = string.IsNullOrWhiteSpace(item.Label) ? null : item.Label.Trim(),
             });
         }
 
@@ -255,7 +257,7 @@ public sealed class GetFeeStructureQueryHandler
                         i.SchoolClassId == request.SchoolClassId)
             .OrderBy(i => i.DueDate).ThenBy(i => i.FeeHead!.Name)
             .Select(i => new FeeStructureItemDto(
-                i.Id, i.FeeHeadId, i.FeeHead!.Name, i.Amount, i.DueDate))
+                i.Id, i.FeeHeadId, i.FeeHead!.Name, i.Amount, i.DueDate, i.Label))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 }

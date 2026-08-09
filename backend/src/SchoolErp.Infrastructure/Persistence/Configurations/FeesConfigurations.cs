@@ -35,6 +35,7 @@ public sealed class FeeStructureItemConfiguration : IEntityTypeConfiguration<Fee
     {
         builder.ToTable("fee_structure_items");
         builder.Property(i => i.Amount).HasPrecision(10, 2);
+        builder.Property(i => i.Label).HasMaxLength(50);
 
         // One head can appear multiple times (installments) but not twice on the same due date.
         builder.HasIndex(i => new { i.TenantId, i.AcademicYearId, i.SchoolClassId, i.FeeHeadId, i.DueDate })

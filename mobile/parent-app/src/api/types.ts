@@ -78,6 +78,8 @@ export interface StudentResult {
 
 export interface FeeDueLine {
   feeHeadName: string;
+  /** Installment name ('Term 1') when the plan is split. */
+  label: string | null;
   amount: number;
   dueDate: string;
   overdue: boolean;

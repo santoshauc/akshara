@@ -675,6 +675,29 @@ never in production):
 - Branch workflow starts here: feature/<slug> per change, merge
   --no-ff into master when green (user directive 2026-08-09).
 
+## Fee installments (feature/fee-installments)
+
+- FeeStructureItem gained a nullable `Label` (max 50, "Term 1") —
+  migration 20260809080941_AddFeeInstallmentLabels. The unique index
+  (TenantId, YearId, ClassId, HeadId, DueDate) already allowed many
+  lines per head, so installments were latent; labels make them real.
+- Define handler trims labels (blank → null); GetFeeStructure and
+  GetStudentFeeSummary surface them, so the label reaches the portal
+  student profile ("Tuition — Term 1"), and the parent app for free
+  (parent children/{id}/fees reuses GetStudentFeeSummaryQuery;
+  types.ts FeeDueLine.label + FeesCard render it).
+- Fees.razor plan editor: per-row Installment textbox + a split
+  helper (head, total, count 2–12, first due, months apart 1–6) that
+  appends "Term k" rows — equal amounts, rupee remainder on the
+  first term, dates spaced by the chosen months.
+- GOTCHA: the plan-row `@foreach` needed `@key="row"` — without it,
+  deleting a middle row left MudDatePicker instances bound to their
+  old positions and due dates silently shifted rows. Caught in E2E,
+  verified fixed in the browser.
+- Integration test: labeled 3-term plan → structure and student
+  summary both carry ["Term 1", "Term 2", null] (blank normalizes),
+  per-line dues intact. Suite: 50 unit + 110 integration green.
+
 ## Portal localization (en/te) + public enquiry form
 
 - Portal i18n mirrors the mobile apps: flat key → text dictionaries in

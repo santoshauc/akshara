@@ -16,10 +16,12 @@ public sealed record GrantConcessionRequest(
 
 /// <summary>Installment line of a class plan (mirrors FeeStructureItemDto).</summary>
 public sealed record FeeStructureItemDto(
-    Guid Id, Guid FeeHeadId, string FeeHeadName, decimal Amount, DateOnly DueDate);
+    Guid Id, Guid FeeHeadId, string FeeHeadName, decimal Amount, DateOnly DueDate,
+    string? Label = null);
 
 /// <summary>Input line when defining a plan (mirrors FeeStructureItemInput).</summary>
-public sealed record FeeStructureItemInput(Guid FeeHeadId, decimal Amount, DateOnly DueDate);
+public sealed record FeeStructureItemInput(
+    Guid FeeHeadId, decimal Amount, DateOnly DueDate, string? Label = null);
 
 /// <summary>Define-plan payload (mirrors DefineFeeStructureCommand).</summary>
 public sealed record DefineFeeStructureRequest(
@@ -27,7 +29,8 @@ public sealed record DefineFeeStructureRequest(
 
 /// <summary>Due line (mirrors FeeDueLineDto).</summary>
 public sealed record FeeDueLineDto(
-    string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue, decimal LateFine);
+    string FeeHeadName, decimal Amount, DateOnly DueDate, bool Overdue, decimal LateFine,
+    string? Label = null);
 
 /// <summary>Payment row (mirrors FeePaymentDto).</summary>
 public sealed record FeePaymentDto(
