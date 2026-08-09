@@ -74,7 +74,7 @@ public sealed class JwtTokenService
                 claims.Add(new Claim("school_code", schoolCode));
             }
         }
-        else if (!user.TwoFactorEnabled)
+        else if (_options.RequirePlatformMfa && !user.TwoFactorEnabled)
         {
             // A platform account can edit every school and grant itself SMS
             // credits, so MFA is not optional. Refusing the sign-in outright

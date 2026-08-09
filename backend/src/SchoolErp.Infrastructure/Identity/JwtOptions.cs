@@ -15,6 +15,15 @@ public sealed class JwtOptions
     /// </summary>
     public string SigningKey { get; set; } = string.Empty;
 
+    /// <summary>
+    /// Whether a platform (Super Admin) account must have MFA enabled before
+    /// the platform screens will serve it. ON by default — an operator can
+    /// edit every school. Development turns it off in appsettings so the
+    /// seeded demo operator is usable without enrolling an authenticator,
+    /// the same way the dev SMS and payment gateways stand in for real ones.
+    /// </summary>
+    public bool RequirePlatformMfa { get; set; } = true;
+
     public int AccessTokenMinutes { get; set; } = 15;
 
     public int RefreshTokenDays { get; set; } = 7;
