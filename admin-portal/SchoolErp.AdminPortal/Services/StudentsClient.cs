@@ -88,6 +88,24 @@ public sealed class StudentsClient
             : null;
     }
 
+    /// <summary>DPDP data export as JSON bytes; null when unavailable.</summary>
+    public async Task<byte[]?> ExportDataAsync(Guid id, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"api/v1/students/{id}/data-export", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
+
+    /// <summary>DPDP erasure; null on success.</summary>
+    public async Task<string?> EraseDataAsync(
+        Guid id, string reason, CancellationToken ct = default)
+    {
+        var response = await _http.PostAsJsonAsync(
+            $"api/v1/students/{id}/erase", new { reason }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
     /// <summary>Turns a server-relative file URL into an absolute one on the API host.</summary>
     public string? FileUrl(string? relativeUrl) =>
         relativeUrl is null ? null : new Uri(_http.BaseAddress!, relativeUrl).ToString();

@@ -266,6 +266,47 @@ public sealed class SisModuleTests : IClassFixture<SisModuleFixture>
     }
 
     [Fact]
+    public async Task Dpdp_export_collects_data_and_erasure_anonymizes()
+    {
+        await using var scope = _fixture.CreateScope(_fixture.SchoolA);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var (yearId, classId, sectionId) = await GetStructureAsync(sender);
+        var studentId = await sender.Send(
+            NewAdmission(yearId, classId, sectionId, "Privacy", "+919899000333"));
+
+        // Export: a JSON document carrying profile + guardians.
+        var json = System.Text.Encoding.UTF8.GetString(
+            await sender.Send(new ExportStudentDataQuery(studentId)));
+        // System.Text.Json escapes '+' as + — match the digits only.
+        json.Should().Contain("\"admissionNumber\"").And.Contain("Privacy")
+            .And.Contain("919899000333").And.Contain("Digital Personal Data Protection");
+
+        // Erase: anonymized, hidden and the orphan guardian scrubbed too.
+        await sender.Send(new EraseStudentDataCommand(studentId, "Parent request #42"));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Students.AnyAsync(s => s.Id == studentId))
+            .Should().BeFalse("soft-deleted students disappear from every query");
+
+        var raw = await db.Students.IgnoreQueryFilters()
+            .SingleAsync(s => s.Id == studentId);
+        raw.FirstName.Should().Be("Erased");
+        raw.Phone.Should().BeNull();
+        raw.IsDeleted.Should().BeTrue();
+
+        var guardian = await db.Guardians.IgnoreQueryFilters()
+            .SingleAsync(g => db.StudentGuardians.IgnoreQueryFilters()
+                .Any(sg => sg.GuardianId == g.Id && sg.StudentId == studentId));
+        guardian.FirstName.Should().Be("Erased");
+        guardian.Phone.Should().StartWith("erased-");
+
+        // The erasure command itself is on the audit trail.
+        (await db.AuditEvents.IgnoreQueryFilters()
+                .AnyAsync(a => a.Action.Contains("EraseStudentData")))
+            .Should().BeTrue("DPDP erasure must leave an audit row");
+    }
+
+    [Fact]
     public async Task Dashboard_aggregates_are_tenant_scoped()
     {
         // School B's numbers must not include School A's students.

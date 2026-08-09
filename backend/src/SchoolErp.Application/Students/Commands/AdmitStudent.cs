@@ -71,11 +71,14 @@ public sealed class AdmitStudentCommandValidator : AbstractValidator<AdmitStuden
 public sealed class AdmitStudentCommandHandler : IRequestHandler<AdmitStudentCommand, Guid>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ITenantContext _tenantContext;
     private readonly TimeProvider _clock;
 
-    public AdmitStudentCommandHandler(IApplicationDbContext db, TimeProvider clock)
+    public AdmitStudentCommandHandler(
+        IApplicationDbContext db, ITenantContext tenantContext, TimeProvider clock)
     {
         _db = db;
+        _tenantContext = tenantContext;
         _clock = clock;
     }
 
@@ -87,7 +90,10 @@ public sealed class AdmitStudentCommandHandler : IRequestHandler<AdmitStudentCom
             ? await GenerateAdmissionNumberAsync(request.AdmissionDate, cancellationToken).ConfigureAwait(false)
             : request.AdmissionNumber.Trim().ToUpperInvariant();
 
-        if (await _db.Students.AnyAsync(s => s.AdmissionNumber == admissionNumber, cancellationToken)
+        // IgnoreQueryFilters: DPDP-erased students keep their numbers reserved.
+        if (await _db.Students.IgnoreQueryFilters()
+                .AnyAsync(s => s.TenantId == _tenantContext.TenantId &&
+                               s.AdmissionNumber == admissionNumber, cancellationToken)
                 .ConfigureAwait(false))
         {
             throw new ConflictException($"Admission number '{admissionNumber}' is already in use.");
@@ -191,8 +197,13 @@ public sealed class AdmitStudentCommandHandler : IRequestHandler<AdmitStudentCom
     {
         var year = admissionDate.Year;
         var prefix = $"ADM-{year}-";
+        // IgnoreQueryFilters + explicit tenant scope: DPDP-erased students are
+        // soft-deleted and invisible to the default filter, but their admission
+        // numbers stay reserved — counting without them would reissue numbers.
         var count = await _db.Students
-            .CountAsync(s => s.AdmissionNumber.StartsWith(prefix), ct)
+            .IgnoreQueryFilters()
+            .CountAsync(s => s.TenantId == _tenantContext.TenantId &&
+                             s.AdmissionNumber.StartsWith(prefix), ct)
             .ConfigureAwait(false);
         return $"{prefix}{count + 1:D4}";
     }

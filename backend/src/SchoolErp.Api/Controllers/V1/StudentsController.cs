@@ -62,6 +62,32 @@ public sealed class StudentsController : ControllerBase
         return CreatedAtAction(nameof(GetStudent), new { id, version = "1" }, id);
     }
 
+    /// <summary>DPDP data-access export: everything stored about the student, as JSON.</summary>
+    [HttpGet("{id:guid}/data-export")]
+    [HasPermission(Permissions.Students.Manage)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> ExportData(Guid id, CancellationToken ct)
+    {
+        var json = await _sender.Send(new ExportStudentDataQuery(id), ct);
+        return File(json, "application/json", $"dpdp-export-{id:N}.json");
+    }
+
+    /// <summary>
+    /// DPDP erasure: anonymizes personal data in place, deletes the photo,
+    /// redacts free text and soft-deletes the student. Irreversible.
+    /// </summary>
+    [HttpPost("{id:guid}/erase")]
+    [HasPermission(Permissions.Students.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> EraseData(
+        Guid id, [FromBody] EraseStudentDataRequest request, CancellationToken ct)
+    {
+        await _sender.Send(new EraseStudentDataCommand(id, request.Reason), ct);
+        return NoContent();
+    }
+
     /// <summary>
     /// An official document PDF: transfer-certificate, bonafide-certificate
     /// or id-card.
@@ -120,3 +146,6 @@ public sealed class StudentsController : ControllerBase
         return Ok(photoUrl);
     }
 }
+
+/// <summary>Erasure payload — the reason is the paper trail.</summary>
+public sealed record EraseStudentDataRequest(string Reason);

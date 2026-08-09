@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 91 integration = **139 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 92 integration = **140 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -307,6 +307,24 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   grid reads its own view, no SMS, calendar ignores period rows.
   E2E live: P1·Mathematics picked from the Monday timetable, marked
   Present, row persisted with period=1 and no daily side effects.
+- C3 DPDP workflows — DONE. ExportStudentDataQuery: one JSON document
+  (profile, guardians, enrollments, attendance, payments, concessions,
+  loans, leave, messages) via GET students/{id}/data-export
+  (students.manage). EraseStudentDataCommand (reason mandatory):
+  deletes the photo file, anonymizes the student in place
+  (Erased Student, PII nulled, Withdrawn, soft-deleted), anonymizes
+  guardians with no other children (phone → "erased-…" placeholder,
+  push tokens removed), redacts message bodies and leave reasons;
+  the command lands on the audit trail automatically. Portal profile:
+  "DPDP export" download + guarded "Erase data" panel with reason.
+  FIXED REGRESSION: admission-number generation and duplicate checks
+  now IgnoreQueryFilters + explicit tenant scope — soft-deleted
+  (erased) students keep their numbers reserved; without this the next
+  admission reused an erased number and hit the unique index.
+  Integration test covers export content, anonymization, orphan
+  guardian scrubbing, audit row; E2E live (export 200 → erase 204 →
+  fetch 404 → DB shows Erased/soft-deleted + EraseStudentDataCommand
+  audit row).
 
 ## How to run (Windows dev box)
 
