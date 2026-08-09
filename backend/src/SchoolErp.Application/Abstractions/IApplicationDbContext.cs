@@ -102,6 +102,8 @@ public interface IApplicationDbContext
 
     DbSet<BookLoan> BookLoans { get; }
 
+    DbSet<Domain.Campuses.Campus> Campuses { get; }
+
     DbSet<Domain.Inventory.InventoryItem> InventoryItems { get; }
 
     DbSet<Domain.Inventory.StockMovement> StockMovements { get; }

@@ -30,7 +30,11 @@ public sealed record UpdateTenantCommand(
     int SmsCredits,
     bool WhatsAppEnabled,
     string TimeZoneId,
-    string DefaultLanguage) : IRequest<TenantDto>;
+    string DefaultLanguage,
+    // Nullable so an omitted field leaves the institution type alone. A
+    // defaulted value would quietly demote a college to a school every time a
+    // client posted a body that predates this field.
+    InstitutionType? InstitutionType = null) : IRequest<TenantDto>;
 
 /// <summary>Shape rules for tenant updates.</summary>
 public sealed class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
@@ -90,6 +94,7 @@ public sealed class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCom
         tenant.ContactPhone = request.ContactPhone?.Trim();
         tenant.City = request.City?.Trim();
         tenant.State = request.State?.Trim();
+        tenant.InstitutionType = request.InstitutionType ?? tenant.InstitutionType;
         ApplyAffiliations(tenant, request.Affiliations);
         tenant.LogoUrl = request.LogoUrl;
         tenant.ThemePrimaryColor = request.ThemePrimaryColor;

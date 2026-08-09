@@ -67,5 +67,6 @@ builder.Services.AddScoped<LocalizationService>();
 builder.Services.AddScoped<MessagesClient>();
 builder.Services.AddScoped<DashboardClient>();
 builder.Services.AddScoped<UserAdminClient>();
+builder.Services.AddScoped<CampusesClient>();
 
 await builder.Build().RunAsync();

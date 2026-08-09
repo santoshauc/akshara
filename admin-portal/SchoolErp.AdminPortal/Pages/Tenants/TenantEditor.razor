@@ -37,6 +37,16 @@ else
             <MudItem xs="12" sm="8">
                 <MudTextField @bind-Value="_customDomain" Label="Custom domain (optional)" />
             </MudItem>
+            <MudItem xs="12" sm="4">
+                @* Not cosmetic: a college is counted, structured and reported
+                   on differently from a school. *@
+                <MudSelect T="InstitutionType" @bind-Value="_institutionType"
+                           Label="Institution type"
+                           HelperText="Schools have classes and sections; colleges have departments and programmes.">
+                    <MudSelectItem T="InstitutionType" Value="InstitutionType.School">School (K-12)</MudSelectItem>
+                    <MudSelectItem T="InstitutionType" Value="InstitutionType.College">College / higher education</MudSelectItem>
+                </MudSelect>
+            </MudItem>
 
             <MudItem xs="12"><MudText Typo="Typo.h6">Contact</MudText></MudItem>
             <MudItem xs="12" sm="6">
@@ -226,6 +236,7 @@ else
     private string? _contactPhone;
     private string? _city;
     private string? _state;
+    private InstitutionType _institutionType = InstitutionType.School;
     private readonly List<AffiliationRow> _affiliations = [];
 
     private static readonly string[] BoardOptions =
@@ -310,6 +321,7 @@ else
                 _contactPhone = t.ContactPhone;
                 _city = t.City;
                 _state = t.State;
+                _institutionType = t.InstitutionType;
                 _affiliations.Clear();
                 _affiliations.AddRange(t.Affiliations.Select(a =>
                     new AffiliationRow { Board = a.Board, Number = a.AffiliationNumber }));
@@ -358,7 +370,8 @@ else
                     _code.Trim().ToUpperInvariant(), _name, _subdomain.Trim().ToLowerInvariant(),
                     NullIfEmpty(_customDomain), NullIfEmpty(_contactEmail), NullIfEmpty(_contactPhone),
                     NullIfEmpty(_city), NullIfEmpty(_state), BuildAffiliations(),
-                    _plan, _modules | TenantModules.Core, "Asia/Kolkata", _language));
+                    _plan, _modules | TenantModules.Core, "Asia/Kolkata", _language,
+                    _institutionType));
                 _error = error;
                 if (created is not null)
                 {
@@ -376,7 +389,8 @@ else
                     _plan,
                     _subscriptionExpires is { } exp ? DateOnly.FromDateTime(exp) : null,
                     _modules | TenantModules.Core,
-                    _storageLimitMb, _smsCredits, _whatsAppEnabled, "Asia/Kolkata", _language));
+                    _storageLimitMb, _smsCredits, _whatsAppEnabled, "Asia/Kolkata", _language,
+                    _institutionType));
                 _error = error;
                 if (updated is not null)
                 {

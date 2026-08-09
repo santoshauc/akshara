@@ -20,6 +20,7 @@ public sealed record TenantDto
     public string? State { get; init; }
     public string? ContactEmail { get; init; }
     public string? ContactPhone { get; init; }
+    public InstitutionType InstitutionType { get; init; } = InstitutionType.School;
     /// <summary>Every board this school is affiliated to.</summary>
     public List<TenantAffiliationDto> Affiliations { get; init; } = [];
     public string? LogoUrl { get; init; }
@@ -51,7 +52,8 @@ public sealed record CreateTenantRequest(
     SubscriptionPlan Plan,
     TenantModules EnabledModules,
     string TimeZoneId,
-    string DefaultLanguage);
+    string DefaultLanguage,
+    InstitutionType InstitutionType);
 
 /// <summary>One board affiliation (mirrors TenantAffiliationDto).</summary>
 public sealed record TenantAffiliationDto(string Board, string? AffiliationNumber);
@@ -76,7 +78,8 @@ public sealed record UpdateTenantRequest(
     int SmsCredits,
     bool WhatsAppEnabled,
     string TimeZoneId,
-    string DefaultLanguage);
+    string DefaultLanguage,
+    InstitutionType InstitutionType);
 
 /// <summary>Public branding served anonymously by school code.</summary>
 public sealed record TenantBrandingDto(
