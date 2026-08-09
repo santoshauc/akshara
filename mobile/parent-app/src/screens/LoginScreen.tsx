@@ -11,6 +11,7 @@ import {
   View,
 } from 'react-native';
 import { requestOtp, verifyOtp } from '../api/parent';
+import { SchoolChoice } from '../api/types';
 import LanguageToggle from '../components/LanguageToggle';
 import { API_BASE_URL, BRAND } from '../config';
 import { useI18n } from '../i18n';
@@ -25,45 +26,36 @@ interface Props {
   onSignedIn: () => void;
 }
 
-/** School code + phone → OTP → session. */
+/** Phone → OTP → session. The school comes from the number. */
 export default function LoginScreen({ onSignedIn }: Props) {
   const { t } = useI18n();
-  const [schoolCode, setSchoolCode] = useState('');
   const [phone, setPhone] = useState('');
   const [code, setCode] = useState('');
   const [stage, setStage] = useState<'details' | 'code'>('details');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [branding, setBranding] = useState<SchoolBranding | null>(null);
+  // Only when the number belongs to more than one school.
+  const [schools, setSchools] = useState<SchoolChoice[]>([]);
+  const [schoolCode, setSchoolCode] = useState<string | null>(null);
 
-  // Once the code looks complete, show the school's own name/logo/colour —
-  // parents instantly know they're in the right place. Public data.
+  // Branding now arrives after sign-in, not from a typed code: asking for one
+  // just to show a logo is a worse trade than one fewer field.
   useEffect(() => {
-    const trimmed = schoolCode.trim();
-    if (trimmed.length < 4) {
-      setBranding(null);
-      return;
-    }
-    const timer = setTimeout(() => {
-      fetch(`${API_BASE_URL}/api/v1/tenants/branding?code=${encodeURIComponent(trimmed.toUpperCase())}`)
-        .then((response) => (response.ok ? response.json() : null))
-        .then(setBranding)
-        .catch(() => setBranding(null));
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [schoolCode]);
+    setBranding(null);
+  }, []);
 
   const brand = branding?.themePrimaryColor ?? BRAND;
 
   const sendCode = async () => {
-    if (!schoolCode.trim() || !phone.trim()) {
-      setError(t('errEnterSchoolAndPhone'));
+    if (!phone.trim()) {
+      setError(t('errEnterPhone'));
       return;
     }
     setBusy(true);
     setError(null);
     try {
-      await requestOtp(schoolCode.trim().toUpperCase(), phone.trim());
+      await requestOtp(null, phone.trim());
       setStage('code');
     } catch (e) {
       setError(e instanceof Error ? e.message : t('errGeneric'));
@@ -72,7 +64,7 @@ export default function LoginScreen({ onSignedIn }: Props) {
     }
   };
 
-  const confirmCode = async () => {
+  const confirmCode = async (chosenSchool?: string) => {
     if (code.trim().length !== 6) {
       setError(t('errEnterCode'));
       return;
@@ -80,7 +72,14 @@ export default function LoginScreen({ onSignedIn }: Props) {
     setBusy(true);
     setError(null);
     try {
-      await verifyOtp(schoolCode.trim().toUpperCase(), phone.trim(), code.trim());
+      const outcome = await verifyOtp(
+        chosenSchool ?? schoolCode, phone.trim(), code.trim());
+      if (outcome.chooseSchool) {
+        // The code stays valid — picking a school finishes the same sign-in.
+        setSchools(outcome.schools);
+        setError(t('errChooseSchool'));
+        return;
+      }
       onSignedIn();
     } catch (e) {
       setError(e instanceof Error ? e.message : t('errGeneric'));
@@ -116,13 +115,6 @@ export default function LoginScreen({ onSignedIn }: Props) {
           <>
             <TextInput
               style={styles.input}
-              placeholder={t('schoolCodePlaceholder')}
-              autoCapitalize="characters"
-              value={schoolCode}
-              onChangeText={setSchoolCode}
-            />
-            <TextInput
-              style={styles.input}
               placeholder={t('phonePlaceholder')}
               keyboardType="phone-pad"
               value={phone}
@@ -149,13 +141,33 @@ export default function LoginScreen({ onSignedIn }: Props) {
               onChangeText={setCode}
             />
             {error && <Text style={styles.error}>{error}</Text>}
-            <TouchableOpacity style={[styles.button, { backgroundColor: brand }]} onPress={confirmCode} disabled={busy}>
-              {busy ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>{t('signIn')}</Text>
-              )}
-            </TouchableOpacity>
+            {schools.length > 0 ? (
+              schools.map((school) => (
+                <TouchableOpacity
+                  key={school.code}
+                  style={styles.schoolChoice}
+                  disabled={busy}
+                  onPress={() => {
+                    setSchoolCode(school.code);
+                    void confirmCode(school.code);
+                  }}
+                >
+                  <Text style={styles.schoolChoiceText}>{school.name}</Text>
+                </TouchableOpacity>
+              ))
+            ) : (
+              <TouchableOpacity
+                style={[styles.button, { backgroundColor: brand }]}
+                onPress={() => confirmCode()}
+                disabled={busy}
+              >
+                {busy ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.buttonText}>{t('signIn')}</Text>
+                )}
+              </TouchableOpacity>
+            )}
             <TouchableOpacity onPress={() => setStage('details')}>
               <Text style={[styles.link, { color: brand }]}>{t('changeNumber')}</Text>
             </TouchableOpacity>
@@ -202,4 +214,14 @@ const styles = StyleSheet.create({
   buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   link: { color: BRAND, textAlign: 'center', marginTop: 16 },
   error: { color: '#C62828', marginBottom: 8, textAlign: 'center' },
+  // Rare path — a plain list of tappable school names, no chrome needed.
+  schoolChoice: {
+    borderWidth: 1,
+    borderColor: '#D5D9E0',
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    marginBottom: 8,
+  },
+  schoolChoiceText: { fontSize: 16, fontWeight: '600', textAlign: 'center' },
 });

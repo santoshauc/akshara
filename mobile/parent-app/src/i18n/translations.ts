@@ -7,13 +7,14 @@ export const en = {
   // Login
   appTitle: 'Akshara Parent',
   appSubtitle: "Stay close to your child's school day",
-  schoolCodePlaceholder: 'School code (e.g. DEMO01)',
+
   phonePlaceholder: 'Mobile number (+91…)',
   sendCode: 'Send code',
   signIn: 'Sign in',
   codeSentTo: 'We sent a 6-digit code to {phone}',
   changeNumber: 'Change number',
-  errEnterSchoolAndPhone: 'Enter your school code and phone number.',
+  errEnterPhone: 'Enter your mobile number.',
+  errChooseSchool: 'This number is registered at more than one school. Choose one.',
   errEnterCode: 'Enter the 6-digit code from the SMS.',
   errGeneric: 'Something went wrong.',
 
@@ -194,13 +195,14 @@ export const te: Record<TranslationKey, string> = {
   // Login
   appTitle: 'అక్షర పేరెంట్',
   appSubtitle: 'మీ పిల్లల స్కూల్ రోజుకు దగ్గరగా ఉండండి',
-  schoolCodePlaceholder: 'స్కూల్ కోడ్ (ఉదా. DEMO01)',
+
   phonePlaceholder: 'మొబైల్ నంబర్ (+91…)',
   sendCode: 'కోడ్ పంపండి',
   signIn: 'సైన్ ఇన్',
   codeSentTo: '{phone} కి 6 అంకెల కోడ్ పంపాము',
   changeNumber: 'నంబర్ మార్చండి',
-  errEnterSchoolAndPhone: 'మీ స్కూల్ కోడ్ మరియు ఫోన్ నంబర్ నమోదు చేయండి.',
+  errEnterPhone: 'మీ మొబైల్ నంబర్ నమోదు చేయండి.',
+  errChooseSchool: 'ఈ నంబర్ ఒకటి కంటే ఎక్కువ పాఠశాలల్లో నమోదై ఉంది. ఒకదాన్ని ఎంచుకోండి.',
   errEnterCode: 'SMS లో వచ్చిన 6 అంకెల కోడ్ నమోదు చేయండి.',
   errGeneric: 'ఏదో పొరపాటు జరిగింది.',
 

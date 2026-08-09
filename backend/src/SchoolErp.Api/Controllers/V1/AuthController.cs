@@ -287,6 +287,13 @@ public sealed class AuthController : ControllerBase
             return Ok(new MfaChallengeResponse(true, result.MfaChallenge!));
         }
 
+        if (result.Error == AuthError.ChooseSchool)
+        {
+            // Also 200: the credentials were right, they just fit more than
+            // one school. The caller repeats the request with a school code.
+            return Ok(new ChooseSchoolResponse(true, result.Schools));
+        }
+
         return result.Error switch
         {
             AuthError.LockedOut => Problem(
@@ -306,22 +313,33 @@ public sealed class AuthController : ControllerBase
     }
 }
 
-/// <summary>Password login payload. Empty school code = platform (Super Admin) sign-in.</summary>
+/// <summary>
+/// Password login payload. The school code is OPTIONAL — the school is
+/// normally implied by the email or phone. Send one only to disambiguate
+/// after a <see cref="ChooseSchoolResponse"/>.
+/// </summary>
 public sealed record PasswordLoginRequest(
-    [StringLength(16)] string SchoolCode,
+    [StringLength(16)] string? SchoolCode,
     [Required][StringLength(320)] string Login,
     [Required][StringLength(128)] string Password);
 
-/// <summary>OTP request payload.</summary>
+/// <summary>OTP request payload. School code optional, as above.</summary>
 public sealed record OtpRequest(
-    [Required][StringLength(16)] string SchoolCode,
+    [StringLength(16)] string? SchoolCode,
     [Required][Phone][StringLength(20)] string Phone);
 
-/// <summary>OTP verification payload.</summary>
+/// <summary>OTP verification payload. School code optional, as above.</summary>
 public sealed record OtpVerifyRequest(
-    [Required][StringLength(16)] string SchoolCode,
+    [StringLength(16)] string? SchoolCode,
     [Required][Phone][StringLength(20)] string Phone,
     [Required][StringLength(6, MinimumLength = 6)] string Code);
+
+/// <summary>
+/// Returned when correct credentials match accounts at more than one school.
+/// The caller picks one and repeats the request with its code.
+/// </summary>
+public sealed record ChooseSchoolResponse(
+    bool ChooseSchool, IReadOnlyList<SchoolChoice> Schools);
 
 /// <summary>Refresh/logout payload.</summary>
 public sealed record RefreshRequest([Required] string RefreshToken);

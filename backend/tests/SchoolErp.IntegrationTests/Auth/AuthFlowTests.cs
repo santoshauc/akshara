@@ -37,6 +37,122 @@ public sealed class AuthFlowTests : IClassFixture<AuthTestFixture>
     }
 
     [Fact]
+    public async Task Login_WithoutASchoolCode_FindsTheSchoolFromTheEmail()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        // No school code at all — the point of the whole change.
+        var result = await auth.LoginWithPasswordAsync(
+            null, AuthTestFixture.AdminEmail, AuthTestFixture.AdminPassword, "127.0.0.1");
+
+        result.Succeeded.Should().BeTrue();
+        new JwtSecurityTokenHandler().ReadJwtToken(result.Tokens!.AccessToken)
+            .Claims.Should().Contain(c =>
+                c.Type == "tenant" && c.Value == _fixture.TenantId.ToString());
+    }
+
+    [Fact]
+    public async Task Login_WithoutASchoolCode_WorksForAPlatformAccountToo()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var result = await auth.LoginWithPasswordAsync(
+            null, AuthTestFixture.PlatformEmail, AuthTestFixture.AdminPassword, null);
+
+        result.Succeeded.Should().BeTrue();
+        new JwtSecurityTokenHandler().ReadJwtToken(result.Tokens!.AccessToken)
+            .Claims.Should().NotContain(c => c.Type == "tenant",
+                "a platform account carries no tenant claim");
+    }
+
+    [Fact]
+    public async Task Login_WhenTheEmailBelongsToTwoSchools_AsksWhichAfterThePassword()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var ambiguous = await auth.LoginWithPasswordAsync(
+            null, AuthTestFixture.SharedEmail, AuthTestFixture.AdminPassword, null);
+
+        ambiguous.Succeeded.Should().BeFalse();
+        ambiguous.Error.Should().Be(AuthError.ChooseSchool);
+        ambiguous.Tokens.Should().BeNull("no session until the school is settled");
+        ambiguous.Schools.Select(s => s.Code).Should().BeEquivalentTo(
+            [AuthTestFixture.SchoolCode, AuthTestFixture.SecondSchoolCode]);
+
+        // Repeating with a code completes the sign-in, at that school.
+        var chosen = await auth.LoginWithPasswordAsync(
+            AuthTestFixture.SecondSchoolCode, AuthTestFixture.SharedEmail,
+            AuthTestFixture.AdminPassword, null);
+
+        chosen.Succeeded.Should().BeTrue();
+        new JwtSecurityTokenHandler().ReadJwtToken(chosen.Tokens!.AccessToken)
+            .Claims.Should().Contain(c =>
+                c.Type == "tenant" && c.Value == _fixture.SecondTenantId.ToString());
+    }
+
+    [Fact]
+    public async Task Login_WithAWrongPasswordOnASharedEmail_RevealsNothingAboutSchools()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+
+        var result = await auth.LoginWithPasswordAsync(
+            null, AuthTestFixture.SharedEmail, "NotThePassword1!", null);
+
+        result.Error.Should().Be(AuthError.InvalidCredentials);
+        result.Schools.Should().BeEmpty(
+            "listing schools before the password is proven would leak where accounts exist");
+    }
+
+    [Fact]
+    public async Task Otp_WithoutASchoolCode_ReachesTheParentsSchool()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+        var sms = _fixture.SmsSender;
+
+        await auth.RequestOtpAsync(null, AuthTestFixture.ParentPhone);
+        var code = sms.LastCode();
+
+        var result = await auth.LoginWithOtpAsync(
+            null, AuthTestFixture.ParentPhone, code, null);
+
+        result.Succeeded.Should().BeTrue();
+        new JwtSecurityTokenHandler().ReadJwtToken(result.Tokens!.AccessToken)
+            .Claims.Should().Contain(c =>
+                c.Type == "tenant" && c.Value == _fixture.TenantId.ToString());
+    }
+
+    [Fact]
+    public async Task Otp_WhenThePhoneBelongsToTwoSchools_AsksWhichAfterTheCode()
+    {
+        await using var scope = _fixture.CreateScope();
+        var auth = scope.ServiceProvider.GetRequiredService<IAuthService>();
+        var sms = _fixture.SmsSender;
+
+        await auth.RequestOtpAsync(null, AuthTestFixture.SharedPhone);
+        var code = sms.LastCode();
+        sms.Sent[^1].Message.Should().NotContain("Demo Public School",
+            "naming one school when the number belongs to two would be a guess");
+
+        var ambiguous = await auth.LoginWithOtpAsync(
+            null, AuthTestFixture.SharedPhone, code, null);
+        ambiguous.Error.Should().Be(AuthError.ChooseSchool);
+        ambiguous.Schools.Should().HaveCount(2);
+
+        // The code survives the question — the parent should not need a new SMS.
+        var chosen = await auth.LoginWithOtpAsync(
+            AuthTestFixture.SecondSchoolCode, AuthTestFixture.SharedPhone, code, null);
+        chosen.Succeeded.Should().BeTrue();
+        new JwtSecurityTokenHandler().ReadJwtToken(chosen.Tokens!.AccessToken)
+            .Claims.Should().Contain(c =>
+                c.Type == "tenant" && c.Value == _fixture.SecondTenantId.ToString());
+    }
+
+    [Fact]
     public async Task Login_WithWrongSchoolCode_Fails()
     {
         await using var scope = _fixture.CreateScope();

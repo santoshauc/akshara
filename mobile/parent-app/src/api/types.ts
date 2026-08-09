@@ -250,3 +250,9 @@ export interface StudentInsights {
 export interface LanguagePreference {
   language: string;
 }
+
+/** One school offered when a phone number belongs to more than one. */
+export interface SchoolChoice {
+  code: string;
+  name: string;
+}

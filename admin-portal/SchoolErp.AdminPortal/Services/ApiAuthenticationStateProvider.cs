@@ -47,6 +47,18 @@ public sealed class ApiAuthenticationStateProvider : AuthenticationStateProvider
         return new AuthenticationState(new ClaimsPrincipal(identity));
     }
 
+    /// <summary>
+    /// The signed-in school's code, carried in the token so the chrome can
+    /// brand itself. Null for a platform account.
+    /// </summary>
+    public async Task<string?> GetSchoolCodeAsync()
+    {
+        var token = await _tokens.GetAccessTokenAsync();
+        return string.IsNullOrWhiteSpace(token)
+            ? null
+            : ParseClaims(token)?.FirstOrDefault(c => c.Type == "school_code")?.Value;
+    }
+
     /// <summary>Call after login/logout so the UI re-renders.</summary>
     public void NotifyStateChanged() =>
         NotifyAuthenticationStateChanged(GetAuthenticationStateAsync());
