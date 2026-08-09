@@ -122,3 +122,12 @@ public sealed record AdmitStudentRequest(
     Guid SectionId,
     int? RollNumber,
     List<GuardianInputModel> Guardians);
+
+/// <summary>One rejected import row and why.</summary>
+public sealed record ImportRowError(int RowNumber, string Message);
+
+/// <summary>Bulk-import outcome: everything landed or nothing did.</summary>
+public sealed record ImportStudentsResultDto(
+    int TotalRows,
+    int Imported,
+    List<ImportRowError> Errors);

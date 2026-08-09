@@ -160,6 +160,8 @@ public static class DependencyInjection
             Reports.QuestPdfReceiptRenderer>();
         services.AddSingleton<Application.Exams.ITermReportRenderer,
             Reports.QuestPdfTermReportRenderer>();
+        services.AddSingleton<Application.Students.Commands.IStudentImportWorkbook,
+            Files.StudentImportWorkbook>();
 
         return services;
     }

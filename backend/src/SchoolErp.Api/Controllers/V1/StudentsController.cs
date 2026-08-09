@@ -60,6 +60,33 @@ public sealed class StudentsController : ControllerBase
     public async Task<IActionResult> GetStudentInsights(Guid id, CancellationToken ct) =>
         Ok(await _sender.Send(new Application.Insights.GetStudentInsightsQuery(id), ct));
 
+    /// <summary>The bulk-import Excel template, tailored with this school's classes.</summary>
+    [HttpGet("import/template")]
+    [HasPermission(Permissions.Students.Manage)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetImportTemplate(CancellationToken ct) =>
+        File(
+            await _sender.Send(new GetStudentImportTemplateQuery(), ct),
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+            "student-import-template.xlsx");
+
+    /// <summary>
+    /// Imports a filled template. All-or-nothing: any invalid row rejects the
+    /// whole file with per-row errors; a clean file admits every student
+    /// through the normal admission pipeline.
+    /// </summary>
+    [HttpPost("import")]
+    [HasPermission(Permissions.Students.Manage)]
+    [RequestSizeLimit(5 * 1024 * 1024)]
+    [ProducesResponseType(typeof(ImportStudentsResultDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> Import(IFormFile file, CancellationToken ct)
+    {
+        using var stream = new MemoryStream();
+        await file.CopyToAsync(stream, ct);
+        return Ok(await _sender.Send(new ImportStudentsCommand(stream.ToArray()), ct));
+    }
+
     /// <summary>Admits a student with guardians and initial enrollment.</summary>
     [HttpPost]
     [HasPermission(Permissions.Students.Manage)]

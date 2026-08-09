@@ -4,18 +4,83 @@
 @inject AcademicsClient AcademicsApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject IJSRuntime Js
 
 <PageTitle>Students — SchoolErp</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
     <MudText Typo="Typo.h4">Students</MudText>
     <MudSpacer />
+    <MudButton Variant="Variant.Outlined" Color="Color.Primary"
+               StartIcon="@Icons.Material.Filled.UploadFile"
+               OnClick="@(() => _importOpen = !_importOpen)">
+        Import from Excel
+    </MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.PersonAdd"
                OnClick="@(() => Navigation.NavigateTo("students/admit"))">
         Admit student
     </MudButton>
 </MudStack>
+
+@if (_importOpen)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-1">Bulk import from Excel</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            1. Download the template — it lists this school's classes and sections.
+            2. Fill one student per row. 3. Upload the file. Nothing is imported
+            unless every row is valid, so a half-filled school can never happen.
+        </MudText>
+        <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
+                       Disabled="_importBusy" OnClick="DownloadTemplateAsync">
+                Download template
+            </MudButton>
+            <MudFileUpload T="IBrowserFile" FilesChanged="UploadAsync"
+                           Accept=".xlsx" MaximumFileCount="1" Class="mt-0">
+                <ButtonTemplate>
+                    <MudButton HtmlTag="label" for="@context.Id"
+                               Variant="Variant.Filled" Color="Color.Primary"
+                               StartIcon="@Icons.Material.Filled.UploadFile"
+                               Disabled="_importBusy">
+                        @(_importBusy ? "Importing…" : "Upload filled template")
+                    </MudButton>
+                </ButtonTemplate>
+            </MudFileUpload>
+        </MudStack>
+
+        @if (_importResult is { } result)
+        {
+            @if (result.Errors.Count == 0)
+            {
+                <MudAlert Severity="Severity.Success" Class="mt-3">
+                    Imported @result.Imported student(s). They appear in the list below;
+                    guardians can sign in to the parent app with their phone numbers.
+                </MudAlert>
+            }
+            else
+            {
+                <MudAlert Severity="Severity.Error" Class="mt-3">
+                    @(result.Imported == 0
+                        ? $"Nothing was imported — fix the rows below and upload the file again ({result.Errors.Count} problem(s) in {result.TotalRows} row(s))."
+                        : $"Imported {result.Imported} of {result.TotalRows}; the rows below failed.")
+                </MudAlert>
+                <MudSimpleTable Dense="true" Class="mt-2">
+                    <thead>
+                        <tr><th style="width: 90px;">Row</th><th>Problem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var error in result.Errors)
+                        {
+                            <tr><td>@error.RowNumber</td><td>@error.Message</td></tr>
+                        }
+                    </tbody>
+                </MudSimpleTable>
+            }
+        }
+    </MudPaper>
+}
 
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
@@ -85,6 +150,67 @@
     private Guid? _classId;
     private Guid? _sectionId;
     private StudentStatus? _status;
+    private bool _importOpen;
+    private bool _importBusy;
+    private ImportStudentsResultDto? _importResult;
+
+    private async Task DownloadTemplateAsync()
+    {
+        try
+        {
+            var bytes = await Client.GetImportTemplateAsync();
+            if (bytes is null)
+            {
+                Snackbar.Add("Could not fetch the template.", Severity.Error);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("schoolErpDownload",
+                "student-import-template.xlsx",
+                "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+                Convert.ToBase64String(bytes));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task UploadAsync(IBrowserFile? file)
+    {
+        if (file is null)
+        {
+            return;
+        }
+
+        _importBusy = true;
+        _importResult = null;
+        try
+        {
+            await using var stream = file.OpenReadStream(maxAllowedSize: 5 * 1024 * 1024);
+            var (result, error) = await Client.ImportAsync(stream, file.Name);
+            if (result is null)
+            {
+                Snackbar.Add(error ?? "Import failed.", Severity.Error);
+                return;
+            }
+
+            _importResult = result;
+            if (result.Errors.Count == 0)
+            {
+                Snackbar.Add($"Imported {result.Imported} student(s).", Severity.Success);
+                await ReloadAsync();
+            }
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _importBusy = false;
+        }
+    }
 
     private IEnumerable<SectionDto> SectionsOfSelectedClass =>
         _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];

@@ -43,6 +43,35 @@ public sealed class StudentsClient
             $"api/v1/students?{string.Join('&', query)}", ct))!;
     }
 
+    /// <summary>The bulk-import Excel template; null when unavailable.</summary>
+    public async Task<byte[]?> GetImportTemplateAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("api/v1/students/import/template", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
+
+    /// <summary>Uploads a filled template; error text instead of a result on failure.</summary>
+    public async Task<(ImportStudentsResultDto? Result, string? Error)> ImportAsync(
+        Stream file, string fileName, CancellationToken ct = default)
+    {
+        using var content = new MultipartFormDataContent();
+        using var fileContent = new StreamContent(file);
+        fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue(
+            "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+        content.Add(fileContent, "file", fileName);
+
+        var response = await _http.PostAsync("api/v1/students/import", content, ct);
+        if (response.IsSuccessStatusCode)
+        {
+            return (await response.Content.ReadFromJsonAsync<ImportStudentsResultDto>(
+                cancellationToken: ct), null);
+        }
+
+        return (null, await ProblemResponse.ReadTitleAsync(response, ct));
+    }
+
     public Task<StudentDetailDto?> GetStudentAsync(Guid id, CancellationToken ct = default) =>
         _http.GetFromJsonAsync<StudentDetailDto>($"api/v1/students/{id}", ct);
 

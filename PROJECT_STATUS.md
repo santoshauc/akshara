@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 99 integration = **147 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 103 integration = **151 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -498,6 +498,33 @@ never in production):
   request, transport stop assignments for 4 students.
 - A fresh database is demo-ready after one API start: the shell seed runs
   first and the enrichment runs right after it in the same startup.
+
+## Excel bulk import (students)
+
+- GET `students/import/template` (students.manage): .xlsx tailored per
+  school — Students sheet (17 columns, dates/phone kept as text) plus an
+  Instructions sheet with the school's real classes/sections and an example
+  row. Built with ClosedXML (MIT) in Infrastructure behind
+  `IStudentImportWorkbook` (Application stays format-agnostic).
+- POST `students/import` (multipart, 5 MB / 1,000-row caps): parses,
+  validates EVERY row (required fields, dates, gender/relation values,
+  class+section resolved case-insensitively, phone shape, admission-number
+  duplicates in-file and against the DB incl. erased students via
+  IgnoreQueryFilters, and a same-name+DOB re-upload guard whose escape
+  hatch is an explicit admission number). All-or-nothing: any bad row
+  rejects the file with per-row errors; a clean file admits every row via
+  AdmitStudentCommand — so guardian reuse by phone (sibling linking),
+  generated admission numbers and audit all behave exactly like the UI.
+- Portal Students page: "Import from Excel" panel — Download template +
+  Upload buttons, success alert or per-row error table.
+  MudBlazor 6 gotcha: MudFileUpload needs `ButtonTemplate` +
+  `HtmlTag="label" for="@context.Id"` (ActivatorContent is 7.x and
+  silently renders nothing).
+- 4 integration tests (clean import + sibling link + case-insensitive
+  placement, all-or-nothing with per-row messages, re-upload rejection,
+  non-Excel rejection). E2E-verified live via API (3 imported incl.
+  cross-grade siblings sharing one guardian → family ledger works;
+  re-upload rejected 3/3) and portal UI (panel + template download).
 
 ## Conventions (follow these when adding modules)
 
