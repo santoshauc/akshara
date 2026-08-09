@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 97 integration = **145 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 98 integration = **146 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -409,6 +409,22 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   Also: cleared pre-existing CA1725/CA1862/CA1711 analyzer warnings
   (full-rebuild-only) — builds are zero-warning again apart from the
   accepted OTel NU1902 advisory.
+- D4 Teacher performance insights — DONE. GET insights/teachers
+  (GetTeacherInsightsQuery, insights.view): per active teacher —
+  periods/week (published timetable slots), average % across the
+  published papers of the (subject, class) pairs they teach, delta
+  vs the school average over those same exams (so a hard exam
+  doesn't read as a weak teacher), days absent (distinct substitution
+  dates as absentee), marks backlog (their current-year papers with
+  zero mark entries). Nulls until any of their papers publish.
+  Insights page gains a "Teaching outcomes" section: grouped bar
+  chart (teacher vs school average, only teachers with results) +
+  full table (delta colored, backlog chip), captioned explicitly as
+  correlation, not verdict. Integration test: teacher with a
+  published Science paper (40/50 → 80%, delta 0), one covered
+  absence, zero backlog; second teacher with no timetable → null
+  averages. E2E live: Anita Rao 2 periods/week, 92%, +0 pts, 1 day
+  absent; Vikram Sharma dashes.
 
 ## How to run (Windows dev box)
 

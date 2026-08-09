@@ -149,6 +149,78 @@ else if (_data is { } data)
                 </div>
             </MudPaper>
         </MudItem>
+
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudText Typo="Typo.h6">Teaching outcomes</MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                    Average marks achieved in each teacher's subjects (published
+                    exams, current year) next to the school average for the same
+                    exams. These are correlations — class mix, subject difficulty
+                    and cohort all play a part; read them as conversation
+                    starters, not verdicts.
+                </MudText>
+                @if (_teachers.Count == 0)
+                {
+                    <MudText Class="mud-text-secondary">
+                        No active teachers yet — add them on the
+                        <MudLink Href="teachers">Teachers</MudLink> page.
+                    </MudText>
+                }
+                else
+                {
+                    @if (_teacherSeries.Count > 0)
+                    {
+                        <MudChart ChartType="ChartType.Bar" ChartSeries="@_teacherSeries"
+                                  XAxisLabels="@_teacherLabels" Width="100%" Height="300px"
+                                  ChartOptions="@_percentAxis" />
+                    }
+                    <MudTable Items="_teachers" Dense="true" Hover="true" Class="mt-3">
+                        <HeaderContent>
+                            <MudTh>Teacher</MudTh>
+                            <MudTh>Periods / week</MudTh>
+                            <MudTh>Average %</MudTh>
+                            <MudTh>vs school</MudTh>
+                            <MudTh>Days absent</MudTh>
+                            <MudTh>Marks backlog</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd>@context.Name</MudTd>
+                            <MudTd>@context.PeriodsPerWeek</MudTd>
+                            <MudTd>
+                                @(context.AveragePercent is { } avg ? $"{avg:0.#}%" : "—")
+                            </MudTd>
+                            <MudTd>
+                                @if (context.DeltaVsSchool is { } delta)
+                                {
+                                    <MudText Typo="Typo.body2"
+                                             Color="@(delta >= 0 ? Color.Success : Color.Warning)">
+                                        @(delta >= 0 ? "+" : "")@delta.ToString("0.#") pts
+                                    </MudText>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">—</MudText>
+                                }
+                            </MudTd>
+                            <MudTd>@context.DaysAbsent</MudTd>
+                            <MudTd>
+                                @if (context.MarksBacklog > 0)
+                                {
+                                    <MudChip Size="Size.Small" Color="Color.Warning">
+                                        @context.MarksBacklog paper(s)
+                                    </MudChip>
+                                }
+                                else
+                                {
+                                    <MudText Typo="Typo.body2" Class="mud-text-secondary">none</MudText>
+                                }
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudItem>
     </MudGrid>
 }
 else
@@ -160,6 +232,9 @@ else
 
 @code {
     private ManagementInsightsDto? _data;
+    private List<TeacherInsightDto> _teachers = [];
+    private List<ChartSeries> _teacherSeries = [];
+    private string[] _teacherLabels = [];
     private bool _loading = true;
 
     private List<ChartSeries> _attendanceSeries = [];
@@ -183,6 +258,8 @@ else
             if (_data is { } data)
             {
                 BuildSeries(data);
+                _teachers = await Client.GetTeachersAsync() ?? [];
+                BuildTeacherSeries();
             }
         }
         catch (HttpRequestException)
@@ -222,6 +299,25 @@ else
             data.EnquiryFunnel.Admitted, data.EnquiryFunnel.Lost,
         ];
         _funnelLabels = ["New", "Contacted", "Visit", "Admitted", "Lost"];
+    }
+
+    private void BuildTeacherSeries()
+    {
+        // Chart only teachers with published results; the table lists everyone.
+        var charted = _teachers.Where(t => t.AveragePercent is not null).ToList();
+        if (charted.Count == 0)
+        {
+            _teacherSeries = [];
+            _teacherLabels = [];
+            return;
+        }
+
+        _teacherSeries =
+        [
+            new ChartSeries { Name = "Teacher average %", Data = charted.Select(t => (double)t.AveragePercent!.Value).ToArray() },
+            new ChartSeries { Name = "School average %", Data = charted.Select(t => (double)(t.AveragePercent!.Value - (t.DeltaVsSchool ?? 0))).ToArray() },
+        ];
+        _teacherLabels = charted.Select(t => t.Name).ToArray();
     }
 
     private static string AttendanceCaption(ManagementInsightsDto data)

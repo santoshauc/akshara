@@ -15,6 +15,16 @@ public sealed record ExamAverageDto(string ExamName, decimal AveragePercent, int
 /// <summary>The admissions pipeline by stage.</summary>
 public sealed record EnquiryFunnelDto(int New, int Contacted, int Visit, int Admitted, int Lost);
 
+/// <summary>One teacher's teaching-outcome numbers.</summary>
+public sealed record TeacherInsightDto(
+    Guid TeacherId,
+    string Name,
+    int PeriodsPerWeek,
+    decimal? AveragePercent,
+    decimal? DeltaVsSchool,
+    int DaysAbsent,
+    int MarksBacklog);
+
 /// <summary>Everything the management insights page draws.</summary>
 public sealed record ManagementInsightsDto(
     List<TrendPointDto> AttendanceTrend,

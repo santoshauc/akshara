@@ -18,4 +18,13 @@ public sealed class InsightsClient
             ? await response.Content.ReadFromJsonAsync<ManagementInsightsDto>(cancellationToken: ct)
             : null;
     }
+
+    /// <summary>Null for accounts without insights.view.</summary>
+    public async Task<List<TeacherInsightDto>?> GetTeachersAsync(CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync("api/v1/insights/teachers", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<List<TeacherInsightDto>>(cancellationToken: ct)
+            : null;
+    }
 }

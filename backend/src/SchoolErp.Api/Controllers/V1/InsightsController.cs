@@ -23,4 +23,11 @@ public sealed class InsightsController : ControllerBase
     [ProducesResponseType(typeof(ManagementInsightsDto), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetManagement(CancellationToken ct) =>
         Ok(await _sender.Send(new GetManagementInsightsQuery(), ct));
+
+    /// <summary>Teaching outcomes per active teacher, tenant-scoped.</summary>
+    [HttpGet("teachers")]
+    [HasPermission(Permissions.Insights.View)]
+    [ProducesResponseType(typeof(IReadOnlyList<TeacherInsightDto>), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetTeachers(CancellationToken ct) =>
+        Ok(await _sender.Send(new GetTeacherInsightsQuery(), ct));
 }

@@ -212,7 +212,95 @@ public sealed class InsightsModuleTests : IClassFixture<InsightsFixture>
             .Which.AveragePercent.Should().Be(80m);
         insights.EnquiryFunnel.New.Should().Be(1);
         insights.EnquiryFunnel.Lost.Should().Be(1);
-        insights.SubstitutionsThisMonth.Should().Be(0);
+        // The sibling test may have inserted a cover for today — compare to the DB.
+        var monthStart = new DateOnly(today.Year, today.Month, 1);
+        var expectedSubs = await db.TimetableSubstitutions.CountAsync(
+            s => s.Date >= monthStart && s.Date < monthStart.AddMonths(1));
+        insights.SubstitutionsThisMonth.Should().Be(expectedSubs);
+    }
+
+    [Fact]
+    public async Task Teacher_insights_correlate_timetable_with_published_results()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        var teacherId = await sender.Send(new SchoolErp.Application.Staff.CreateTeacherCommand(
+            "EMP-INS-1", "Meera Krishnan", "+919700000310", null, null, null, null));
+        var coverId = await sender.Send(new SchoolErp.Application.Staff.CreateTeacherCommand(
+            "EMP-INS-2", "Rahul Menon", "+919700000311", null, null, null, null));
+
+        var enrollment = await db.Enrollments
+            .SingleAsync(e => e.StudentId == _fixture.StudentId);
+
+        // Own subject + published exam so this test never depends on the other.
+        var subject = new SchoolErp.Domain.Academics.Subject { Name = "Science", Code = "SCI" };
+        db.Subjects.Add(subject);
+        var exam = new Exam
+        {
+            Name = "Science Quiz",
+            AcademicYearId = _fixture.YearId,
+            StartDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3),
+            EndDate = DateOnly.FromDateTime(DateTime.UtcNow).AddDays(-3),
+            Status = ExamStatus.Published,
+        };
+        db.Exams.Add(exam);
+        var paper = new ExamSubject
+        {
+            ExamId = exam.Id,
+            SchoolClassId = _fixture.ClassId,
+            SubjectId = subject.Id,
+            MaxMarks = 50,
+            PassMarks = 17,
+        };
+        db.ExamSubjects.Add(paper);
+        db.MarkEntries.Add(new MarkEntry
+        {
+            ExamSubjectId = paper.Id,
+            EnrollmentId = enrollment.Id,
+            StudentId = _fixture.StudentId,
+            MarksObtained = 40,
+        });
+
+        // Meera teaches Science to Grade 2 A, one published period a week.
+        var slot = new SchoolErp.Domain.Timetable.TimetableEntry
+        {
+            SchoolClassId = _fixture.ClassId,
+            SectionId = enrollment.SectionId,
+            DayOfWeek = 1,
+            Period = 1,
+            StartTime = new TimeOnly(9, 0),
+            EndTime = new TimeOnly(9, 45),
+            SubjectId = subject.Id,
+            TeacherId = teacherId,
+            IsPublished = true,
+        };
+        db.TimetableEntries.Add(slot);
+        // She was absent once; Rahul covered.
+        db.TimetableSubstitutions.Add(new SchoolErp.Domain.Timetable.TimetableSubstitution
+        {
+            Date = DateOnly.FromDateTime(DateTime.UtcNow),
+            TimetableEntryId = slot.Id,
+            AbsentTeacherId = teacherId,
+            SubstituteTeacherId = coverId,
+        });
+        await db.SaveChangesAsync();
+
+        var insights = await sender.Send(new GetTeacherInsightsQuery());
+
+        var meera = insights.Should().ContainSingle(t => t.Name == "Meera Krishnan").Subject;
+        meera.PeriodsPerWeek.Should().Be(1);
+        // The only marks: 40/50 in her Maths paper (from the first test's exam).
+        meera.AveragePercent.Should().Be(80m);
+        meera.DeltaVsSchool.Should().Be(0m, "her paper IS the school average here");
+        meera.DaysAbsent.Should().Be(1);
+        meera.MarksBacklog.Should().Be(0);
+
+        var rahul = insights.Should().ContainSingle(t => t.Name == "Rahul Menon").Subject;
+        rahul.PeriodsPerWeek.Should().Be(0);
+        rahul.AveragePercent.Should().BeNull("he has no timetable, so no papers");
+        rahul.DaysAbsent.Should().Be(0);
     }
 
     private static async Task<SchoolErp.Domain.Academics.Subject> AddSubjectAsync(AppDbContext db)
