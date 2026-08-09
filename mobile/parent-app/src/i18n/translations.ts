@@ -141,6 +141,13 @@ export const en = {
   familyFeesTitle: 'Family fees',
   familyTotal: 'Family total',
   familySettled: 'Settled ✓',
+  insightsTitle: 'How is my child doing?',
+  insightsRank: 'Rank',
+  insightsChild: 'Your child',
+  insightsClass: 'Class avg',
+  insightsAttendance: 'Attendance this month',
+  insightsFootnote:
+    'Comparisons use class averages only — no other child is ever named.',
 
   // Messages
   messagesTitle: 'Messages',
@@ -291,6 +298,13 @@ export const te: Record<TranslationKey, string> = {
   familyFeesTitle: 'కుటుంబ ఫీజులు',
   familyTotal: 'కుటుంబం మొత్తం',
   familySettled: 'చెల్లించారు ✓',
+  insightsTitle: 'నా పిల్లవాడు ఎలా చదువుతున్నాడు?',
+  insightsRank: 'ర్యాంక్',
+  insightsChild: 'మీ పిల్లవాడు',
+  insightsClass: 'తరగతి సగటు',
+  insightsAttendance: 'ఈ నెల హాజరు',
+  insightsFootnote:
+    'పోలికలు తరగతి సగటులతో మాత్రమే — మరే పిల్లవాడి పేరు ఎప్పుడూ చూపబడదు.',
 
   // Messages
   messagesTitle: 'సందేశాలు',

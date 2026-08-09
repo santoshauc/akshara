@@ -131,15 +131,19 @@ public sealed class InsightsModuleTests : IClassFixture<InsightsFixture>
         var enrollment = await db.Enrollments
             .SingleAsync(e => e.StudentId == _fixture.StudentId);
 
-        // Attendance: present today → 100% trend point and class row.
-        db.AttendanceRecords.Add(new AttendanceRecord
+        // Attendance: present today (the peer-comparison test may have marked it).
+        if (!await db.AttendanceRecords.AnyAsync(a =>
+                a.StudentId == _fixture.StudentId && a.Date == today && a.Period == null))
         {
-            EnrollmentId = enrollment.Id,
-            StudentId = _fixture.StudentId,
-            SectionId = enrollment.SectionId,
-            Date = today,
-            Status = AttendanceStatus.Present,
-        });
+            db.AttendanceRecords.Add(new AttendanceRecord
+            {
+                EnrollmentId = enrollment.Id,
+                StudentId = _fixture.StudentId,
+                SectionId = enrollment.SectionId,
+                Date = today,
+                Status = AttendanceStatus.Present,
+            });
+        }
 
         // Fees: ₹1,000 due for the class, ₹400 paid this month → ₹600 outstanding.
         var head = new FeeHead { Name = "Tuition" };
@@ -201,13 +205,22 @@ public sealed class InsightsModuleTests : IClassFixture<InsightsFixture>
 
         var insights = await sender.Send(new GetManagementInsightsQuery());
 
+        // Recompute today's roll-call independently — the peer-comparison test
+        // may have added an absent classmate.
+        var todayRows = await db.AttendanceRecords
+            .Where(a => a.Date == today && a.Period == null)
+            .ToListAsync();
+        var expectedPercent = Math.Round(
+            todayRows.Count(a => a.Status == AttendanceStatus.Present) * 100m / todayRows.Count, 1);
         insights.AttendanceTrend.Should().ContainSingle(p => p.Date == today)
-            .Which.Percent.Should().Be(100m);
+            .Which.Percent.Should().Be(expectedPercent);
         insights.FeeSeries.Should().HaveCount(6);
         insights.FeeSeries[^1].Collected.Should().Be(400m);
-        insights.FeesOutstanding.Should().Be(600m);
-        insights.ClassAttendance.Should().ContainSingle(c => c.ClassName == "Grade 2")
-            .Which.Percent.Should().Be(100m);
+        // ₹1,000 due per enrolled student, ₹400 paid by Ishaan, no concessions.
+        var enrolled = await db.Enrollments.CountAsync(
+            e => e.AcademicYearId == _fixture.YearId && e.Status == EnrollmentStatus.Active);
+        insights.FeesOutstanding.Should().Be(1_000m * enrolled - 400m);
+        insights.ClassAttendance.Should().ContainSingle(c => c.ClassName == "Grade 2");
         insights.ExamAverages.Should().ContainSingle(e => e.ExamName == "Unit Test 1")
             .Which.AveragePercent.Should().Be(80m);
         insights.EnquiryFunnel.New.Should().Be(1);
@@ -301,6 +314,105 @@ public sealed class InsightsModuleTests : IClassFixture<InsightsFixture>
         rahul.PeriodsPerWeek.Should().Be(0);
         rahul.AveragePercent.Should().BeNull("he has no timetable, so no papers");
         rahul.DaysAbsent.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Student_insights_compare_against_section_aggregates()
+    {
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
+
+        // A section peer to average against.
+        var sectionId = (await db.Enrollments
+            .SingleAsync(e => e.StudentId == _fixture.StudentId)).SectionId;
+        var peerId = await sender.Send(new AdmitStudentCommand(
+            null, "Anaya", "Rao", new DateOnly(2019, 9, 2), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), _fixture.YearId, _fixture.ClassId, sectionId, 2,
+            [new GuardianInput("Sita", "Rao", GuardianRelation.Mother, "+919700000320", null, null, true)]));
+        var enrollments = await db.Enrollments
+            .Where(e => e.SectionId == sectionId)
+            .ToDictionaryAsync(e => e.StudentId, e => e.Id);
+
+        // Latest published exam: Ishaan 45/50 (90%), Anaya 35/50 (70%) → class avg 80%.
+        var subject = new SchoolErp.Domain.Academics.Subject { Name = "English", Code = "ENG" };
+        db.Subjects.Add(subject);
+        var exam = new Exam
+        {
+            Name = "Term Final",
+            AcademicYearId = _fixture.YearId,
+            StartDate = today, // newest → the one the comparison picks
+            EndDate = today,
+            Status = ExamStatus.Published,
+        };
+        db.Exams.Add(exam);
+        var paper = new ExamSubject
+        {
+            ExamId = exam.Id,
+            SchoolClassId = _fixture.ClassId,
+            SubjectId = subject.Id,
+            MaxMarks = 50,
+            PassMarks = 17,
+        };
+        db.ExamSubjects.Add(paper);
+        db.MarkEntries.Add(new MarkEntry
+        {
+            ExamSubjectId = paper.Id,
+            EnrollmentId = enrollments[_fixture.StudentId],
+            StudentId = _fixture.StudentId,
+            MarksObtained = 45,
+        });
+        db.MarkEntries.Add(new MarkEntry
+        {
+            ExamSubjectId = paper.Id,
+            EnrollmentId = enrollments[peerId],
+            StudentId = peerId,
+            MarksObtained = 35,
+        });
+
+        // Attendance today: Ishaan may already be marked by the sibling test.
+        if (!await db.AttendanceRecords.AnyAsync(a =>
+                a.StudentId == _fixture.StudentId && a.Date == today && a.Period == null))
+        {
+            db.AttendanceRecords.Add(new AttendanceRecord
+            {
+                EnrollmentId = enrollments[_fixture.StudentId],
+                StudentId = _fixture.StudentId,
+                SectionId = sectionId,
+                Date = today,
+                Status = AttendanceStatus.Present,
+            });
+        }
+
+        db.AttendanceRecords.Add(new AttendanceRecord
+        {
+            EnrollmentId = enrollments[peerId],
+            StudentId = peerId,
+            SectionId = sectionId,
+            Date = today,
+            Status = AttendanceStatus.Absent,
+        });
+        await db.SaveChangesAsync();
+
+        var insights = await sender.Send(
+            new GetStudentInsightsQuery(_fixture.StudentId));
+
+        insights.ExamName.Should().Be("Term Final");
+        var english = insights.Subjects.Should()
+            .ContainSingle(s => s.Subject == "English").Subject;
+        english.ChildPercent.Should().Be(90m);
+        english.ClassAverage.Should().Be(80m, "the average of 90% and 70%");
+        insights.Rank.Should().Be(1);
+        insights.SectionSize.Should().Be(2);
+        insights.ChildAttendancePercent.Should().Be(100m);
+        insights.ClassAttendancePercent.Should().Be(50m, "one present, one absent");
+
+        // The peer sees the same aggregates from the other side.
+        var peerView = await sender.Send(new GetStudentInsightsQuery(peerId));
+        peerView.Rank.Should().Be(2);
+        peerView.Subjects.Single(s => s.Subject == "English").ClassAverage.Should().Be(80m);
     }
 
     private static async Task<SchoolErp.Domain.Academics.Subject> AddSubjectAsync(AppDbContext db)

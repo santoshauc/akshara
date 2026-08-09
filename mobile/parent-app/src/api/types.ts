@@ -218,3 +218,20 @@ export interface FeeSummary {
   totalPaid: number;
   balance: number;
 }
+
+/** One subject: the child's % beside the section average. */
+export interface SubjectComparison {
+  subject: string;
+  childPercent: number;
+  classAverage: number;
+}
+
+/** How the child compares with their section — anonymous aggregates only. */
+export interface StudentInsights {
+  examName: string | null;
+  subjects: SubjectComparison[];
+  rank: number | null;
+  sectionSize: number | null;
+  childAttendancePercent: number | null;
+  classAttendancePercent: number | null;
+}

@@ -16,6 +16,7 @@ import {
   StudentMessage,
   MonthAttendance,
   Notice,
+  StudentInsights,
   StudentResult,
   TimetableEntry,
 } from './types';
@@ -73,6 +74,10 @@ export const parentApi = {
 
   /** Every child's balance in one view — no switching. */
   getFamilyFees: () => request<FamilyFeeSummary>('/api/v1/parent/family/fees'),
+
+  /** Peer comparison: subject averages, rank and attendance vs the section. */
+  getInsights: (studentId: string) =>
+    request<StudentInsights>(`/api/v1/parent/children/${studentId}/insights`),
 
   getAttendance: (studentId: string, year: number, month: number) =>
     request<MonthAttendance>(

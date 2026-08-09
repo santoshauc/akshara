@@ -23,6 +23,7 @@ import {
   MonthAttendance,
   StudentMessage,
   Notice,
+  StudentInsights,
   StudentResult,
   TimetableEntry,
 } from '../api/types';
@@ -33,6 +34,7 @@ import AttendanceCard from './cards/AttendanceCard';
 import BusLiveCard from './cards/BusLiveCard';
 import FamilyFeesCard from './cards/FamilyFeesCard';
 import HostelCard from './cards/HostelCard';
+import InsightsCard from './cards/InsightsCard';
 import LeaveCard from './cards/LeaveCard';
 import LibraryCard from './cards/LibraryCard';
 import MessagesCard from './cards/MessagesCard';
@@ -68,6 +70,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([]);
   const [chatMessages, setChatMessages] = useState<StudentMessage[]>([]);
   const [familyFees, setFamilyFees] = useState<FamilyFeeSummary | null>(null);
+  const [insights, setInsights] = useState<StudentInsights | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -89,7 +92,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
 
   const loadChildData = useCallback(async (child: Child) => {
     const now = new Date();
-    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData, libraryData, hostelData, leaveData, messageData] =
+    const [attendanceData, feesData, examList, noticeList, homeworkList, transportData, timetableData, libraryData, hostelData, leaveData, messageData, insightsData] =
       await Promise.all([
         parentApi
           .getAttendance(child.studentId, now.getFullYear(), now.getMonth() + 1)
@@ -104,6 +107,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
         parentApi.getHostel(child.studentId).catch(() => null),
         parentApi.getLeaveRequests(child.studentId).catch(() => [] as LeaveRequest[]),
         parentApi.getMessages(child.studentId).catch(() => [] as StudentMessage[]),
+        parentApi.getInsights(child.studentId).catch(() => null),
       ]);
     setAttendance(attendanceData);
     setFees(feesData);
@@ -116,6 +120,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
     setHostel(hostelData);
     setLeaveRequests(leaveData);
     setChatMessages(messageData);
+    setInsights(insightsData);
     const latest = examList[examList.length - 1];
     setResult(
       latest
@@ -227,6 +232,7 @@ export default function HomeScreen({ onSignedOut }: Props) {
           <TimetableCard entries={timetable} />
           <HomeworkCard homework={homework} />
           <ResultCard result={result} examCount={exams.length} />
+          {insights && <InsightsCard insights={insights} />}
           <FeesCard fees={fees} studentId={selected.studentId}
             onPaymentStarted={() => { setTimeout(() => void loadChildData(selected), 8000); setTimeout(() => void loadChildData(selected), 20000); }} />
           <NoticesCard notices={notices} />

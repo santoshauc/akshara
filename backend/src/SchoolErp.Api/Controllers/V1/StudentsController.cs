@@ -49,6 +49,17 @@ public sealed class StudentsController : ControllerBase
     public async Task<IActionResult> GetStudent(Guid id, CancellationToken ct) =>
         Ok(await _sender.Send(new GetStudentByIdQuery(id), ct));
 
+    /// <summary>
+    /// How the student compares with their section — subject averages, rank
+    /// and attendance, as anonymous aggregates (same view parents get).
+    /// </summary>
+    [HttpGet("{id:guid}/insights")]
+    [HasPermission(Permissions.Students.View)]
+    [ProducesResponseType(typeof(Application.Insights.StudentInsightsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetStudentInsights(Guid id, CancellationToken ct) =>
+        Ok(await _sender.Send(new Application.Insights.GetStudentInsightsQuery(id), ct));
+
     /// <summary>Admits a student with guardians and initial enrollment.</summary>
     [HttpPost]
     [HasPermission(Permissions.Students.Manage)]

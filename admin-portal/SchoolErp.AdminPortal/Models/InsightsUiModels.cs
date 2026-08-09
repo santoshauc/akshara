@@ -25,6 +25,19 @@ public sealed record TeacherInsightDto(
     int DaysAbsent,
     int MarksBacklog);
 
+/// <summary>One subject: the student's % beside the section average.</summary>
+public sealed record SubjectComparisonDto(
+    string Subject, decimal ChildPercent, decimal ClassAverage);
+
+/// <summary>Peer comparison for one student — aggregates only.</summary>
+public sealed record StudentInsightsDto(
+    string? ExamName,
+    List<SubjectComparisonDto> Subjects,
+    int? Rank,
+    int? SectionSize,
+    decimal? ChildAttendancePercent,
+    decimal? ClassAttendancePercent);
+
 /// <summary>Everything the management insights page draws.</summary>
 public sealed record ManagementInsightsDto(
     List<TrendPointDto> AttendanceTrend,

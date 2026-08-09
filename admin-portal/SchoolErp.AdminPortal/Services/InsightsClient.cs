@@ -19,6 +19,16 @@ public sealed class InsightsClient
             : null;
     }
 
+    /// <summary>Peer comparison for one student (students.view); null when unavailable.</summary>
+    public async Task<StudentInsightsDto?> GetStudentAsync(
+        Guid studentId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync($"api/v1/students/{studentId}/insights", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<StudentInsightsDto>(cancellationToken: ct)
+            : null;
+    }
+
     /// <summary>Null for accounts without insights.view.</summary>
     public async Task<List<TeacherInsightDto>?> GetTeachersAsync(CancellationToken ct = default)
     {

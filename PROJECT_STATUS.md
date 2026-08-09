@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 48 unit + 98 integration = **146 green** (`dotnet test` from `school-erp/`).
+Test suite: 48 unit + 99 integration = **147 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -425,6 +425,25 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
   absence, zero backlog; second teacher with no timetable → null
   averages. E2E live: Anita Rao 2 periods/week, 92%, +0 pts, 1 day
   absent; Vikram Sharma dashes.
+- D5 Student peer comparison — DONE. GetStudentInsightsQuery: latest
+  published current-year exam with marks for the child's class →
+  per-subject child % vs SECTION average, rank/section size (total
+  marks, same rule as report cards), plus this month's daily
+  attendance % child vs section average. Aggregates only — no peer
+  is ever named. Endpoints: GET parent/children/{id}/insights
+  (family-guarded) and GET students/{id}/insights (students.view).
+  Parent app "How is my child doing?" card: proportional flex-width
+  bars (no chart lib) per subject + attendance, rank line, anonymity
+  footnote, en/te (verified in both). Portal profile gains a "Peer
+  comparison" panel beside the report card (MudProgressLinear bars,
+  same aggregates-only caption). Integration test: two section
+  peers 90%/70% → child 90 vs class 80, ranks 1 and 2, attendance
+  100 vs 50; earlier insights tests made order-independent
+  (guarded duplicate attendance insert, DB-derived expectations).
+  E2E live on all three surfaces (parent EN, parent TE, portal).
+  Gotcha: Metro on OneDrive missed file changes — restart the Expo
+  server to pick up new modules; RN-web chip taps need dispatched
+  pointer+mouse event sequences at the element's own coordinates.
 
 ## How to run (Windows dev box)
 

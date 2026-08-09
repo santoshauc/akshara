@@ -17,6 +17,7 @@ using SchoolErp.Application.Fees.Commands;
 using SchoolErp.Application.Fees.Queries;
 using SchoolErp.Application.Homework;
 using SchoolErp.Application.Hostel;
+using SchoolErp.Application.Insights;
 using SchoolErp.Application.Leave;
 using SchoolErp.Application.Library;
 using SchoolErp.Application.Parent;
@@ -111,6 +112,19 @@ public sealed class ParentController : ControllerBase
         }
 
         return Ok(result);
+    }
+
+    /// <summary>
+    /// How the child compares with their section — subject averages, rank and
+    /// attendance, always as anonymous aggregates.
+    /// </summary>
+    [HttpGet("children/{studentId:guid}/insights")]
+    [ProducesResponseType(typeof(StudentInsightsDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetChildInsights(Guid studentId, CancellationToken ct)
+    {
+        await EnsureChildAsync(studentId, ct);
+        return Ok(await _sender.Send(new GetStudentInsightsQuery(studentId), ct));
     }
 
     /// <summary>A child's fee ledger for the current academic year.</summary>

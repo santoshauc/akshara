@@ -5,6 +5,7 @@
 @inject ExamsClient ExamsApi
 @inject AcademicsClient AcademicsApi
 @inject FeesClient FeesApi
+@inject InsightsClient InsightsApi
 @inject TransportClient TransportApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
@@ -218,6 +219,65 @@ else if (_student is { } student)
                     else if (_selectedExamId is not null)
                     {
                         <MudText Class="mud-text-secondary">No marks recorded for this exam.</MudText>
+                    }
+                </MudPaper>
+            }
+
+            @if (_insights is { } insights &&
+                 (insights.Subjects.Count > 0 || insights.ClassAttendancePercent is not null))
+            {
+                <MudPaper Elevation="2" Class="pa-6 mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1">
+                        <MudText Typo="Typo.h6">Peer comparison</MudText>
+                        <MudSpacer />
+                        @if (insights.Rank is { } peerRank && insights.SectionSize is { } size)
+                        {
+                            <MudChip Size="Size.Small" Variant="Variant.Outlined">
+                                Rank @peerRank of @size
+                            </MudChip>
+                        }
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+                        @(insights.ExamName is { } examName
+                            ? $"Against the section average for {examName} — aggregates only, no other student is named."
+                            : "Against the section average — aggregates only, no other student is named.")
+                    </MudText>
+                    @foreach (var subject in insights.Subjects)
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-2">@subject.Subject</MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressLinear Color="Color.Primary" Value="@((double)subject.ChildPercent)"
+                                               Style="height: 10px; border-radius: 5px;" />
+                            <MudText Typo="Typo.caption" Style="min-width: 110px;">
+                                Student @subject.ChildPercent.ToString("0.#")%
+                            </MudText>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressLinear Color="Color.Default" Value="@((double)subject.ClassAverage)"
+                                               Style="height: 10px; border-radius: 5px;" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="min-width: 110px;">
+                                Class avg @subject.ClassAverage.ToString("0.#")%
+                            </MudText>
+                        </MudStack>
+                    }
+                    @if (insights.ChildAttendancePercent is { } childAtt &&
+                         insights.ClassAttendancePercent is { } classAtt)
+                    {
+                        <MudText Typo="Typo.body2" Class="mt-3">Attendance this month</MudText>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressLinear Color="Color.Primary" Value="@((double)childAtt)"
+                                               Style="height: 10px; border-radius: 5px;" />
+                            <MudText Typo="Typo.caption" Style="min-width: 110px;">
+                                Student @childAtt.ToString("0.#")%
+                            </MudText>
+                        </MudStack>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudProgressLinear Color="Color.Default" Value="@((double)classAtt)"
+                                               Style="height: 10px; border-radius: 5px;" />
+                            <MudText Typo="Typo.caption" Class="mud-text-secondary" Style="min-width: 110px;">
+                                Class avg @classAtt.ToString("0.#")%
+                            </MudText>
+                        </MudStack>
                     }
                 </MudPaper>
             }
@@ -445,6 +505,7 @@ else if (_student is { } student)
     private bool _payBusy;
     private bool _photoBusy;
     private bool _loading = true;
+    private StudentInsightsDto? _insights;
 
     protected override async Task OnParametersSetAsync()
     {
@@ -465,6 +526,7 @@ else if (_student is { } student)
                 await LoadResultAsync();
                 _fees = await FeesApi.GetStudentSummaryAsync(Id, currentYear.Id);
                 _family = await FeesApi.GetFamilyAsync(Id);
+                _insights = await InsightsApi.GetStudentAsync(Id);
             }
 
             _routes = await TransportApi.GetRoutesAsync();
