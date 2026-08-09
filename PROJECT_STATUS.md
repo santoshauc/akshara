@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 61 unit + 141 integration = **202 green** (`dotnet test` from `school-erp/`).
+Test suite: 61 unit + 143 integration = **204 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -824,6 +824,56 @@ HR/payroll (own product).
   `errors`; 404 → one INF line; and a genuine fault (a platform account
   hitting a tenant-scoped query) still logs ERR with the whole stack.
 - Suite: 61 unit + 135 integration green.
+
+## Timetable breaks — recess and lunch (feature/timetable-breaks)
+
+- An Indian school day is periods broken up by a recess and a lunch break, and
+  a parent reading the timetable expects to see them. `TimetableSlotKind`
+  (Lesson / Break / Lunch) on `TimetableEntry`, with `SubjectId` and `Period`
+  now NULLABLE and an optional `Label` (migration AddTimetableBreaks; the enum
+  column takes `defaultValue: 1` so existing rows read as Lesson — the same
+  gotcha the report-card template column hit).
+- **Breaks carry no period number, on purpose.** Numbering recess would
+  renumber every lesson after it, and period-wise attendance already stores
+  those numbers. Slots are therefore ordered by START TIME everywhere, not by
+  period — that single change is what lets a break sit between P2 and P3.
+- Validation per kind: a lesson needs a period and a subject; a break must
+  have none of period/subject/teacher (a taught lunch is refused rather than
+  silently stripped).
+- New rule: two slots of one scope may not overlap on a day — the mistake it
+  catches is lunch laid over a period. It lives in the HANDLER, after the
+  teacher-clash check, not in the validator. As a validator rule it ran first
+  and replaced "Ravi Teja is scheduled twice at overlapping times (day 2,
+  periods 1 and 2)" with a generic overlap message — caught by an existing
+  test. Specific messages win; this one only speaks when nothing better can.
+- Teacher-facing queries are explicitly lesson-only (my-day, teacher schedule,
+  substitution plan). They filtered on TeacherId already, so breaks could not
+  leak in, but the filter is now stated rather than implied. The portal's
+  roll-call period picker likewise offers lessons only — you cannot take
+  attendance during lunch.
+- Portal: "Add break" button, a Type select per row (Period / Recess / Lunch)
+  that swaps subject+teacher for a name field, and a week view that
+  interleaves break bands among the periods by the clock (`.ak-break-row`,
+  shaded in both themes). Parent app: breaks render italic and greyed with no
+  P-number, in clock order, en/te.
+- Naming: a school's own label ("Tiffin break") is school-entered data and
+  shows verbatim; with no label each app supplies its own translation, so a
+  Telugu parent reads విరామం / భోజన విరామం. The demo deliberately leaves
+  labels unset so that path is what a demo shows.
+- DemoDataSeeder now builds a realistic day — P1, P2, recess 09:30–09:50,
+  P3, P4, lunch 11:20–12:00, with Saturday a short two-period day and no
+  breaks. It also CORRECTS its own older rows: demo databases seeded before
+  breaks existed had periods running back to back, which the new recess would
+  have overlapped.
+- 2 integration tests (ordering with breaks interleaved and lesson numbering
+  intact; taught/numbered/overlapping breaks all refused). E2E-verified in the
+  portal week view, the roll-call picker (P1–P4 only) and the parent app in
+  both languages.
+- GOTCHA: two of the demo timetable rows for one slot looked like duplicates
+  in psql but are soft-deleted (`is_deleted`), which EF filters out. Query
+  demo data through EF or remember the flag before concluding the data is
+  broken.
+- Suite: 61 unit + 143 integration green.
 
 ## Tenant guard: no school bound, no school data (fix/tenant-guard)
 

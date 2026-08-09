@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Staff;
+using SchoolErp.Domain.Timetable;
 
 namespace SchoolErp.Application.Staff;
 
@@ -243,10 +244,11 @@ public sealed class GetTeacherScheduleQueryHandler
         }
 
         return await _db.TimetableEntries.AsNoTracking()
-            .Where(t => t.TeacherId == request.TeacherId)
+            .Where(t => t.TeacherId == request.TeacherId &&
+                        t.SlotKind == TimetableSlotKind.Lesson)
             .OrderBy(t => t.DayOfWeek).ThenBy(t => t.StartTime)
             .Select(t => new TeacherScheduleItemDto(
-                t.DayOfWeek, t.Period, t.StartTime, t.EndTime,
+                t.DayOfWeek, t.Period!.Value, t.StartTime, t.EndTime,
                 t.Subject!.Name,
                 _db.SchoolClasses.Where(c => c.Id == t.SchoolClassId)
                     .Select(c => c.Name).First(),

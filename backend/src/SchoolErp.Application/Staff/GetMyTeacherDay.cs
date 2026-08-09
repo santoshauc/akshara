@@ -5,6 +5,7 @@ using SchoolErp.Application.Common.Exceptions;
 using SchoolErp.Domain.Attendance;
 using SchoolErp.Domain.Leave;
 using SchoolErp.Domain.Students;
+using SchoolErp.Domain.Timetable;
 
 namespace SchoolErp.Application.Staff;
 
@@ -89,9 +90,11 @@ public sealed class GetMyTeacherDayQueryHandler
 
         // Base slots for today, plus who is covering what.
         var mySlots = await _db.TimetableEntries.AsNoTracking()
-            .Where(e => e.TeacherId == me.Id && e.DayOfWeek == isoDay)
+            // Lessons only: breaks belong to nobody, so they are not "my day".
+            .Where(e => e.TeacherId == me.Id && e.DayOfWeek == isoDay &&
+                        e.SlotKind == TimetableSlotKind.Lesson)
             .Select(e => new SlotRow(
-                e.Id, e.Period, e.StartTime, e.EndTime, e.Subject!.Name,
+                e.Id, e.Period!.Value, e.StartTime, e.EndTime, e.Subject!.Name,
                 e.SchoolClassId, e.SectionId, false))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -105,7 +108,7 @@ public sealed class GetMyTeacherDayQueryHandler
         var coveringToday = await _db.TimetableSubstitutions.AsNoTracking()
             .Where(s => s.Date == today && s.SubstituteTeacherId == me.Id)
             .Select(s => new SlotRow(
-                s.TimetableEntry!.Id, s.TimetableEntry.Period,
+                s.TimetableEntry!.Id, s.TimetableEntry.Period!.Value,
                 s.TimetableEntry.StartTime, s.TimetableEntry.EndTime,
                 s.TimetableEntry.Subject!.Name,
                 s.TimetableEntry.SchoolClassId, s.TimetableEntry.SectionId, true))

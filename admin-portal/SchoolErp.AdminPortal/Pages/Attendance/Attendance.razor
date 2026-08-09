@@ -196,8 +196,10 @@ else
                 var classWide = await TimetableApi.GetAsync(classId, null);
                 var sectionSpecific = await TimetableApi.GetAsync(classId, _sectionId);
                 _daySlots = sectionSpecific.Concat(classWide)
-                    .Where(t => t.DayOfWeek == timetableDay && t.IsPublished)
-                    .GroupBy(t => t.Period)
+                    // Lessons only — you cannot take a roll call during lunch.
+                    .Where(t => t.DayOfWeek == timetableDay && t.IsPublished &&
+                                t.SlotKind == TimetableSlotKind.Lesson && t.Period is not null)
+                    .GroupBy(t => t.Period!.Value)
                     .Select(g => g.First()) // section-specific wins per period
                     .OrderBy(t => t.Period)
                     .ToList();

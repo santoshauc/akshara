@@ -11,6 +11,9 @@ public sealed class TimetableEntryConfiguration : IEntityTypeConfiguration<Timet
     {
         builder.ToTable("timetable_entries");
         builder.Property(t => t.TeacherName).HasMaxLength(128);
+        builder.Property(t => t.Label).HasMaxLength(50);
+        builder.Property(t => t.SlotKind).HasDefaultValue(TimetableSlotKind.Lesson);
+        builder.Ignore(t => t.IsBreak);
 
         // Weekly grid lookups per class scope. Uniqueness of (day, period)
         // within a scope is guaranteed by the full-replace define command.

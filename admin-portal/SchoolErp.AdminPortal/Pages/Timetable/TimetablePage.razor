@@ -47,7 +47,11 @@ else
             <MudSpacer />
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add"
                        OnClick="@(() => _rows.Add(new SlotRow()))">
-                Add slot
+                Add period
+            </MudButton>
+            <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.FreeBreakfast"
+                       OnClick="AddBreak">
+                Add break
             </MudButton>
         </MudStack>
 
@@ -61,28 +65,46 @@ else
                         <MudSelectItem T="int" Value="@day">@DayNames[day]</MudSelectItem>
                     }
                 </MudSelect>
-                <MudNumericField @bind-Value="row.Period" Label="Period" Min="1" Max="12"
-                                 Style="width: 90px;" />
+                <MudSelect T="TimetableSlotKind" @bind-Value="row.Kind" Label="Type" Dense="true"
+                           Style="width: 120px;">
+                    <MudSelectItem Value="TimetableSlotKind.Lesson">Period</MudSelectItem>
+                    <MudSelectItem Value="TimetableSlotKind.Break">Recess</MudSelectItem>
+                    <MudSelectItem Value="TimetableSlotKind.Lunch">Lunch</MudSelectItem>
+                </MudSelect>
+                @if (row.Kind == TimetableSlotKind.Lesson)
+                {
+                    <MudNumericField @bind-Value="row.Period" Label="Period" Min="1" Max="12"
+                                     Style="width: 90px;" />
+                }
                 <MudTextField @bind-Value="row.Start" Label="Start (HH:mm)" Style="width: 110px;" />
                 <MudTextField @bind-Value="row.End" Label="End (HH:mm)" Style="width: 110px;" />
-                <MudSelect T="Guid?" @bind-Value="row.SubjectId" Label="Subject" Dense="true"
-                           Style="min-width: 160px;">
-                    @foreach (var subject in _subjects)
-                    {
-                        <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
-                    }
-                </MudSelect>
-                <MudSelect T="Guid?" @bind-Value="row.TeacherId" Label="Teacher" Clearable="true"
-                           Dense="true" Style="min-width: 170px;">
-                    @foreach (var teacher in _teachers)
-                    {
-                        <MudSelectItem T="Guid?" Value="@teacher.Id">@teacher.FullName</MudSelectItem>
-                    }
-                </MudSelect>
-                @if (row.TeacherId is null)
+                @if (row.Kind == TimetableSlotKind.Lesson)
                 {
-                    <MudTextField @bind-Value="row.Teacher" Label="Guest teacher (optional)"
-                                  Style="min-width: 140px;" />
+                    <MudSelect T="Guid?" @bind-Value="row.SubjectId" Label="Subject" Dense="true"
+                               Style="min-width: 160px;">
+                        @foreach (var subject in _subjects)
+                        {
+                            <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
+                        }
+                    </MudSelect>
+                    <MudSelect T="Guid?" @bind-Value="row.TeacherId" Label="Teacher" Clearable="true"
+                               Dense="true" Style="min-width: 170px;">
+                        @foreach (var teacher in _teachers)
+                        {
+                            <MudSelectItem T="Guid?" Value="@teacher.Id">@teacher.FullName</MudSelectItem>
+                        }
+                    </MudSelect>
+                    @if (row.TeacherId is null)
+                    {
+                        <MudTextField @bind-Value="row.Teacher" Label="Guest teacher (optional)"
+                                      Style="min-width: 140px;" />
+                    }
+                }
+                else
+                {
+                    <MudTextField @bind-Value="row.Label" Label="Name (optional)"
+                                  Placeholder="@DefaultBreakLabel(row.Kind)"
+                                  HelperText="Shown to parents" Style="min-width: 200px;" />
                 }
                 <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error" Size="Size.Small"
                                OnClick="@(() => _rows.RemoveAt(index))" />
@@ -101,7 +123,7 @@ else
         </MudStack>
     </MudPaper>
 
-    @if (GridPeriods.Count > 0)
+    @if (GridRows.Count > 0)
     {
         <MudPaper Elevation="2" Class="pa-6">
             <MudText Typo="Typo.h6" Class="mb-3">Week view</MudText>
@@ -109,7 +131,7 @@ else
                 <MudSimpleTable Dense="true" Bordered="true" Style="min-width: 760px;">
                     <thead>
                         <tr>
-                            <th style="width: 70px;">Period</th>
+                            <th style="width: 90px;">Period</th>
                             @for (var d = 1; d <= 6; d++)
                             {
                                 <th>@DayNames[d]</th>
@@ -117,15 +139,24 @@ else
                         </tr>
                     </thead>
                     <tbody>
-                        @foreach (var period in GridPeriods)
+                        @foreach (var gridRow in GridRows)
                         {
-                            <tr>
-                                <td class="mud-text-secondary">@period</td>
+                            <tr class="@(gridRow.IsBreak ? "ak-break-row" : "")">
+                                <td class="mud-text-secondary">@gridRow.Header</td>
                                 @for (var d = 1; d <= 6; d++)
                                 {
-                                    var slot = _rows.FirstOrDefault(r => r.Day == d && r.Period == period);
+                                    var slot = SlotAt(gridRow, d);
                                     <td>
-                                        @if (slot?.SubjectId is not null)
+                                        @if (slot is not null && gridRow.IsBreak)
+                                        {
+                                            <MudText Typo="Typo.body2" Class="font-weight-bold">
+                                                @(BreakLabel(slot))
+                                            </MudText>
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                @slot.Start–@slot.End
+                                            </MudText>
+                                        }
+                                        else if (slot?.SubjectId is not null)
                                         {
                                             <MudText Typo="Typo.body2" Class="font-weight-bold">
                                                 @(_subjects.FirstOrDefault(s => s.Id == slot.SubjectId)?.Name ?? "—")
@@ -153,13 +184,23 @@ else
     private sealed class SlotRow
     {
         public int Day { get; set; } = 1;
+        public TimetableSlotKind Kind { get; set; } = TimetableSlotKind.Lesson;
         public int Period { get; set; } = 1;
         public string Start { get; set; } = "08:00";
         public string End { get; set; } = "08:45";
+        public string? Label { get; set; }
         public Guid? SubjectId { get; set; }
         public Guid? TeacherId { get; set; }
         public string? Teacher { get; set; }
     }
+
+    /// <summary>
+    /// One line of the week view. Lessons group by period number; breaks have
+    /// no number, so they group by kind and start time and sort in among the
+    /// periods by the clock — which is how the day actually runs.
+    /// </summary>
+    private sealed record GridRow(
+        string Header, TimeOnly Sort, bool IsBreak, int? Period, TimetableSlotKind Kind, string? Start);
 
     private List<SchoolClassDto> _classes = [];
     private List<SubjectDto> _subjects = [];
@@ -173,12 +214,60 @@ else
     private IEnumerable<SectionDto> SectionsOfSelectedClass =>
         _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
 
-    private List<int> GridPeriods =>
-        _rows.Where(r => r.SubjectId is not null)
-            .Select(r => r.Period)
-            .Distinct()
-            .OrderBy(p => p)
-            .ToList();
+    private List<GridRow> GridRows
+    {
+        get
+        {
+            var lessons = _rows
+                .Where(r => r.Kind == TimetableSlotKind.Lesson && r.SubjectId is not null)
+                .GroupBy(r => r.Period)
+                .Select(g => new GridRow(
+                    $"P{g.Key}", EarliestStart(g), false, g.Key, TimetableSlotKind.Lesson, null));
+
+            var breaks = _rows
+                .Where(r => r.Kind != TimetableSlotKind.Lesson)
+                .GroupBy(r => (r.Kind, r.Start))
+                .Select(g => new GridRow(
+                    BreakLabel(g.First()), EarliestStart(g), true, null, g.Key.Kind, g.Key.Start));
+
+            return lessons.Concat(breaks).OrderBy(r => r.Sort).ToList();
+        }
+    }
+
+    private static TimeOnly EarliestStart(IEnumerable<SlotRow> rows) =>
+        rows.Select(r => TimeOnly.TryParse(r.Start, out var t) ? t : TimeOnly.MaxValue).Min();
+
+    private SlotRow? SlotAt(GridRow gridRow, int day) => gridRow.IsBreak
+        ? _rows.FirstOrDefault(r =>
+            r.Day == day && r.Kind == gridRow.Kind && r.Start == gridRow.Start)
+        : _rows.FirstOrDefault(r =>
+            r.Day == day && r.Kind == TimetableSlotKind.Lesson && r.Period == gridRow.Period);
+
+    private static string DefaultBreakLabel(TimetableSlotKind kind) =>
+        kind == TimetableSlotKind.Lunch ? "Lunch break" : "Recess";
+
+    private static string BreakLabel(SlotRow row) =>
+        string.IsNullOrWhiteSpace(row.Label) ? DefaultBreakLabel(row.Kind) : row.Label.Trim();
+
+    /// <summary>
+    /// A new break defaults after the last slot of the day being edited, so the
+    /// common case (drop lunch in at the end of the morning) needs no retyping.
+    /// </summary>
+    private void AddBreak()
+    {
+        var last = _rows.OrderBy(r => r.Start, StringComparer.Ordinal).LastOrDefault();
+        var start = last?.End ?? "10:30";
+        var end = TimeOnly.TryParse(start, out var parsed)
+            ? parsed.AddMinutes(20).ToString("HH\\:mm")
+            : "10:50";
+        _rows.Add(new SlotRow
+        {
+            Day = last?.Day ?? 1,
+            Kind = TimetableSlotKind.Break,
+            Start = start,
+            End = end,
+        });
+    }
 
     protected override async Task OnInitializedAsync()
     {
@@ -216,9 +305,11 @@ else
         _rows = entries.Select(e => new SlotRow
         {
             Day = e.DayOfWeek,
-            Period = e.Period,
+            Kind = e.SlotKind,
+            Period = e.Period ?? 1,
             Start = e.StartTime.ToString("HH\\:mm"),
             End = e.EndTime.ToString("HH\\:mm"),
+            Label = e.Label,
             SubjectId = e.SubjectId,
             TeacherId = e.TeacherId,
             Teacher = e.TeacherId is null ? e.TeacherName : null,
@@ -234,11 +325,27 @@ else
         var entries = new List<TimetableEntryInput>();
         foreach (var row in _rows)
         {
-            if (row.SubjectId is null ||
-                !TimeOnly.TryParse(row.Start, out var start) ||
+            if (!TimeOnly.TryParse(row.Start, out var start) ||
                 !TimeOnly.TryParse(row.End, out var end))
             {
-                Snackbar.Add("Every slot needs a subject and valid HH:mm times.", Severity.Warning);
+                Snackbar.Add("Every slot needs valid HH:mm times.", Severity.Warning);
+                return null;
+            }
+
+            if (row.Kind != TimetableSlotKind.Lesson)
+            {
+                // A break carries no period, subject or teacher — the server
+                // rejects the define outright if any of them is sent.
+                entries.Add(new TimetableEntryInput(
+                    row.Day, null, start, end, null, null, null,
+                    row.Kind,
+                    string.IsNullOrWhiteSpace(row.Label) ? null : row.Label.Trim()));
+                continue;
+            }
+
+            if (row.SubjectId is null)
+            {
+                Snackbar.Add("Every taught period needs a subject.", Severity.Warning);
                 return null;
             }
 

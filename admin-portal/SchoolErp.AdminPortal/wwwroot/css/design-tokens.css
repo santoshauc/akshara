@@ -212,3 +212,12 @@
         scroll-behavior: auto !important;
     }
 }
+
+/* Timetable week view: recess and lunch are part of the day but not taught,
+   so they read as a band between periods rather than as another lesson.
+   Over-qualified with the cell selector because MudBlazor's own table rules
+   out-specify a bare class. */
+.ak-break-row > td {
+    background: var(--ak-surface-sunken, rgba(0, 0, 0, 0.03));
+    font-style: italic;
+}

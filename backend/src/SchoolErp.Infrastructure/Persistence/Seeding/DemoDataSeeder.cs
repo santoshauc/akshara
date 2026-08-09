@@ -589,23 +589,58 @@ public static partial class DemoDataSeeder
         };
         var rotation = new[] { "Mathematics", "English", "Science", "Telugu", "Social Studies" };
 
-        var existing = (await db.TimetableEntries
-                .Select(e => new { e.SchoolClassId, e.DayOfWeek, e.Period })
-                .ToListAsync()
-                .ConfigureAwait(false))
+        // Tracked, not projected: demo databases seeded before breaks existed
+        // have their periods running back to back, which now overlaps the
+        // recess being added below. Those rows are corrected in place rather
+        // than left contradicting the break they sit under.
+        var lessons = await db.TimetableEntries
+            .Where(e => e.SlotKind == TimetableSlotKind.Lesson && e.SectionId == null &&
+                        (e.SchoolClassId == grade5Id || e.SchoolClassId == grade6Id))
+            .ToListAsync()
+            .ConfigureAwait(false);
+        var existing = lessons
             .Select(e => (e.SchoolClassId, e.DayOfWeek, e.Period))
             .ToHashSet();
+        // Grouped rather than keyed one-to-one: nothing in the schema stops a
+        // slot having two live rows, and this runs at every dev startup — a
+        // duplicate key here would take the whole API down on boot.
+        var bySlot = lessons
+            .GroupBy(e => (e.SchoolClassId, e.DayOfWeek, e.Period))
+            .ToDictionary(g => g.Key, g => g.ToList());
 
+        var existingBreaks = (await db.TimetableEntries
+                .Where(e => e.SlotKind != TimetableSlotKind.Lesson)
+                .Select(e => new { e.SchoolClassId, e.DayOfWeek, e.SlotKind })
+                .ToListAsync()
+                .ConfigureAwait(false))
+            .Select(e => (e.SchoolClassId, e.DayOfWeek, e.SlotKind))
+            .ToHashSet();
+
+        // A real Indian school day: two periods, recess, two more, then lunch.
+        // Periods from the third onwards start 20 minutes later to make room
+        // for the recess rather than overlapping it.
         var added = 0;
         foreach (var classId in new[] { grade5Id, grade6Id })
         {
             for (var day = 1; day <= 6; day++) // Mon–Sat
             {
-                var periods = day == 6 ? 2 : 4;
+                var periods = day == 6 ? 2 : 4; // Saturday is a short day
                 for (var period = 1; period <= periods; period++)
                 {
-                    if (existing.Contains((classId, day, period)))
+                    var shift = (period - 1) * 45 + (period >= 3 ? 20 : 0);
+                    var start = new TimeOnly(8, 0).AddMinutes(shift);
+                    var end = new TimeOnly(8, 45).AddMinutes(shift);
+
+                    if (existing.Contains((classId, day, (int?)period)))
                     {
+                        foreach (var current in bySlot[(classId, day, (int?)period)]
+                                     .Where(e => e.StartTime != start))
+                        {
+                            current.StartTime = start;
+                            current.EndTime = end;
+                            added++;
+                        }
+
                         continue;
                     }
 
@@ -617,8 +652,8 @@ public static partial class DemoDataSeeder
                         SectionId = null, // class-wide, like the hand-made demo slots
                         DayOfWeek = day,
                         Period = period,
-                        StartTime = new TimeOnly(8, 0).AddMinutes((period - 1) * 45),
-                        EndTime = new TimeOnly(8, 45).AddMinutes((period - 1) * 45),
+                        StartTime = start,
+                        EndTime = end,
                         SubjectId = subjects[subjectName].Id,
                         TeacherId = teacher.Id,
                         TeacherName = teacher.FullName,
@@ -626,6 +661,23 @@ public static partial class DemoDataSeeder
                     });
                     added++;
                 }
+
+                if (periods < 4)
+                {
+                    continue; // no breaks on the short Saturday
+                }
+
+                // Deliberately unnamed: a label is school-entered text and
+                // would show verbatim, so leaving it off lets each app fall
+                // back to its own translation — a Telugu parent reads
+                // "విరామం", not "Recess". Schools that call it something
+                // particular ("Tiffin break") type that in and it wins.
+                added += AddBreak(
+                    db, existingBreaks, classId, day, TimetableSlotKind.Break,
+                    new TimeOnly(9, 30), new TimeOnly(9, 50));
+                added += AddBreak(
+                    db, existingBreaks, classId, day, TimetableSlotKind.Lunch,
+                    new TimeOnly(11, 20), new TimeOnly(12, 0));
             }
         }
 
@@ -633,6 +685,36 @@ public static partial class DemoDataSeeder
         {
             await db.SaveChangesAsync().ConfigureAwait(false);
         }
+    }
+
+    /// <summary>Adds one break slot unless that class already has that kind on that day.</summary>
+    private static int AddBreak(
+        AppDbContext db,
+        HashSet<(Guid ClassId, int Day, TimetableSlotKind Kind)> existing,
+        Guid classId,
+        int day,
+        TimetableSlotKind kind,
+        TimeOnly start,
+        TimeOnly end)
+    {
+        if (!existing.Add((classId, day, kind)))
+        {
+            return 0;
+        }
+
+        db.TimetableEntries.Add(new TimetableEntry
+        {
+            SchoolClassId = classId,
+            SectionId = null,
+            DayOfWeek = day,
+            SlotKind = kind,
+            Period = null,
+            StartTime = start,
+            EndTime = end,
+            Label = null,
+            IsPublished = true,
+        });
+        return 1;
     }
 
     private static async Task EnsureSubstitutionsAsync(

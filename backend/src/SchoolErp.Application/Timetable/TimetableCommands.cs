@@ -7,30 +7,41 @@ using SchoolErp.Domain.Timetable;
 
 namespace SchoolErp.Application.Timetable;
 
-/// <summary>One period slot as shown in grids. TeacherName resolves from the
-/// linked staff record when present, else the free-text fallback.</summary>
+/// <summary>
+/// One slot as shown in grids. TeacherName resolves from the linked staff
+/// record when present, else the free-text fallback. For a break, Period,
+/// SubjectId, SubjectName and both teacher fields are null and Label carries
+/// what the school calls it.
+/// </summary>
 public sealed record TimetableEntryDto(
     Guid Id,
     int DayOfWeek,
-    int Period,
+    int? Period,
     TimeOnly StartTime,
     TimeOnly EndTime,
-    Guid SubjectId,
-    string SubjectName,
+    Guid? SubjectId,
+    string? SubjectName,
     Guid? TeacherId,
     string? TeacherName,
-    bool IsPublished);
+    bool IsPublished,
+    TimetableSlotKind SlotKind = TimetableSlotKind.Lesson,
+    string? Label = null);
 
-/// <summary>Input slot when defining a timetable. TeacherId links a staff
-/// record; TeacherName is the free-text fallback for guest teachers.</summary>
+/// <summary>
+/// Input slot when defining a timetable. TeacherId links a staff record;
+/// TeacherName is the free-text fallback for guest teachers. A break passes
+/// SlotKind plus times (and optionally a Label) and leaves the rest null.
+/// </summary>
 public sealed record TimetableEntryInput(
     int DayOfWeek,
-    int Period,
+    int? Period,
     TimeOnly StartTime,
     TimeOnly EndTime,
-    Guid SubjectId,
+    Guid? SubjectId,
     Guid? TeacherId,
-    string? TeacherName);
+    string? TeacherName,
+    TimetableSlotKind SlotKind = TimetableSlotKind.Lesson,
+    string? Label = null);
 
 /// <summary>
 /// Replaces the timetable for a class scope (whole class or one section).
@@ -49,21 +60,44 @@ public sealed class DefineTimetableCommandValidator : AbstractValidator<DefineTi
     public DefineTimetableCommandValidator()
     {
         RuleFor(c => c.Entries).NotEmpty()
+            // Breaks carry no period number, so uniqueness only binds lessons.
             .Must(entries => entries
+                .Where(e => e.SlotKind == TimetableSlotKind.Lesson)
                 .Select(e => (e.DayOfWeek, e.Period))
                 .Distinct()
-                .Count() == entries.Count)
+                .Count() == entries.Count(e => e.SlotKind == TimetableSlotKind.Lesson))
             .WithMessage("Each (day, period) slot may appear only once.");
 
         RuleForEach(c => c.Entries).ChildRules(entry =>
         {
             entry.RuleFor(e => e.DayOfWeek).InclusiveBetween(1, 7);
-            entry.RuleFor(e => e.Period).InclusiveBetween(1, 12);
             entry.RuleFor(e => e.EndTime).GreaterThan(e => e.StartTime)
-                .WithMessage("A period must end after it starts.");
+                .WithMessage("A slot must end after it starts.");
             entry.RuleFor(e => e.TeacherName).MaximumLength(128);
+            entry.RuleFor(e => e.Label).MaximumLength(50);
+
+            entry.When(e => e.SlotKind == TimetableSlotKind.Lesson, () =>
+            {
+                entry.RuleFor(e => e.Period).NotNull().InclusiveBetween(1, 12)
+                    .WithMessage("A taught period needs a period number between 1 and 12.");
+                entry.RuleFor(e => e.SubjectId).NotNull()
+                    .WithMessage("A taught period needs a subject.");
+            });
+
+            entry.When(e => e.SlotKind != TimetableSlotKind.Lesson, () =>
+            {
+                // Nobody teaches lunch. Silently dropping these would make the
+                // grid disagree with what the operator submitted.
+                entry.RuleFor(e => e.SubjectId).Null()
+                    .WithMessage("A break cannot have a subject.");
+                entry.RuleFor(e => e.TeacherId).Null()
+                    .WithMessage("A break cannot have a teacher.");
+                entry.RuleFor(e => e.Period).Null()
+                    .WithMessage("A break is not a numbered period.");
+            });
         });
     }
+
 }
 
 /// <summary>Validates references then replaces the scope atomically.</summary>
@@ -89,7 +123,11 @@ public sealed class DefineTimetableCommandHandler : IRequestHandler<DefineTimeta
             throw new NotFoundException("Section (in this class)", sectionId);
         }
 
-        var subjectIds = request.Entries.Select(e => e.SubjectId).Distinct().ToList();
+        var subjectIds = request.Entries
+            .Where(e => e.SubjectId is not null)
+            .Select(e => e.SubjectId!.Value)
+            .Distinct()
+            .ToList();
         var known = await _db.Subjects
             .Where(s => subjectIds.Contains(s.Id))
             .Select(s => s.Id)
@@ -102,6 +140,12 @@ public sealed class DefineTimetableCommandHandler : IRequestHandler<DefineTimeta
         }
 
         await EnsureTeachersFreeAsync(request, cancellationToken).ConfigureAwait(false);
+
+        // AFTER the teacher check on purpose: when a teacher is double-booked
+        // that message names them and their periods, which is far more useful
+        // than "these two slots overlap". This catches what that cannot — a
+        // lunch break laid over a period, where there is no teacher involved.
+        EnsureNoOverlaps(request);
 
         var existing = await _db.TimetableEntries
             .Where(t => t.SchoolClassId == request.SchoolClassId && t.SectionId == request.SectionId)
@@ -116,9 +160,11 @@ public sealed class DefineTimetableCommandHandler : IRequestHandler<DefineTimeta
                 SchoolClassId = request.SchoolClassId,
                 SectionId = request.SectionId,
                 DayOfWeek = entry.DayOfWeek,
+                SlotKind = entry.SlotKind,
                 Period = entry.Period,
                 StartTime = entry.StartTime,
                 EndTime = entry.EndTime,
+                Label = entry.Label?.Trim() is { Length: > 0 } label ? label : null,
                 SubjectId = entry.SubjectId,
                 TeacherId = entry.TeacherId,
                 TeacherName = entry.TeacherName?.Trim(),
@@ -126,6 +172,31 @@ public sealed class DefineTimetableCommandHandler : IRequestHandler<DefineTimeta
         }
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A class cannot be in two places at once, so no two slots of one scope
+    /// may overlap on a day. Times order the day now that breaks carry no
+    /// period number, so an overlap is not merely untidy — it makes the day
+    /// ambiguous.
+    /// </summary>
+    private static void EnsureNoOverlaps(DefineTimetableCommand request)
+    {
+        foreach (var day in request.Entries.GroupBy(e => e.DayOfWeek))
+        {
+            // Sorted by start, any overlap implies an adjacent one.
+            var sorted = day.OrderBy(e => e.StartTime).ToList();
+            for (var i = 1; i < sorted.Count; i++)
+            {
+                if (sorted[i].StartTime < sorted[i - 1].EndTime)
+                {
+                    throw new ConflictException(
+                        $"Two slots overlap on day {day.Key}: " +
+                        $"{sorted[i - 1].StartTime:HH\\:mm}–{sorted[i - 1].EndTime:HH\\:mm} " +
+                        $"and {sorted[i].StartTime:HH\\:mm}–{sorted[i].EndTime:HH\\:mm}.");
+                }
+            }
+        }
     }
 
     /// <summary>
@@ -269,13 +340,14 @@ public sealed class GetTimetableQueryHandler
         GetTimetableQuery request, CancellationToken cancellationToken) =>
         await _db.TimetableEntries.AsNoTracking()
             .Where(t => t.SchoolClassId == request.SchoolClassId && t.SectionId == request.SectionId)
-            .OrderBy(t => t.DayOfWeek).ThenBy(t => t.Period)
+            // Start time, not period: a break has no number to sort by.
+            .OrderBy(t => t.DayOfWeek).ThenBy(t => t.StartTime)
             .Select(t => new TimetableEntryDto(
                 t.Id, t.DayOfWeek, t.Period, t.StartTime, t.EndTime,
-                t.SubjectId, t.Subject!.Name,
+                t.SubjectId, t.Subject != null ? t.Subject.Name : null,
                 t.TeacherId,
                 t.Teacher != null ? t.Teacher.FullName : t.TeacherName,
-                t.IsPublished))
+                t.IsPublished, t.SlotKind, t.Label))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 }
@@ -312,13 +384,14 @@ public sealed class GetStudentTimetableQueryHandler
             .Where(t => t.IsPublished &&
                         t.SchoolClassId == placement.SchoolClassId &&
                         (t.SectionId == null || t.SectionId == placement.SectionId))
-            .OrderBy(t => t.DayOfWeek).ThenBy(t => t.Period)
+            // Start time, not period: a break has no number to sort by.
+            .OrderBy(t => t.DayOfWeek).ThenBy(t => t.StartTime)
             .Select(t => new TimetableEntryDto(
                 t.Id, t.DayOfWeek, t.Period, t.StartTime, t.EndTime,
-                t.SubjectId, t.Subject!.Name,
+                t.SubjectId, t.Subject != null ? t.Subject.Name : null,
                 t.TeacherId,
                 t.Teacher != null ? t.Teacher.FullName : t.TeacherName,
-                t.IsPublished))
+                t.IsPublished, t.SlotKind, t.Label))
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
     }

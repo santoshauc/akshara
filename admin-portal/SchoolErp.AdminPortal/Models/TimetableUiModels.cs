@@ -1,27 +1,36 @@
+using SchoolErp.Domain.Timetable;
+
 namespace SchoolErp.AdminPortal.Models;
 
-/// <summary>Timetable slot (mirrors TimetableEntryDto).</summary>
+/// <summary>
+/// Timetable slot (mirrors TimetableEntryDto). A break carries no period
+/// number, subject or teacher — just times, a kind and an optional label.
+/// </summary>
 public sealed record TimetableEntryDto(
     Guid Id,
     int DayOfWeek,
-    int Period,
+    int? Period,
     TimeOnly StartTime,
     TimeOnly EndTime,
-    Guid SubjectId,
-    string SubjectName,
+    Guid? SubjectId,
+    string? SubjectName,
     Guid? TeacherId,
     string? TeacherName,
-    bool IsPublished);
+    bool IsPublished,
+    TimetableSlotKind SlotKind = TimetableSlotKind.Lesson,
+    string? Label = null);
 
 /// <summary>Slot input (mirrors TimetableEntryInput).</summary>
 public sealed record TimetableEntryInput(
     int DayOfWeek,
-    int Period,
+    int? Period,
     TimeOnly StartTime,
     TimeOnly EndTime,
-    Guid SubjectId,
+    Guid? SubjectId,
     Guid? TeacherId,
-    string? TeacherName);
+    string? TeacherName,
+    TimetableSlotKind SlotKind = TimetableSlotKind.Lesson,
+    string? Label = null);
 
 /// <summary>Define payload (mirrors DefineTimetableCommand).</summary>
 public sealed record DefineTimetableRequest(

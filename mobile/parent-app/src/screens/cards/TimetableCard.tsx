@@ -27,6 +27,21 @@ const todayIso = () => {
 };
 
 /**
+ * The school's own name for the break when it set one — that is school-entered
+ * data and stays as typed, same rule the rest of the app follows. Otherwise a
+ * translated default, so a Telugu reader is not shown an English word.
+ */
+const breakName = (
+  entry: TimetableEntry,
+  t: (key: TranslationKey) => string,
+): string => {
+  if (entry.label) {
+    return entry.label;
+  }
+  return entry.slotKind === 3 ? t('timetableLunch') : t('timetableRecess');
+};
+
+/**
  * Calendar view of the published schedule: day tabs (defaulting to today)
  * with the selected day's periods as a time-ordered agenda.
  */
@@ -38,9 +53,11 @@ export default function TimetableCard({ entries }: { entries: TimetableEntry[] }
   );
 
   const activeDay = days.includes(selectedDay) ? selectedDay : (days[0] ?? 1);
+  // By clock, not by period: recess and lunch have no period number and must
+  // still land between the lessons they separate.
   const slots = entries
     .filter((e) => e.dayOfWeek === activeDay)
-    .sort((a, b) => a.period - b.period);
+    .sort((a, b) => a.startTime.localeCompare(b.startTime));
 
   return (
     <View style={styles.card}>
@@ -72,24 +89,31 @@ export default function TimetableCard({ entries }: { entries: TimetableEntry[] }
             {activeDay === todayIso() ? ` (${t('today')})` : ''}
           </Text>
 
-          {slots.map((entry) => (
-            <View key={entry.id} style={styles.slot}>
-              <View style={styles.timeline}>
-                <View style={styles.dot} />
-                <View style={styles.line} />
-              </View>
-              <View style={styles.slotBody}>
-                <Text style={styles.time}>
-                  {formatTime(entry.startTime)} – {formatTime(entry.endTime)}
-                </Text>
-                <Text style={styles.subject}>{entry.subjectName}</Text>
-                {entry.teacherName ? (
-                  <Text style={styles.teacher}>{entry.teacherName}</Text>
+          {slots.map((entry) => {
+            const isBreak = entry.slotKind !== 1;
+            return (
+              <View key={entry.id} style={styles.slot}>
+                <View style={styles.timeline}>
+                  <View style={[styles.dot, isBreak && styles.dotBreak]} />
+                  <View style={styles.line} />
+                </View>
+                <View style={styles.slotBody}>
+                  <Text style={styles.time}>
+                    {formatTime(entry.startTime)} – {formatTime(entry.endTime)}
+                  </Text>
+                  <Text style={[styles.subject, isBreak && styles.subjectBreak]}>
+                    {isBreak ? breakName(entry, t) : entry.subjectName}
+                  </Text>
+                  {!isBreak && entry.teacherName ? (
+                    <Text style={styles.teacher}>{entry.teacherName}</Text>
+                  ) : null}
+                </View>
+                {entry.period !== null ? (
+                  <Text style={styles.period}>P{entry.period}</Text>
                 ) : null}
               </View>
-              <Text style={styles.period}>P{entry.period}</Text>
-            </View>
-          ))}
+            );
+          })}
         </>
       )}
     </View>
@@ -129,10 +153,14 @@ const styles = StyleSheet.create({
     backgroundColor: BRAND,
     marginTop: 6,
   },
+  dotBreak: { backgroundColor: '#C8CDD6' },
   line: { flex: 1, width: 2, backgroundColor: '#E1E5EC' },
   slotBody: { flex: 1, paddingBottom: 12 },
   time: { fontSize: 12, color: '#667' },
   subject: { fontSize: 15, fontWeight: '600', marginTop: 1 },
+  // Breaks are part of the day but not the point of it — lighter and italic
+  // so the eye skips over them to the next lesson.
+  subjectBreak: { color: '#7A8290', fontStyle: 'italic', fontWeight: '500' },
   teacher: { fontSize: 12, color: '#667', marginTop: 1 },
   period: { fontSize: 11, color: '#99A', fontWeight: '700', marginTop: 6 },
 });

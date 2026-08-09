@@ -59,6 +59,8 @@ export const en = {
   // Timetable
   timetableTitle: 'Class timetable',
   timetableEmpty: "The school hasn't published a timetable yet.",
+  timetableRecess: 'Recess',
+  timetableLunch: 'Lunch break',
   today: 'today',
   dayMon: 'Monday',
   dayTue: 'Tuesday',
@@ -244,6 +246,8 @@ export const te: Record<TranslationKey, string> = {
   // Timetable
   timetableTitle: 'తరగతి కాలపట్టిక',
   timetableEmpty: 'స్కూల్ ఇంకా కాలపట్టికను ప్రచురించలేదు.',
+  timetableRecess: 'విరామం',
+  timetableLunch: 'భోజన విరామం',
   today: 'ఈరోజు',
   dayMon: 'సోమవారం',
   dayTue: 'మంగళవారం',
