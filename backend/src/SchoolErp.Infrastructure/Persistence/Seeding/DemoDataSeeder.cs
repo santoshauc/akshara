@@ -231,6 +231,7 @@ public static partial class DemoDataSeeder
             .MaxAsync(e => (int?)e.RollNumber)
             .ConfigureAwait(false) ?? 0;
 
+        var today = DateOnly.FromDateTime(DateTime.UtcNow);
         for (var i = 0; i < names.Length; i++)
         {
             var (first, last, gender) = names[i];
@@ -239,7 +240,11 @@ public static partial class DemoDataSeeder
                 AdmissionNumber = $"ADM-2026-{baseAdmission + i:D4}",
                 FirstName = first,
                 LastName = last,
-                DateOfBirth = new DateOnly(birthYear, 1 + (i * 5 % 12), 1 + (i * 7 % 27)),
+                // The first child of each cohort celebrates today — the
+                // dashboard birthday card always has something to show.
+                DateOfBirth = i == 0
+                    ? new DateOnly(birthYear, today.Month, today.Day)
+                    : new DateOnly(birthYear, 1 + (i * 5 % 12), 1 + (i * 7 % 27)),
                 Gender = gender,
                 City = "Hyderabad",
                 State = "Telangana",

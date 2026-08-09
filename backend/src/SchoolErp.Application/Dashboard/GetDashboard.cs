@@ -11,6 +11,12 @@ namespace SchoolErp.Application.Dashboard;
 /// <summary>An upcoming exam on the dashboard.</summary>
 public sealed record UpcomingExamDto(string Name, DateOnly StartDate);
 
+/// <summary>One point on a small dashboard trend.</summary>
+public sealed record DashboardPointDto(DateOnly Date, decimal Value);
+
+/// <summary>A student celebrating today — schools announce these at assembly.</summary>
+public sealed record BirthdayDto(string Name, string? ClassName, int TurnsAge);
+
 /// <summary>The school's at-a-glance numbers, all scoped to the tenant.</summary>
 public sealed record DashboardDto(
     int ActiveStudents,
@@ -23,7 +29,13 @@ public sealed record DashboardDto(
     int UnreadParentMessages,
     int OpenEnquiries,
     int EnquiryFollowUpsDueToday,
-    IReadOnlyList<UpcomingExamDto> UpcomingExams);
+    IReadOnlyList<UpcomingExamDto> UpcomingExams,
+    IReadOnlyList<DashboardPointDto> AttendanceTrend,
+    IReadOnlyList<DashboardPointDto> FeeTrend,
+    IReadOnlyList<BirthdayDto> BirthdaysToday,
+    decimal FeesOutstanding,
+    int SmsCredits,
+    DateOnly? SubscriptionExpiresOn);
 
 /// <summary>The staff dashboard tiles.</summary>
 public sealed record GetDashboardQuery : IRequest<DashboardDto>;
@@ -32,11 +44,14 @@ public sealed record GetDashboardQuery : IRequest<DashboardDto>;
 public sealed class GetDashboardQueryHandler : IRequestHandler<GetDashboardQuery, DashboardDto>
 {
     private readonly IApplicationDbContext _db;
+    private readonly ITenantContext _tenantContext;
     private readonly TimeProvider _clock;
 
-    public GetDashboardQueryHandler(IApplicationDbContext db, TimeProvider clock)
+    public GetDashboardQueryHandler(
+        IApplicationDbContext db, ITenantContext tenantContext, TimeProvider clock)
     {
         _db = db;
+        _tenantContext = tenantContext;
         _clock = clock;
     }
 
@@ -110,6 +125,77 @@ public sealed class GetDashboardQueryHandler : IRequestHandler<GetDashboardQuery
                 .ConfigureAwait(false)
             : [];
 
+        // 14-day attendance % trend (daily roll-call only).
+        var trendFrom = today.AddDays(-13);
+        var attendanceTrend = (await _db.AttendanceRecords.AsNoTracking()
+                .Where(a => a.Period == null && a.Date >= trendFrom && a.Date <= today)
+                .GroupBy(a => a.Date)
+                .Select(g => new
+                {
+                    Date = g.Key,
+                    Marked = g.Count(),
+                    Present = g.Count(a => a.Status == AttendanceStatus.Present ||
+                                           a.Status == AttendanceStatus.Late ||
+                                           a.Status == AttendanceStatus.HalfDay),
+                })
+                .OrderBy(g => g.Date)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false))
+            .Select(g => new DashboardPointDto(g.Date, Math.Round(g.Present * 100m / g.Marked, 1)))
+            .ToList();
+
+        // 14-day daily collections (quiet days included as zero for even bars).
+        var feeRaw = await _db.FeePayments.AsNoTracking()
+            .Where(p => p.PaidOn >= trendFrom && p.PaidOn <= today)
+            .GroupBy(p => p.PaidOn)
+            .Select(g => new { Date = g.Key, Amount = g.Sum(p => p.Amount) })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var feeTrend = new List<DashboardPointDto>(14);
+        for (var day = trendFrom; day <= today; day = day.AddDays(1))
+        {
+            feeTrend.Add(new DashboardPointDto(
+                day, feeRaw.FirstOrDefault(f => f.Date == day)?.Amount ?? 0m));
+        }
+
+        // Today's birthdays — assembly announcements write themselves.
+        List<BirthdayDto> birthdays = [];
+        if (currentYearId is { } birthdayYearId)
+        {
+            var birthdayRows = await _db.Students.AsNoTracking()
+                .Where(s => s.Status == StudentStatus.Active &&
+                            s.DateOfBirth.Month == today.Month &&
+                            s.DateOfBirth.Day == today.Day)
+                .Select(s => new
+                {
+                    s.FirstName,
+                    s.LastName,
+                    s.DateOfBirth,
+                    ClassName = s.Enrollments
+                        .Where(e => e.AcademicYearId == birthdayYearId)
+                        .Select(e => e.SchoolClass!.Name + " " + e.Section!.Name)
+                        .FirstOrDefault(),
+                })
+                .Take(10)
+                .ToListAsync(cancellationToken)
+                .ConfigureAwait(false);
+            birthdays = birthdayRows
+                .Select(r => new BirthdayDto(
+                    $"{r.FirstName} {r.LastName}", r.ClassName, today.Year - r.DateOfBirth.Year))
+                .OrderBy(b => b.Name)
+                .ToList();
+        }
+
+        var outstanding = currentYearId is { } feeYearId
+            ? await ComputeOutstandingAsync(feeYearId, cancellationToken).ConfigureAwait(false)
+            : 0m;
+
+        var tenant = await _db.Tenants.AsNoTracking()
+            .Where(t => t.Id == _tenantContext.TenantId)
+            .Select(t => new { t.SmsCredits, t.SubscriptionExpiresOn })
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
         var marked = todayMarks?.Marked ?? 0;
         var present = todayMarks?.Present ?? 0;
         return new DashboardDto(
@@ -123,6 +209,45 @@ public sealed class GetDashboardQueryHandler : IRequestHandler<GetDashboardQuery
             unreadMessages,
             openEnquiries,
             followUpsDue,
-            upcomingExams);
+            upcomingExams,
+            attendanceTrend,
+            feeTrend,
+            birthdays,
+            outstanding,
+            tenant?.SmsCredits ?? 0,
+            tenant?.SubscriptionExpiresOn);
+    }
+
+    /// <summary>Base fees still owed: structure − concessions − paid, floored per student.</summary>
+    private async Task<decimal> ComputeOutstandingAsync(Guid yearId, CancellationToken ct)
+    {
+        var dueByClass = await _db.FeeStructureItems.AsNoTracking()
+            .Where(i => i.AcademicYearId == yearId)
+            .GroupBy(i => i.SchoolClassId)
+            .Select(g => new { ClassId = g.Key, Due = g.Sum(i => i.Amount) })
+            .ToDictionaryAsync(g => g.ClassId, g => g.Due, ct)
+            .ConfigureAwait(false);
+        var enrollments = await _db.Enrollments.AsNoTracking()
+            .Where(e => e.AcademicYearId == yearId && e.Status == EnrollmentStatus.Active)
+            .Select(e => new { e.StudentId, e.SchoolClassId })
+            .ToListAsync(ct)
+            .ConfigureAwait(false);
+        var paid = await _db.FeePayments.AsNoTracking()
+            .Where(p => p.AcademicYearId == yearId)
+            .GroupBy(p => p.StudentId)
+            .Select(g => new { StudentId = g.Key, Total = g.Sum(p => p.Amount) })
+            .ToDictionaryAsync(g => g.StudentId, g => g.Total, ct)
+            .ConfigureAwait(false);
+        var concessions = await _db.FeeConcessions.AsNoTracking()
+            .Where(c => c.AcademicYearId == yearId)
+            .GroupBy(c => c.StudentId)
+            .Select(g => new { StudentId = g.Key, Total = g.Sum(c => c.Amount) })
+            .ToDictionaryAsync(g => g.StudentId, g => g.Total, ct)
+            .ConfigureAwait(false);
+
+        return enrollments.Sum(e => Math.Max(0m,
+            dueByClass.GetValueOrDefault(e.SchoolClassId)
+            - concessions.GetValueOrDefault(e.StudentId)
+            - paid.GetValueOrDefault(e.StudentId)));
     }
 }

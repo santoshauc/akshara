@@ -105,4 +105,16 @@ public sealed record DashboardDto(
     int UnreadParentMessages,
     int OpenEnquiries,
     int EnquiryFollowUpsDueToday,
-    List<UpcomingExamDto> UpcomingExams);
+    List<UpcomingExamDto> UpcomingExams,
+    List<DashboardPointDto> AttendanceTrend,
+    List<DashboardPointDto> FeeTrend,
+    List<BirthdayDto> BirthdaysToday,
+    decimal FeesOutstanding,
+    int SmsCredits,
+    DateOnly? SubscriptionExpiresOn);
+
+/// <summary>One point on a small dashboard trend.</summary>
+public sealed record DashboardPointDto(DateOnly Date, decimal Value);
+
+/// <summary>A student celebrating today.</summary>
+public sealed record BirthdayDto(string Name, string? ClassName, int TurnsAge);
