@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 61 unit + 135 integration = **196 green** (`dotnet test` from `school-erp/`).
+Test suite: 61 unit + 141 integration = **202 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -824,10 +824,41 @@ HR/payroll (own product).
   `errors`; 404 → one INF line; and a genuine fault (a platform account
   hitting a tenant-scoped query) still logs ERR with the whole stack.
 - Suite: 61 unit + 135 integration green.
-- NOTED, NOT FIXED: platform (Super Admin) accounts calling tenant-scoped
-  endpoints — `/dashboard`, `/exams/report-card-settings` — 500 on
-  "Tenant has not been resolved for this scope" rather than a clean 4xx.
-  Pre-existing; the portal already shows a platform-account fallback.
+
+## Tenant guard: no school bound, no school data (fix/tenant-guard)
+
+- A platform (Super Admin) token carries no tenant, and the codebase handled
+  that in two different wrong ways. Handlers reading `ITenantContext.TenantId`
+  directly (15 files) threw inside an EF query → 500. Handlers relying on the
+  EF query filter got its `Guid.Empty` fallback
+  (`AppDbContext.CurrentTenantId`) → **200 with an empty result**, so a Super
+  Admin was shown "0 students, ₹0 collected" as if the school were empty.
+  The silent half was the dangerous one.
+- `TenantGuardFilter` (global, registered before `ModuleGateFilter`) now
+  refuses any tenant-scoped action with no school bound: 400 with
+  "Select a school before using this feature." and a Detail that says what to
+  do. Both failure modes collapse into that one answer.
+- The rule is opt-OUT by design: skip when the endpoint is `[AllowAnonymous]`,
+  `[PlatformOnly]` (which demands the opposite), `[NoTenantRequired]`, or
+  needs no sign-in at all. Forgetting to opt out fails loudly the first time a
+  platform account touches the endpoint; an opt-in scheme that is forgotten
+  goes back to serving empty data in production — which is how the
+  inconsistency arose.
+- `AuthController` is `[NoTenantRequired]`: password change, MFA and device
+  sessions belong to the ACCOUNT, and a Super Admin must keep them.
+- FOUND WHILE AUDITING, also fixed: `PushController` had no `[Authorize]` at
+  all (the doc comment claimed "any signed-in user"). `Register` happened to
+  self-check and 401, but `Unregister` did not — an unauthenticated caller who
+  knew an Expo token could delete it and silence that parent's notifications.
+  Now `[Authorize]` on the controller and the delete is scoped to the caller's
+  own tokens.
+- 6 filter tests (`IntegrationTests/Api/TenantGuardTests.cs`, no database).
+  Verified live: all four probe endpoints 400 for a platform account with the
+  guidance body; Schools, sessions and MFA still 200; eighteen school-admin
+  endpoints and the parent app's endpoints all unchanged; anonymous push
+  delete now 401 and the owner's delete still 204; portal shows its existing
+  platform-account fallback alert and the Schools page is unaffected.
+- Suite: 61 unit + 141 integration green.
 - GOTCHA (cost time): one integration run reported 6 failures and an inflated
   total (138 for 135 tests) right after the dev API had been hammering Docker;
   it took 14 minutes instead of the usual 7. A clean re-run of the identical

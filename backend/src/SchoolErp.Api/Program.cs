@@ -119,6 +119,10 @@ try
     // --- Web ---------------------------------------------------------------
     builder.Services.AddControllers(options =>
     {
+        // Tenant-scoped endpoints refuse a request with no school bound, before
+        // the module gate (which no-ops without one) and before any handler can
+        // either throw on TenantId or quietly answer with empty data.
+        options.Filters.Add<SchoolErp.Api.Authorization.TenantGuardFilter>();
         // Subscription-plan module gating (see RequiresModuleAttribute).
         options.Filters.Add<SchoolErp.Api.Authorization.ModuleGateFilter>();
         // Expected exceptions (validation, not-found, conflict) become problem
