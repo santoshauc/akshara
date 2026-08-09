@@ -162,6 +162,35 @@ public sealed class AdmissionsModuleTests : IClassFixture<AdmissionsFixture>
     }
 
     [Fact]
+    public async Task Public_website_enquiries_land_in_the_crm_without_duplicating_open_ones()
+    {
+        // No tenant scope — the command resolves the school by code itself.
+        await using var scope = _fixture.CreateScope();
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new SubmitPublicEnquiryCommand(
+            "admis1", "Web Child", null, "Grade 1", "Web Parent",
+            "+919600000400", "web@example.com", "From the website form"));
+        // Resubmitting the same phone while the enquiry is open is a no-op.
+        await sender.Send(new SubmitPublicEnquiryCommand(
+            "ADMIS1", "Web Child", null, "Grade 1", "Web Parent",
+            "+919600000400", null, null));
+
+        var board = await sender.Send(new GetEnquiriesQuery(null));
+        var mine = board.Where(e => e.Phone == "+919600000400").ToList();
+        mine.Should().ContainSingle("open enquiries must not duplicate")
+            .Which.Should().Match<EnquiryDto>(e =>
+                e.Source == EnquirySource.Website &&
+                e.Status == EnquiryStatus.New &&
+                e.ChildName == "Web Child");
+
+        var unknownSchool = () => sender.Send(new SubmitPublicEnquiryCommand(
+            "NOPE99", "X", null, "Grade 1", "Y", "+919600000401", null, null));
+        await unknownSchool.Should().ThrowAsync<NotFoundException>(
+            "the API layer converts this to a probe-safe 202");
+    }
+
+    [Fact]
     public async Task Dashboard_counts_open_enquiries_and_due_follow_ups()
     {
         await using var scope = _fixture.CreateScope();

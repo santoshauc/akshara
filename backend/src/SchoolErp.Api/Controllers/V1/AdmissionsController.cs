@@ -21,6 +21,31 @@ public sealed class AdmissionsController : ControllerBase
 
     public AdmissionsController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// A public website's enquiry form posts here — anonymous, tightly
+    /// rate-limited, resolved by school code. Always answers 202 so the form
+    /// can't be used to probe which codes exist beyond the branding endpoint.
+    /// </summary>
+    [HttpPost("public")]
+    [Microsoft.AspNetCore.Authorization.AllowAnonymous]
+    [Microsoft.AspNetCore.RateLimiting.EnableRateLimiting("auth")]
+    [ProducesResponseType(StatusCodes.Status202Accepted)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> SubmitPublic(
+        [FromBody] SubmitPublicEnquiryCommand command, CancellationToken ct)
+    {
+        try
+        {
+            await _sender.Send(command, ct);
+        }
+        catch (SchoolErp.Application.Common.Exceptions.NotFoundException)
+        {
+            // Unknown school code — same 202 as success, nothing to probe.
+        }
+
+        return Accepted();
+    }
+
     /// <summary>The board: follow-ups due first; optional status filter.</summary>
     [HttpGet]
     [HasPermission(Permissions.Admissions.View)]

@@ -6,6 +6,7 @@
 @inject HttpClient Http
 @inject IJSRuntime Js
 @inject AuthenticationStateProvider AuthState
+@inject LocalizationService L
 
 <MudThemeProvider @bind-IsDarkMode="_isDarkMode" Theme="_theme" />
 <MudDialogProvider />
@@ -28,10 +29,14 @@
         <MudText Typo="Typo.h6" Class="ml-2">@(_branding?.Name ?? "Akshara Admin")</MudText>
         @if (_branding is not null)
         {
-            <MudText Typo="Typo.caption" Class="ml-2" Style="opacity: 0.75;">on Akshara</MudText>
+            <MudText Typo="Typo.caption" Class="ml-2" Style="opacity: 0.75;">@L["chrome.onAkshara"]</MudText>
         }
         <MudSpacer />
-        <MudTooltip Text="Toggle dark mode">
+        <MudButton Size="Size.Small" Color="Color.Inherit" Style="min-width: 44px;"
+                   OnClick="@(() => SetLanguageAsync(L.Language == "en" ? "te" : "en"))">
+            @(L.Language == "en" ? "తెలుగు" : "EN")
+        </MudButton>
+        <MudTooltip Text="@L["chrome.darkMode"]">
             <MudIconButton Icon="@(_isDarkMode ? Icons.Material.Filled.LightMode : Icons.Material.Filled.DarkMode)"
                            Color="Color.Inherit" OnClick="@(() => _isDarkMode = !_isDarkMode)" />
         </MudTooltip>
@@ -41,83 +46,83 @@
                     <MudMenuItem Disabled="true">@context.User.Identity?.Name</MudMenuItem>
                 </Authorized>
             </AuthorizeView>
-            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("devices"))">My devices</MudMenuItem>
-            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("security"))">Security</MudMenuItem>
+            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("devices"))">@L["chrome.myDevices"]</MudMenuItem>
+            <MudMenuItem OnClick="@(() => Navigation.NavigateTo("security"))">@L["chrome.security"]</MudMenuItem>
             <MudDivider />
-            <MudMenuItem OnClick="LogoutAsync">Sign out</MudMenuItem>
+            <MudMenuItem OnClick="LogoutAsync">@L["chrome.signOut"]</MudMenuItem>
         </MudMenu>
     </MudAppBar>
     <MudDrawer @bind-Open="_drawerOpen" Elevation="1" ClipMode="DrawerClipMode.Always">
         <MudNavMenu>
             <MudNavLink Href="" Match="NavLinkMatch.All" Icon="@Icons.Material.Filled.Dashboard">
-                Dashboard
+                @L["nav.dashboard"]
             </MudNavLink>
             @if (_isPlatformUser)
             {
                 <MudNavLink Href="tenants" Icon="@Icons.Material.Filled.School">
-                    Schools
+                    @L["nav.schools"]
                 </MudNavLink>
             }
             <MudDivider Class="my-2" />
             <MudNavLink Href="academics" Icon="@Icons.Material.Filled.CalendarMonth">
-                Academics
+                @L["nav.academics"]
             </MudNavLink>
             <MudNavLink Href="students" Icon="@Icons.Material.Filled.Groups">
-                Students
+                @L["nav.students"]
             </MudNavLink>
             <MudNavLink Href="admissions" Icon="@Icons.Material.Filled.PersonAddAlt1">
-                Admissions
+                @L["nav.admissions"]
             </MudNavLink>
             <MudNavLink Href="attendance" Icon="@Icons.Material.Filled.EventAvailable">
-                Attendance
+                @L["nav.attendance"]
             </MudNavLink>
             <MudNavLink Href="exams" Icon="@Icons.Material.Filled.Quiz">
-                Exams
+                @L["nav.exams"]
             </MudNavLink>
             <MudNavLink Href="fees" Icon="@Icons.Material.Filled.Payments">
-                Fees
+                @L["nav.fees"]
             </MudNavLink>
             <MudNavLink Href="homework" Icon="@Icons.Material.Filled.MenuBook">
-                Homework
+                @L["nav.homework"]
             </MudNavLink>
             <MudNavLink Href="notices" Icon="@Icons.Material.Filled.Campaign">
-                Notices
+                @L["nav.notices"]
             </MudNavLink>
             <MudNavLink Href="transport" Icon="@Icons.Material.Filled.DirectionsBus">
-                Transport
+                @L["nav.transport"]
             </MudNavLink>
             <MudNavLink Href="timetable" Icon="@Icons.Material.Filled.CalendarViewWeek">
-                Timetable
+                @L["nav.timetable"]
             </MudNavLink>
             <MudNavLink Href="teachers" Icon="@Icons.Material.Filled.Badge">
-                Teachers
+                @L["nav.teachers"]
             </MudNavLink>
             <MudNavLink Href="library" Icon="@Icons.Material.Filled.LocalLibrary">
-                Library
+                @L["nav.library"]
             </MudNavLink>
             <MudNavLink Href="hostel" Icon="@Icons.Material.Filled.Bed">
-                Hostel
+                @L["nav.hostel"]
             </MudNavLink>
             <MudNavLink Href="leave" Icon="@Icons.Material.Filled.EventBusy">
-                Leave
+                @L["nav.leave"]
             </MudNavLink>
             <MudNavLink Href="messages" Icon="@Icons.Material.Filled.Forum">
-                Messages
+                @L["nav.messages"]
             </MudNavLink>
             <MudNavLink Href="users" Icon="@Icons.Material.Filled.ManageAccounts">
-                Users &amp; roles
+                @L["nav.users"]
             </MudNavLink>
             <MudNavLink Href="insights" Icon="@Icons.Material.Filled.Insights">
-                Insights
+                @L["nav.insights"]
             </MudNavLink>
             @if (!_isPlatformUser)
             {
                 <MudNavLink Href="subscription" Icon="@Icons.Material.Filled.CardMembership">
-                    Subscription
+                    @L["nav.subscription"]
                 </MudNavLink>
             }
             <MudNavLink Href="audit" Icon="@Icons.Material.Filled.History">
-                Audit log
+                @L["nav.audit"]
             </MudNavLink>
         </MudNavMenu>
     </MudDrawer>
@@ -169,6 +174,8 @@
     {
         Navigation.LocationChanged += OnLocationChanged;
         AuthState.AuthenticationStateChanged += OnAuthStateChanged;
+        L.Changed += OnLanguageChanged;
+        await L.InitializeAsync();
         await RefreshPrincipalAsync();
         await LoadBrandingAsync();
     }
@@ -232,10 +239,15 @@
         _ = LoadBrandingAsync();
     }
 
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    private Task SetLanguageAsync(string language) => L.SetLanguageAsync(language);
+
     public void Dispose()
     {
         Navigation.LocationChanged -= OnLocationChanged;
         AuthState.AuthenticationStateChanged -= OnAuthStateChanged;
+        L.Changed -= OnLanguageChanged;
     }
 
     private async Task LogoutAsync()

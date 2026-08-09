@@ -1,46 +1,46 @@
 @page "/students"
 @attribute [Authorize]
+@implements IDisposable
 @inject StudentsClient Client
 @inject AcademicsClient AcademicsApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject IJSRuntime Js
+@inject LocalizationService L
 
 <PageTitle>Students — Akshara</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">Students</MudText>
+    <MudText Typo="Typo.h4">@L["students.title"]</MudText>
     <MudSpacer />
     <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.Download"
                OnClick="ExportAsync">
-        Export
+        @L["students.export"]
     </MudButton>
     <MudButton Variant="Variant.Outlined" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.UploadFile"
                OnClick="@(() => _importOpen = !_importOpen)">
-        Import from Excel
+        @L["students.import"]
     </MudButton>
     <MudButton Variant="Variant.Filled" Color="Color.Primary"
                StartIcon="@Icons.Material.Filled.PersonAdd"
                OnClick="@(() => Navigation.NavigateTo("students/admit"))">
-        Admit student
+        @L["students.admit"]
     </MudButton>
 </MudStack>
 
 @if (_importOpen)
 {
     <MudPaper Elevation="2" Class="pa-6 mb-4">
-        <MudText Typo="Typo.h6" Class="mb-1">Bulk import from Excel</MudText>
+        <MudText Typo="Typo.h6" Class="mb-1">@L["students.importTitle"]</MudText>
         <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-            1. Download the template — it lists this school's classes and sections.
-            2. Fill one student per row. 3. Upload the file. Nothing is imported
-            unless every row is valid, so a half-filled school can never happen.
+            @L["students.importHelp"]
         </MudText>
         <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
             <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Download"
                        Disabled="_importBusy" OnClick="DownloadTemplateAsync">
-                Download template
+                @L["students.downloadTemplate"]
             </MudButton>
             <MudFileUpload T="IBrowserFile" FilesChanged="UploadAsync"
                            Accept=".xlsx" MaximumFileCount="1" Class="mt-0">
@@ -49,7 +49,7 @@
                                Variant="Variant.Filled" Color="Color.Primary"
                                StartIcon="@Icons.Material.Filled.UploadFile"
                                Disabled="_importBusy">
-                        @(_importBusy ? "Importing…" : "Upload filled template")
+                        @(_importBusy ? L["students.importing"] : L["students.uploadTemplate"])
                     </MudButton>
                 </ButtonTemplate>
             </MudFileUpload>
@@ -73,7 +73,7 @@
                 </MudAlert>
                 <MudSimpleTable Dense="true" Class="mt-2">
                     <thead>
-                        <tr><th style="width: 90px;">Row</th><th>Problem</th></tr>
+                        <tr><th style="width: 90px;">@L["students.rowHeader"]</th><th>@L["students.problemHeader"]</th></tr>
                     </thead>
                     <tbody>
                         @foreach (var error in result.Errors)
@@ -89,18 +89,18 @@
 
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-        <MudTextField @bind-Value="_search" Label="Search name or admission no."
+        <MudTextField @bind-Value="_search" Label="@L["students.search"]"
                       Adornment="Adornment.Start" AdornmentIcon="@Icons.Material.Filled.Search"
                       Immediate="true" DebounceInterval="400"
                       OnDebounceIntervalElapsed="ReloadAsync" Style="min-width: 260px;" />
-        <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Clearable="true"
+        <MudSelect T="Guid?" @bind-Value="_classId" Label="@L["students.class"]" Clearable="true"
                    Style="min-width: 160px;" SelectedValuesChanged="@(_ => OnClassChangedAsync())">
             @foreach (var schoolClass in _classes)
             {
                 <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
             }
         </MudSelect>
-        <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Clearable="true"
+        <MudSelect T="Guid?" @bind-Value="_sectionId" Label="@L["students.section"]" Clearable="true"
                    Style="min-width: 140px;" Disabled="@(_classId is null)"
                    SelectedValuesChanged="@(_ => ReloadAsync())">
             @foreach (var sec in SectionsOfSelectedClass)
@@ -108,7 +108,7 @@
                 <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
             }
         </MudSelect>
-        <MudSelect T="StudentStatus?" @bind-Value="_status" Label="Status" Clearable="true"
+        <MudSelect T="StudentStatus?" @bind-Value="_status" Label="@L["students.status"]" Clearable="true"
                    Style="min-width: 160px;" SelectedValuesChanged="@(_ => ReloadAsync())">
             <MudSelectItem T="StudentStatus?" Value="StudentStatus.Active">Active</MudSelectItem>
             <MudSelectItem T="StudentStatus?" Value="StudentStatus.Suspended">Suspended</MudSelectItem>
@@ -123,41 +123,41 @@
     <HeaderContent>
         <MudTh>
             <MudTableSortLabel T="StudentListItemDto" SortLabel="admissionNumber">
-                Admission no.
+                @L["students.admissionNo"]
             </MudTableSortLabel>
         </MudTh>
         <MudTh>
             <MudTableSortLabel T="StudentListItemDto" SortLabel="name" InitialDirection="SortDirection.Ascending">
-                Name
+                @L["students.name"]
             </MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="class">Class</MudTableSortLabel>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="class">@L["students.class"]</MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="section">Section</MudTableSortLabel>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="section">@L["students.section"]</MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="roll">Roll</MudTableSortLabel>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="roll">@L["students.roll"]</MudTableSortLabel>
         </MudTh>
         <MudTh>
-            <MudTableSortLabel T="StudentListItemDto" SortLabel="status">Status</MudTableSortLabel>
+            <MudTableSortLabel T="StudentListItemDto" SortLabel="status">@L["students.status"]</MudTableSortLabel>
         </MudTh>
     </HeaderContent>
     <RowTemplate>
-        <MudTd DataLabel="Admission no.">
+        <MudTd DataLabel="@L["students.admissionNo"]">
             <MudText Typo="Typo.body2" Class="font-weight-bold">@context.AdmissionNumber</MudText>
         </MudTd>
-        <MudTd DataLabel="Name">@context.FirstName @context.LastName</MudTd>
-        <MudTd DataLabel="Class">@(context.ClassName ?? "—")</MudTd>
-        <MudTd DataLabel="Section">@(context.SectionName ?? "—")</MudTd>
-        <MudTd DataLabel="Roll">@(context.RollNumber?.ToString() ?? "—")</MudTd>
-        <MudTd DataLabel="Status">
+        <MudTd DataLabel="@L["students.name"]">@context.FirstName @context.LastName</MudTd>
+        <MudTd DataLabel="@L["students.class"]">@(context.ClassName ?? "—")</MudTd>
+        <MudTd DataLabel="@L["students.section"]">@(context.SectionName ?? "—")</MudTd>
+        <MudTd DataLabel="@L["students.roll"]">@(context.RollNumber?.ToString() ?? "—")</MudTd>
+        <MudTd DataLabel="@L["students.status"]">
             <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">@context.Status</MudChip>
         </MudTd>
     </RowTemplate>
     <NoRecordsContent>
-        <MudText Class="pa-6">No students found. Admit the first one.</MudText>
+        <MudText Class="pa-6">@L["students.none"]</MudText>
     </NoRecordsContent>
     <PagerContent>
         <MudTablePager PageSizeOptions="new[] { 10, 20, 50 }" />
@@ -165,6 +165,12 @@
 </MudTable>
 
 @code {
+    protected override void OnInitialized() => L.Changed += OnLanguageChanged;
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+
     private MudTable<StudentListItemDto>? _table;
     private List<SchoolClassDto> _classes = [];
     private string _search = string.Empty;

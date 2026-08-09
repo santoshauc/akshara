@@ -1,14 +1,22 @@
 @page "/login"
 @layout EmptyLayout
+@implements IDisposable
 @inject AuthApiClient AuthApi
 @inject NavigationManager Navigation
 @inject IJSRuntime Js
+@inject LocalizationService L
 
 <PageTitle>Sign in — Akshara</PageTitle>
 
 <MudContainer MaxWidth="MaxWidth.ExtraSmall" Class="d-flex align-center" Style="min-height: 100vh;">
     <MudPaper Elevation="4" Class="pa-8" Style="width: 100%;">
         <MudStack Spacing="4">
+            <MudStack Row="true" Justify="Justify.FlexEnd">
+                <MudButton Size="Size.Small" Variant="Variant.Text"
+                           OnClick="@(() => L.SetLanguageAsync(L.Language == "en" ? "te" : "en"))">
+                    @(L.Language == "en" ? "తెలుగు" : "EN")
+                </MudButton>
+            </MudStack>
             <MudStack Row="false" AlignItems="AlignItems.Center" Spacing="1">
                 <MudIcon Icon="@Icons.Material.Filled.School" Color="Color.Primary" Size="Size.Large" />
                 <MudText Typo="Typo.h5">Akshara Admin</MudText>
@@ -19,12 +27,12 @@
 
             @if (_mfaToken is null)
             {
-                <MudTextField @bind-Value="_schoolCode" Label="School code"
-                              HelperText="Leave empty for platform (Super Admin) sign-in"
+                <MudTextField @bind-Value="_schoolCode" Label="@L["login.schoolCode"]"
+                              HelperText="@L["login.schoolCodeHelp"]"
                               Variant="Variant.Outlined" Immediate="true" />
-                <MudTextField @bind-Value="_login" Label="Email or phone"
+                <MudTextField @bind-Value="_login" Label="@L["login.emailOrPhone"]"
                               Variant="Variant.Outlined" Immediate="true" />
-                <MudTextField @bind-Value="_password" Label="Password"
+                <MudTextField @bind-Value="_password" Label="@L["login.password"]"
                               Variant="Variant.Outlined"
                               InputType="@(_showPassword ? InputType.Text : InputType.Password)"
                               Adornment="Adornment.End"
@@ -53,11 +61,11 @@
             {
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Size="Size.Large"
                            FullWidth="true" Disabled="@_busy" OnClick="SignInAsync">
-                    @(_busy ? "Signing in…" : "Sign in")
+                    @(_busy ? L["login.signingIn"] : L["login.signIn"])
                 </MudButton>
                 <MudButton Variant="Variant.Text" FullWidth="true"
                            OnClick="@(() => Navigation.NavigateTo("forgot-password"))">
-                    Forgot password?
+                    @L["login.forgot"]
                 </MudButton>
             }
             else
@@ -76,6 +84,16 @@
 </MudContainer>
 
 @code {
+    protected override async Task OnInitializedAsync()
+    {
+        await L.InitializeAsync();
+        L.Changed += OnLanguageChanged;
+    }
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+
     private string _schoolCode = string.Empty;
     private string _login = string.Empty;
     private string _password = string.Empty;
@@ -128,7 +146,7 @@
         }
         catch (HttpRequestException)
         {
-            _error = "Cannot reach the server. Is the API running?";
+            _error = L["login.cannotReach"];
         }
         finally
         {

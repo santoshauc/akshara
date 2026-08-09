@@ -1,0 +1,176 @@
+namespace SchoolErp.Shared.Localization;
+
+/// <summary>
+/// Portal UI strings. English is the source of truth; Telugu must cover every
+/// key (unit-enforced). Pages not yet listed here simply stay English — add
+/// keys as pages are localized. Lives in Shared so tests can verify coverage
+/// without referencing the WASM project.
+/// </summary>
+public static class PortalStrings
+{
+    public static readonly IReadOnlyDictionary<string, string> En = new Dictionary<string, string>
+    {
+        // Chrome / navigation
+        ["nav.dashboard"] = "Dashboard",
+        ["nav.schools"] = "Schools",
+        ["nav.academics"] = "Academics",
+        ["nav.students"] = "Students",
+        ["nav.admissions"] = "Admissions",
+        ["nav.attendance"] = "Attendance",
+        ["nav.exams"] = "Exams",
+        ["nav.fees"] = "Fees",
+        ["nav.homework"] = "Homework",
+        ["nav.notices"] = "Notices",
+        ["nav.transport"] = "Transport",
+        ["nav.timetable"] = "Timetable",
+        ["nav.teachers"] = "Teachers",
+        ["nav.library"] = "Library",
+        ["nav.hostel"] = "Hostel",
+        ["nav.leave"] = "Leave",
+        ["nav.messages"] = "Messages",
+        ["nav.users"] = "Users & roles",
+        ["nav.insights"] = "Insights",
+        ["nav.subscription"] = "Subscription",
+        ["nav.audit"] = "Audit log",
+        ["chrome.myDevices"] = "My devices",
+        ["chrome.security"] = "Security",
+        ["chrome.signOut"] = "Sign out",
+        ["chrome.darkMode"] = "Toggle dark mode",
+        ["chrome.onAkshara"] = "on Akshara",
+
+        // Login
+        ["login.title"] = "Sign in",
+        ["login.schoolCode"] = "School code",
+        ["login.schoolCodeHelp"] = "Leave empty for platform (Super Admin) sign-in",
+        ["login.emailOrPhone"] = "Email or phone",
+        ["login.password"] = "Password",
+        ["login.signIn"] = "Sign in",
+        ["login.signingIn"] = "Signing in…",
+        ["login.forgot"] = "Forgot password?",
+        ["login.cannotReach"] = "Cannot reach the server. Is the API running?",
+
+        // Dashboard
+        ["home.title"] = "Dashboard",
+        ["home.attendanceToday"] = "Attendance today",
+        ["home.notMarked"] = "Not marked",
+        ["home.activeStudentsSuffix"] = "active students",
+        ["home.markedPresent"] = "of {0} marked present",
+        ["home.feesThisMonth"] = "Fees collected this month",
+        ["home.overdueBooks"] = "Overdue library books",
+        ["home.activeStudents"] = "Active students",
+        ["home.upcomingExams"] = "Upcoming exams",
+        ["home.nothingScheduled"] = "Nothing scheduled ahead.",
+        ["home.needsAttention"] = "Needs attention",
+        ["home.pendingLeave"] = "Pending leave requests",
+        ["home.unreadMessages"] = "Unread parent messages",
+        ["home.openEnquiries"] = "Open admission enquiries",
+        ["home.followUpsDue"] = "Enquiry follow-ups due",
+
+        // Students
+        ["students.title"] = "Students",
+        ["students.export"] = "Export",
+        ["students.import"] = "Import from Excel",
+        ["students.admit"] = "Admit student",
+        ["students.search"] = "Search name or admission no.",
+        ["students.class"] = "Class",
+        ["students.section"] = "Section",
+        ["students.status"] = "Status",
+        ["students.admissionNo"] = "Admission no.",
+        ["students.name"] = "Name",
+        ["students.roll"] = "Roll",
+        ["students.none"] = "No students found. Admit the first one.",
+        ["students.importTitle"] = "Bulk import from Excel",
+        ["students.importHelp"] =
+            "1. Download the template — it lists this school's classes and sections. " +
+            "2. Fill one student per row. 3. Upload the file. Nothing is imported " +
+            "unless every row is valid, so a half-filled school can never happen.",
+        ["students.downloadTemplate"] = "Download template",
+        ["students.uploadTemplate"] = "Upload filled template",
+        ["students.importing"] = "Importing…",
+        ["students.rowHeader"] = "Row",
+        ["students.problemHeader"] = "Problem",
+    };
+
+    public static readonly IReadOnlyDictionary<string, string> Te = new Dictionary<string, string>
+    {
+        // Chrome / navigation
+        ["nav.dashboard"] = "డాష్‌బోర్డ్",
+        ["nav.schools"] = "పాఠశాలలు",
+        ["nav.academics"] = "విద్యా వ్యవహారాలు",
+        ["nav.students"] = "విద్యార్థులు",
+        ["nav.admissions"] = "ప్రవేశాలు",
+        ["nav.attendance"] = "హాజరు",
+        ["nav.exams"] = "పరీక్షలు",
+        ["nav.fees"] = "ఫీజులు",
+        ["nav.homework"] = "హోంవర్క్",
+        ["nav.notices"] = "ప్రకటనలు",
+        ["nav.transport"] = "రవాణా",
+        ["nav.timetable"] = "కాలపట్టిక",
+        ["nav.teachers"] = "ఉపాధ్యాయులు",
+        ["nav.library"] = "గ్రంథాలయం",
+        ["nav.hostel"] = "వసతిగృహం",
+        ["nav.leave"] = "సెలవులు",
+        ["nav.messages"] = "సందేశాలు",
+        ["nav.users"] = "వినియోగదారులు & పాత్రలు",
+        ["nav.insights"] = "అంతర్దృష్టులు",
+        ["nav.subscription"] = "చందా",
+        ["nav.audit"] = "ఆడిట్ లాగ్",
+        ["chrome.myDevices"] = "నా పరికరాలు",
+        ["chrome.security"] = "భద్రత",
+        ["chrome.signOut"] = "సైన్ అవుట్",
+        ["chrome.darkMode"] = "డార్క్ మోడ్ మార్చండి",
+        ["chrome.onAkshara"] = "అక్షరపై",
+
+        // Login
+        ["login.title"] = "సైన్ ఇన్",
+        ["login.schoolCode"] = "స్కూల్ కోడ్",
+        ["login.schoolCodeHelp"] = "ప్లాట్‌ఫారమ్ (సూపర్ అడ్మిన్) సైన్-ఇన్ కోసం ఖాళీగా వదలండి",
+        ["login.emailOrPhone"] = "ఇమెయిల్ లేదా ఫోన్",
+        ["login.password"] = "పాస్‌వర్డ్",
+        ["login.signIn"] = "సైన్ ఇన్",
+        ["login.signingIn"] = "సైన్ ఇన్ అవుతోంది…",
+        ["login.forgot"] = "పాస్‌వర్డ్ మర్చిపోయారా?",
+        ["login.cannotReach"] = "సర్వర్‌ను చేరుకోలేకపోతున్నాం. API నడుస్తోందా?",
+
+        // Dashboard
+        ["home.title"] = "డాష్‌బోర్డ్",
+        ["home.attendanceToday"] = "ఈరోజు హాజరు",
+        ["home.notMarked"] = "నమోదు కాలేదు",
+        ["home.activeStudentsSuffix"] = "క్రియాశీల విద్యార్థులు",
+        ["home.markedPresent"] = "{0} లో హాజరైనవారు",
+        ["home.feesThisMonth"] = "ఈ నెల వసూలైన ఫీజులు",
+        ["home.overdueBooks"] = "గడువు దాటిన గ్రంథాలయ పుస్తకాలు",
+        ["home.activeStudents"] = "క్రియాశీల విద్యార్థులు",
+        ["home.upcomingExams"] = "రాబోయే పరీక్షలు",
+        ["home.nothingScheduled"] = "ముందుగా ఏమీ షెడ్యూల్ కాలేదు.",
+        ["home.needsAttention"] = "దృష్టి అవసరం",
+        ["home.pendingLeave"] = "పెండింగ్ సెలవు అభ్యర్థనలు",
+        ["home.unreadMessages"] = "చదవని తల్లిదండ్రుల సందేశాలు",
+        ["home.openEnquiries"] = "తెరిచి ఉన్న ప్రవేశ విచారణలు",
+        ["home.followUpsDue"] = "గడువు వచ్చిన ఫాలో-అప్‌లు",
+
+        // Students
+        ["students.title"] = "విద్యార్థులు",
+        ["students.export"] = "ఎగుమతి",
+        ["students.import"] = "Excel నుండి దిగుమతి",
+        ["students.admit"] = "విద్యార్థి ప్రవేశం",
+        ["students.search"] = "పేరు లేదా ప్రవేశ సంఖ్యతో వెతకండి",
+        ["students.class"] = "తరగతి",
+        ["students.section"] = "సెక్షన్",
+        ["students.status"] = "స్థితి",
+        ["students.admissionNo"] = "ప్రవేశ సంఖ్య",
+        ["students.name"] = "పేరు",
+        ["students.roll"] = "రోల్",
+        ["students.none"] = "విద్యార్థులు కనబడలేదు. మొదటి ప్రవేశం చేయండి.",
+        ["students.importTitle"] = "Excel నుండి బల్క్ దిగుమతి",
+        ["students.importHelp"] =
+            "1. టెంప్లేట్ డౌన్‌లోడ్ చేయండి — అందులో ఈ పాఠశాల తరగతులు, సెక్షన్లు ఉంటాయి. " +
+            "2. ఒక్కో వరుసలో ఒక విద్యార్థిని నింపండి. 3. ఫైల్ అప్‌లోడ్ చేయండి. ప్రతి వరుస " +
+            "సరిగ్గా ఉంటేనే దిగుమతి జరుగుతుంది — సగం నింపిన పాఠశాల ఎప్పటికీ ఉండదు.",
+        ["students.downloadTemplate"] = "టెంప్లేట్ డౌన్‌లోడ్",
+        ["students.uploadTemplate"] = "నింపిన టెంప్లేట్ అప్‌లోడ్",
+        ["students.importing"] = "దిగుమతి అవుతోంది…",
+        ["students.rowHeader"] = "వరుస",
+        ["students.problemHeader"] = "సమస్య",
+    };
+}

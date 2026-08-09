@@ -38,7 +38,7 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Test suite: 49 unit + 108 integration = **157 green** (`dotnet test` from `school-erp/`).
+Test suite: 50 unit + 109 integration = **159 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -652,6 +652,29 @@ never in production):
   anonymous branding endpoint (debounced) — school logo, name and
   primary colour appear on the login screen before sign-in.
 - E2E verified across all of it; suite 157 green.
+
+## Portal localization (en/te) + public enquiry form
+
+- Portal i18n mirrors the mobile apps: flat key → text dictionaries in
+  `SchoolErp.Shared.Localization.PortalStrings` (Shared so the
+  coverage unit test doesn't reference the WASM project), a scoped
+  `LocalizationService` (localStorage "akshara.lang", instant apply),
+  an EN/తెలుగు toggle in the appbar AND on the login page. LOCALIZED
+  SO FAR: chrome + all nav, Login, Home dashboard, Students (incl.
+  the import panel). Remaining pages stay English until keys are
+  added — the coverage test forces te to match en exactly.
+  PATTERN for new pages: add keys to both dictionaries, `@inject
+  LocalizationService L`, use `@L["key"]`, and subscribe
+  `L.Changed += ...InvokeAsync(StateHasChanged)` (the layout
+  re-rendering does NOT re-render @Body pages — each localized page
+  must subscribe itself; this bit us in verification).
+- Public website enquiry: POST admissions/enquiries/public —
+  anonymous, "auth" rate limit, body carries schoolCode (resolved
+  like the OTP flow via a pinned scope). Lands in the CRM as
+  New/Website; an open enquiry with the same phone is silently
+  deduplicated (public forms get resubmitted); unknown school codes
+  return the same 202 as success so the endpoint can't probe codes.
+  Integration-tested + verified live (Meghana Rao on the board).
 
 ## Conventions (follow these when adding modules)
 

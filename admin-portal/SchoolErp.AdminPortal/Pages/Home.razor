@@ -1,12 +1,14 @@
 @page "/"
 @attribute [Authorize]
+@implements IDisposable
 @inject DashboardClient Client
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
+@inject LocalizationService L
 
 <PageTitle>Dashboard — Akshara</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-6">Dashboard</MudText>
+<MudText Typo="Typo.h4" Class="mb-6">@L["home.title"]</MudText>
 
 @if (_loading)
 {
@@ -20,16 +22,16 @@ else if (_data is { } data)
                       @onclick="@(() => Navigation.NavigateTo("attendance"))">
                 <MudIcon Icon="@Icons.Material.Filled.FactCheck" Color="Color.Success" Size="Size.Large" />
                 <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Attendance today</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.attendanceToday"]</MudText>
                     <MudText Typo="Typo.h5">
                         @(data.AttendanceMarkedToday == 0
-                            ? "Not marked"
+                            ? L["home.notMarked"]
                             : $"{data.AttendanceTodayPercent:0.#}%")
                     </MudText>
                     <MudText Typo="Typo.caption" Class="mud-text-secondary">
                         @(data.AttendanceMarkedToday == 0
-                            ? $"{data.ActiveStudents} active students"
-                            : $"{data.PresentToday} of {data.AttendanceMarkedToday} marked present")
+                            ? $"{data.ActiveStudents} {L["home.activeStudentsSuffix"]}"
+                            : $"{data.PresentToday} {string.Format(L["home.markedPresent"], data.AttendanceMarkedToday)}")
                     </MudText>
                 </div>
             </MudPaper>
@@ -40,7 +42,7 @@ else if (_data is { } data)
                       @onclick="@(() => Navigation.NavigateTo("fees"))">
                 <MudIcon Icon="@Icons.Material.Filled.CurrencyRupee" Color="Color.Primary" Size="Size.Large" />
                 <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Fees collected this month</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.feesThisMonth"]</MudText>
                     <MudText Typo="Typo.h5">₹@data.FeesCollectedThisMonth.ToString("N0")</MudText>
                 </div>
             </MudPaper>
@@ -52,7 +54,7 @@ else if (_data is { } data)
                 <MudIcon Icon="@Icons.Material.Filled.MenuBook"
                          Color="@(data.OverdueLoans > 0 ? Color.Error : Color.Default)" Size="Size.Large" />
                 <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Overdue library books</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.overdueBooks"]</MudText>
                     <MudText Typo="Typo.h5">@data.OverdueLoans</MudText>
                 </div>
             </MudPaper>
@@ -62,7 +64,7 @@ else if (_data is { } data)
             <MudPaper Elevation="2" Class="pa-6 d-flex align-center gap-4">
                 <MudIcon Icon="@Icons.Material.Filled.Groups" Color="Color.Secondary" Size="Size.Large" />
                 <div>
-                    <MudText Typo="Typo.body2" Class="mud-text-secondary">Active students</MudText>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">@L["home.activeStudents"]</MudText>
                     <MudText Typo="Typo.h5">@data.ActiveStudents</MudText>
                 </div>
             </MudPaper>
@@ -70,10 +72,10 @@ else if (_data is { } data)
 
         <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-6">
-                <MudText Typo="Typo.h6" Class="mb-3">Upcoming exams</MudText>
+                <MudText Typo="Typo.h6" Class="mb-3">@L["home.upcomingExams"]</MudText>
                 @if (data.UpcomingExams.Count == 0)
                 {
-                    <MudText Class="mud-text-secondary">Nothing scheduled ahead.</MudText>
+                    <MudText Class="mud-text-secondary">@L["home.nothingScheduled"]</MudText>
                 }
                 @foreach (var exam in data.UpcomingExams)
                 {
@@ -92,7 +94,7 @@ else if (_data is { } data)
 
         <MudItem xs="12" md="6">
             <MudPaper Elevation="2" Class="pa-6">
-                <MudText Typo="Typo.h6" Class="mb-3">Needs attention</MudText>
+                <MudText Typo="Typo.h6" Class="mb-3">@L["home.needsAttention"]</MudText>
                 <MudStack Spacing="2">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
                               @onclick="@(() => Navigation.NavigateTo("leave"))">
@@ -100,7 +102,7 @@ else if (_data is { } data)
                                  Color="@(data.PendingLeaveRequests > 0 ? Color.Warning : Color.Default)">
                             @data.PendingLeaveRequests
                         </MudChip>
-                        <MudText>Pending leave requests</MudText>
+                        <MudText>@L["home.pendingLeave"]</MudText>
                     </MudStack>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
                               @onclick="@(() => Navigation.NavigateTo("messages"))">
@@ -108,7 +110,7 @@ else if (_data is { } data)
                                  Color="@(data.UnreadParentMessages > 0 ? Color.Error : Color.Default)">
                             @data.UnreadParentMessages
                         </MudChip>
-                        <MudText>Unread parent messages</MudText>
+                        <MudText>@L["home.unreadMessages"]</MudText>
                     </MudStack>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
                               @onclick="@(() => Navigation.NavigateTo("admissions"))">
@@ -116,7 +118,7 @@ else if (_data is { } data)
                                  Color="@(data.OpenEnquiries > 0 ? Color.Info : Color.Default)">
                             @data.OpenEnquiries
                         </MudChip>
-                        <MudText>Open admission enquiries</MudText>
+                        <MudText>@L["home.openEnquiries"]</MudText>
                     </MudStack>
                     <MudStack Row="true" AlignItems="AlignItems.Center" Style="cursor:pointer;"
                               @onclick="@(() => Navigation.NavigateTo("admissions"))">
@@ -124,7 +126,7 @@ else if (_data is { } data)
                                  Color="@(data.EnquiryFollowUpsDueToday > 0 ? Color.Warning : Color.Default)">
                             @data.EnquiryFollowUpsDueToday
                         </MudChip>
-                        <MudText>Enquiry follow-ups due</MudText>
+                        <MudText>@L["home.followUpsDue"]</MudText>
                     </MudStack>
                 </MudStack>
             </MudPaper>
@@ -140,6 +142,12 @@ else
 }
 
 @code {
+    protected override void OnInitialized() => L.Changed += OnLanguageChanged;
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+
     private DashboardDto? _data;
     private bool _loading = true;
 
