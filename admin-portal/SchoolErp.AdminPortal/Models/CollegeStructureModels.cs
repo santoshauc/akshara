@@ -12,7 +12,8 @@ public sealed record ProgrammeDto(
     int DurationYears,
     int TermsPerYear,
     bool IsActive,
-    int Cohorts);
+    int Cohorts,
+    int Students);
 
 /// <summary>A department with the programmes it runs.</summary>
 public sealed record DepartmentDto(

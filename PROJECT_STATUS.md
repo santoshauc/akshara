@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 176 integration = **241 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 178 integration = **243 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -906,10 +906,43 @@ classes-and-sections shape of a K-12 school. Closed.
 - Browser-verified: college admin sees Departments in the nav and the
   programme picker on the class form; creating "MCA Semester 1" against MCA
   moved its cohort count from — to 1; the school admin sees neither.
-- STILL OPEN: students still enroll into a class/section, not into a
-  programme + semester directly, and nothing renames "class" to "semester" in
-  the rest of the UI for a college.
-  Suite: 65 unit + 176 integration.
+  Suite at that point: 65 unit + 176 integration.
+
+### Enrolling into a programme (same branch line, feature/college-enrollment)
+
+- `Enrollment.ProgrammeId`, STAMPED from the cohort at admission rather than
+  asked for — the caller already chose the class, and a second field could
+  only ever contradict it. Never re-read from the class afterwards either:
+  re-pointing a cohort at another programme must not rewrite what past
+  students were enrolled in.
+- Promotion stamps the programme of the class they moved INTO, so a lateral
+  move between programmes is recorded rather than inherited.
+- MIGRATION: FORCE has to come OFF around the backfill. `app_current_tenant_id()`
+  returns NULL during a migration, so `tenant_id = NULL` is NULL and the
+  policy's USING clause hides every row from the owner — the UPDATE would
+  report success having changed nothing. That is the quiet twin of the
+  campuses INSERT problem and strictly worse, because nothing errors.
+- Admission form for a college: a Programme select that narrows the cohort
+  list, and "Semester / cohort" instead of "Class". With no programme picked
+  the full list still shows, so a cohort that predates its programme is never
+  hidden from someone trying to admit into it. A school sees neither — the
+  programme list comes back empty and both the select and the relabel are
+  keyed off that, not off a second institution-type lookup.
+- Departments page gained a Students column, counted off the enrollment's own
+  programme stamp. That count is the reason the column is denormalized.
+- The demo college gained an academic year — without a current year nobody can
+  be admitted, which made it unusable rather than merely empty. Seeded via a
+  top-up path that runs even when the college already exists, since the
+  creation guard would otherwise skip it forever.
+- 2 more integration tests (admission stamps the programme and the count
+  follows; promotion into a different programme records the move and the
+  closed placement keeps its history).
+- Browser-verified: admitted Rahul Sharma into MCA Semester 1, MCA went from
+  1 cohort / — students to 1 / 1; the school's admit form still says "Class"
+  with no Programme field.
+- STILL OPEN: the rest of the college UI (attendance, timetable, exams) still
+  says "class" where a college would say "semester".
+  Suite: 65 unit + 178 integration.
 
 ## Super Admin dashboard (feature/platform-dashboard)
 
@@ -1465,5 +1498,12 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
 - A cross-tenant aggregate over an RLS'd table returns ZERO ROWS, not an
   error. Nothing fails; the number is just quietly wrong. Platform-wide counts
   must go through `app_platform_tenant_counts()`.
+- Same trap, worse: a migration that UPDATEs an RLS'd table matches NO rows,
+  because `app_current_tenant_id()` is NULL there and the policy's USING
+  clause hides everything from the owner. Wrap data backfills in
+  `NO FORCE ROW LEVEL SECURITY` … `FORCE ROW LEVEL SECURITY`.
+- MudBlazor popovers render on Blazor's async loop: reading `.mud-list-item`
+  in the same JS tick as the click that opens the select returns an empty
+  list. Read in a second call, or you will "confirm" a bug that isn't there.
 - MudChart bar charts pick their own y-axis: a max of 2 gets drawn against
   0–20 and reads as "nothing happened". Pass ChartOptions for small integers.

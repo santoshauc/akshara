@@ -192,6 +192,7 @@ else
                             <MudTh>Level</MudTh>
                             <MudTh>Structure</MudTh>
                             <MudTh>Cohorts</MudTh>
+                            <MudTh>Students</MudTh>
                             <MudTh>Status</MudTh>
                             <MudTh />
                         </HeaderContent>
@@ -207,6 +208,11 @@ else
                                 @* Classes actually pointed at this programme —
                                    the link between structure and teaching. *@
                                 @(context.Cohorts == 0 ? "—" : context.Cohorts.ToString())
+                            </MudTd>
+                            <MudTd DataLabel="Students">
+                                @* Enrolled this year, counted off the
+                                   enrollment's own programme stamp. *@
+                                @(context.Students == 0 ? "—" : context.Students.ToString())
                             </MudTd>
                             <MudTd DataLabel="Status">
                                 <AkStatusBadge Label="@(context.IsActive ? "Running" : "Closed")"

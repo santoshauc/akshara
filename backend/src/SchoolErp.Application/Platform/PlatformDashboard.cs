@@ -307,7 +307,7 @@ public sealed class GetPlatformDashboardQueryHandler
         "Contractual MRR/ARR — no recurring price is stored per school; the annualised figure is the list rate applied to enrolled students.",
     ];
 
-    private static int StudentsOf(IReadOnlyDictionary<Guid, TenantCounts> counts, Guid tenantId) =>
+    private static int StudentsOf(Dictionary<Guid, TenantCounts> counts, Guid tenantId) =>
         counts.TryGetValue(tenantId, out var c) ? c.ActiveStudents : 0;
 
     private static List<AttentionItemDto> BuildAttention(

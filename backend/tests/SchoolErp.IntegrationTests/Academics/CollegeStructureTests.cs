@@ -7,8 +7,11 @@ using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Academics;
 using SchoolErp.Application.Common.Exceptions;
+using SchoolErp.Application.Students;
+using SchoolErp.Application.Students.Commands;
 using SchoolErp.Domain.Academics;
 using SchoolErp.Domain.Staff;
+using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Infrastructure;
 using SchoolErp.Infrastructure.Persistence;
@@ -249,6 +252,93 @@ public sealed class CollegeStructureTests : IClassFixture<CollegeStructureFixtur
 
         grade5.ProgrammeId.Should().BeNull();
         (await sender.Send(new GetDepartmentsQuery())).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Admitting_into_a_cohort_records_the_programme_on_the_enrollment()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 6, 1), new DateOnly(2027, 4, 30), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+
+        var deptId = await sender.Send(new CreateDepartmentCommand("Economics", "ECO", null));
+        var programmeId = await sender.Send(new CreateProgrammeCommand(
+            deptId, "B.A Economics", "BAECO", ProgrammeLevel.Undergraduate, 3, 2));
+        var cohort = await sender.Send(new CreateClassCommand(
+            "B.A Economics Semester 1", 1, ["A"], programmeId));
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Meera", "Nair", new DateOnly(2007, 4, 2), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), yearId, cohort.Id, cohort.Sections.Single().Id, 1,
+            [new GuardianInput("Suresh", "Nair", GuardianRelation.Father, "+919700000200", null, null, true)]));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollment = await db.Enrollments.SingleAsync(e => e.StudentId == studentId);
+        enrollment.ProgrammeId.Should().Be(programmeId,
+            "the programme is stamped from the cohort, not asked for separately");
+
+        // And it is what the departments screen counts heads with.
+        var programme = (await sender.Send(new GetDepartmentsQuery()))
+            .Single().Programmes.Single();
+        programme.Students.Should().Be(1);
+        programme.Cohorts.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task Promotion_records_the_programme_the_student_moved_into()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 6, 1), new DateOnly(2027, 4, 30), MakeCurrent: true));
+        await sender.Send(new CreateAcademicYearCommand(
+            "2027-28", new DateOnly(2027, 6, 1), new DateOnly(2028, 4, 30), MakeCurrent: false));
+        var years = await sender.Send(new GetAcademicYearsQuery());
+        var fromYear = years.Single(y => y.Name == "2026-27");
+        var toYear = years.Single(y => y.Name == "2027-28");
+
+        var deptId = await sender.Send(new CreateDepartmentCommand("Design", "DSGN", null));
+        var diploma = await sender.Send(new CreateProgrammeCommand(
+            deptId, "Diploma in Design", "DIPD", ProgrammeLevel.Diploma, 2, 2));
+        var degree = await sender.Send(new CreateProgrammeCommand(
+            deptId, "B.Des Design", "BDES", ProgrammeLevel.Undergraduate, 4, 2));
+
+        var diplomaCohort = await sender.Send(new CreateClassCommand(
+            "Diploma Semester 1", 1, ["A"], diploma));
+        var degreeCohort = await sender.Send(new CreateClassCommand(
+            "B.Des Semester 1", 2, ["A"], degree));
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Kiran", "Rao", new DateOnly(2007, 9, 9), Gender.Male,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), fromYear.Id, diplomaCohort.Id,
+            diplomaCohort.Sections.Single().Id, 1,
+            [new GuardianInput("Lata", "Rao", GuardianRelation.Mother, "+919700000201", null, null, true)]));
+
+        // A lateral move into a different programme at promotion: the new
+        // enrollment must say where they actually ended up.
+        await sender.Send(new PromoteClassCommand(
+            fromYear.Id, diplomaCohort.Id, diplomaCohort.Sections.Single().Id,
+            toYear.Id, degreeCohort.Id, degreeCohort.Sections.Single().Id, []));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollments = await db.Enrollments
+            .Where(e => e.StudentId == studentId)
+            .ToListAsync();
+
+        enrollments.Should().HaveCount(2);
+        enrollments.Single(e => e.AcademicYearId == fromYear.Id).ProgrammeId.Should().Be(diploma);
+        enrollments.Single(e => e.AcademicYearId == toYear.Id).ProgrammeId.Should().Be(degree,
+            "the closed placement keeps its history and the new one records the move");
     }
 
     [Fact]

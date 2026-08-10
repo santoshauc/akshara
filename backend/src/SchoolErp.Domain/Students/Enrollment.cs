@@ -34,6 +34,15 @@ public class Enrollment : TenantEntity
 
     public Section? Section { get; set; }
 
+    /// <summary>
+    /// The programme this placement was under, at a college. Copied from the
+    /// class at admission rather than asked for, and NEVER re-read from the
+    /// class afterwards: re-pointing a cohort at a different programme must
+    /// not silently rewrite what past students were enrolled in. Null at a
+    /// school, and at a college for cohorts created before the programme was.
+    /// </summary>
+    public Guid? ProgrammeId { get; set; }
+
     public int? RollNumber { get; set; }
 
     public EnrollmentStatus Status { get; set; } = EnrollmentStatus.Active;

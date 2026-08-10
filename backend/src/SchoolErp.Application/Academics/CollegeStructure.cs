@@ -17,7 +17,9 @@ public sealed record ProgrammeDto(
     int DurationYears,
     int TermsPerYear,
     bool IsActive,
-    int Cohorts);
+    int Cohorts,
+    // Actively enrolled in the current academic year.
+    int Students);
 
 /// <summary>A department with the programmes it runs.</summary>
 public sealed record DepartmentDto(
@@ -142,6 +144,18 @@ public sealed class CollegeStructureHandlers :
             .ToDictionaryAsync(x => x.ProgrammeId, x => x.Count, cancellationToken)
             .ConfigureAwait(false);
 
+        // Counted off the enrollment's OWN programme stamp, not by walking
+        // back through the class — that is the whole reason it is stored.
+        var enrolled = await _db.Enrollments
+            .AsNoTracking()
+            .Where(e => e.ProgrammeId != null &&
+                        e.Status == Domain.Students.EnrollmentStatus.Active &&
+                        e.AcademicYear!.IsCurrent)
+            .GroupBy(e => e.ProgrammeId!.Value)
+            .Select(g => new { ProgrammeId = g.Key, Count = g.Count() })
+            .ToDictionaryAsync(x => x.ProgrammeId, x => x.Count, cancellationToken)
+            .ConfigureAwait(false);
+
         var headIds = departments
             .Where(d => d.HeadTeacherId is not null)
             .Select(d => d.HeadTeacherId!.Value)
@@ -165,7 +179,8 @@ public sealed class CollegeStructureHandlers :
                     .Select(p => new ProgrammeDto(
                         p.Id, p.DepartmentId, p.Name, p.Code, p.Level,
                         p.DurationYears, p.TermsPerYear, p.IsActive,
-                        cohorts.TryGetValue(p.Id, out var count) ? count : 0))
+                        cohorts.TryGetValue(p.Id, out var count) ? count : 0,
+                        enrolled.TryGetValue(p.Id, out var heads) ? heads : 0))
                     .ToList()))
             .ToList();
     }
