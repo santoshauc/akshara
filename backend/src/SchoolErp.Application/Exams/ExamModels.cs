@@ -29,6 +29,9 @@ public sealed record ExamSubjectDto
     public DateOnly? ExamDate { get; init; }
     public decimal MaxMarks { get; init; }
     public decimal PassMarks { get; init; }
+
+    /// <summary>Credit weight for a college paper; null at a school.</summary>
+    public int? Credits { get; init; }
 }
 
 /// <summary>One row of the marks-entry grid.</summary>
@@ -108,6 +111,7 @@ public static class ExamMappings
                     ExamDate = s.ExamDate,
                     MaxMarks = s.MaxMarks,
                     PassMarks = s.PassMarks,
+                    Credits = s.Credits,
                 })
                 .ToList(),
         };

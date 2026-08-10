@@ -36,7 +36,13 @@ public sealed record CreateSubjectRequest(string Name, string Code);
 
 /// <summary>Paper-scheduling payload (mirrors SchedulePaperRequest).</summary>
 public sealed record SchedulePaperRequest(
-    Guid SchoolClassId, Guid SubjectId, DateOnly? ExamDate, decimal MaxMarks, decimal PassMarks);
+    Guid SchoolClassId,
+    Guid SubjectId,
+    DateOnly? ExamDate,
+    decimal MaxMarks,
+    decimal PassMarks,
+    /// <summary>Credit weight for a college paper; null at a school.</summary>
+    int? Credits = null);
 
 /// <summary>One marks-grid row (mirrors MarksGridRowDto).</summary>
 public sealed record MarksGridRowDto(

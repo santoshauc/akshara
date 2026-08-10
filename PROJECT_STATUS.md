@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 181 integration = **246 green** (`dotnet test` from `school-erp/`).
+Test suite: 88 unit + 183 integration = **271 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -942,6 +942,39 @@ classes-and-sections shape of a K-12 school. Closed.
 - ~~STILL OPEN: the rest of the college UI still says "class"~~ DONE — see
   "College wording" below.
   Suite: 65 unit + 178 integration.
+
+## CBCS credits, SGPA and CGPA (feature/cbcs-credits)
+
+- `CbcsGradeCalculator` (Domain): the UGC 10-point scale — O 10, A+ 9, A 8,
+  B+ 7, B 6, C 5, P 4, F 0, Ab 0 — plus credit-weighted GPA. Deliberately
+  SEPARATE from `GradeCalculator`, which maps CBSE school bands (A1…E) and has
+  no notion of a credit; sharing one band table would make both wrong.
+- Failed and absent papers stay in the DENOMINATOR. Dropping them would
+  quietly reward failure — five O's and one F is 8.33, not 10.00.
+- No credited paper returns NULL, not 0.00: a school's exam, or a semester
+  nobody set credits on, is "not measured", not "everyone failed".
+- `ExamSubject.Credits` (nullable) — on the PAPER, not the subject, because
+  the same subject is worth different credits in different programmes.
+  Validated 1–12; a wrong credit silently skews every GPA it touches.
+- `GetStudentGradeSheetQuery` → per-semester SGPA + cumulative CGPA + credits
+  earned vs attempted, from PUBLISHED exams only (draft marks are not
+  results). `GET exams/students/{id}/grade-sheet`. When there is no GPA it
+  says WHY — "no published results yet" and "no paper carries credits" are
+  different problems and the caller should not have to guess from a null.
+- Portal: a Credits field on the schedule-paper form, college only.
+- CAVEAT recorded in the code: the UGC scale is a RECOMMENDATION. Universities
+  vary (some start O at 91, some award 5 points at 50). There is no
+  per-institution scale configuration yet, so an ordinance that differs will
+  not match.
+- 12 unit tests on the arithmetic (band boundaries, credit weighting, failure
+  in the denominator, absence, zero-credit papers, null vs zero) and 2
+  integration tests (a published MCA semester scoring 6.67 across a 4-credit A
+  and a 2-credit P; a school exam reporting no GPA with the reason).
+- NO UI for the grade sheet itself yet — it is API-only. The Credits field on
+  the schedule-paper form is the only portal change.
+- STILL MISSING: cumulative transcript PDF, arrear/supplementary exams,
+  per-student electives, student logins, per-university grade scales.
+  Suite: 88 unit + 183 integration.
 
 ## Semester promotion (feature/semester-promotion)
 

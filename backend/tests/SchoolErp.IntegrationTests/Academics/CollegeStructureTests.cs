@@ -7,6 +7,8 @@ using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Academics;
 using SchoolErp.Application.Common.Exceptions;
+using SchoolErp.Application.Exams.Commands;
+using SchoolErp.Application.Exams.Queries;
 using SchoolErp.Application.Students;
 using SchoolErp.Application.Students.Commands;
 using SchoolErp.Domain.Academics;
@@ -451,6 +453,122 @@ public sealed class CollegeStructureTests : IClassFixture<CollegeStructureFixtur
             yearId, cohort.Id, sectionId, yearId, cohort.Id, sectionId, []));
         await noop.Should().ThrowAsync<FluentValidation.ValidationException>()
             .WithMessage("*must move students somewhere*");
+    }
+
+    [Fact]
+    public async Task A_published_semester_produces_an_sgpa_and_a_cgpa()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+
+        var deptId = await sender.Send(new CreateDepartmentCommand("Computer Applications", "MCA", null));
+        var programmeId = await sender.Send(new CreateProgrammeCommand(
+            deptId, "Master of Computer Applications", "MCAP",
+            ProgrammeLevel.Postgraduate, 2, 2));
+        var sem1 = await sender.Send(new CreateClassCommand("MCA Semester 1", 1, ["A"], programmeId));
+        var sectionId = sem1.Sections.Single().Id;
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Farhan", "Sheikh", new DateOnly(2004, 2, 2), Gender.Male,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 7, 5), yearId, sem1.Id, sectionId, 1,
+            [new GuardianInput("Nasreen", "Sheikh", GuardianRelation.Mother, "+919700000400", null, null, true)]));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollmentId = await db.Enrollments
+            .Where(e => e.StudentId == studentId)
+            .Select(e => e.Id)
+            .SingleAsync();
+
+        var algorithms = await sender.Send(new CreateSubjectCommand("Algorithms", "ALG"));
+        var databases = await sender.Send(new CreateSubjectCommand("Databases", "DBMS"));
+
+        var examId = await sender.Send(new CreateExamCommand(
+            "Semester 1 End", yearId, new DateOnly(2026, 11, 20), new DateOnly(2026, 11, 30)));
+
+        // 4 credits at 75% → A (8), 2 credits at 42% → P (4).
+        // (4×8 + 2×4) / 6 = 6.67 — credit-weighted, not the 6.00 plain average.
+        var algoPaper = await sender.Send(new ScheduleExamSubjectCommand(
+            examId, sem1.Id, algorithms.Id, new DateOnly(2026, 11, 21), 100m, 40m, Credits: 4));
+        var dbPaper = await sender.Send(new ScheduleExamSubjectCommand(
+            examId, sem1.Id, databases.Id, new DateOnly(2026, 11, 24), 100m, 40m, Credits: 2));
+
+        await sender.Send(new EnterMarksCommand(algoPaper, [new MarkInput(enrollmentId, 75m, false)]));
+        await sender.Send(new EnterMarksCommand(dbPaper, [new MarkInput(enrollmentId, 42m, false)]));
+
+        // Nothing counts until results are published.
+        var draft = await sender.Send(new GetStudentGradeSheetQuery(studentId));
+        draft.Semesters.Should().BeEmpty();
+        draft.Cgpa.Should().BeNull();
+        draft.Unavailable.Should().Be("No published results yet.");
+
+        await sender.Send(new PublishExamCommand(examId));
+
+        var sheet = await sender.Send(new GetStudentGradeSheetQuery(studentId));
+
+        sheet.ProgrammeName.Should().Be("Master of Computer Applications");
+        sheet.Unavailable.Should().BeNull();
+
+        var semester = sheet.Semesters.Should().ContainSingle().Subject;
+        semester.Sgpa.Should().Be(6.67m);
+        semester.CreditsAttempted.Should().Be(6);
+        semester.CreditsEarned.Should().Be(6, "both papers were passed");
+        semester.Papers.Should().Contain(p => p.SubjectName == "Algorithms" && p.Grade == "A");
+        semester.Papers.Should().Contain(p => p.SubjectName == "Databases" && p.Grade == "P");
+
+        // One semester in, the CGPA is that semester.
+        sheet.Cgpa.Should().Be(6.67m);
+        sheet.CreditsEarned.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task A_school_exam_reports_no_gpa_rather_than_zero()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 6, 1), new DateOnly(2027, 4, 30), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+
+        // No programme, no credits — exactly how a school schedules a paper.
+        var grade5 = await sender.Send(new CreateClassCommand("Grade 5", 5, ["A"]));
+        var sectionId = grade5.Sections.Single().Id;
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Ishaan", "Verma", new DateOnly(2015, 6, 6), Gender.Male,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 6, 5), yearId, grade5.Id, sectionId, 1,
+            [new GuardianInput("Kavita", "Verma", GuardianRelation.Mother, "+919700000401", null, null, true)]));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollmentId = await db.Enrollments
+            .Where(e => e.StudentId == studentId).Select(e => e.Id).SingleAsync();
+
+        var maths = await sender.Send(new CreateSubjectCommand("Mathematics", "MATH"));
+        var examId = await sender.Send(new CreateExamCommand(
+            "Mid-Term 1", yearId, new DateOnly(2026, 9, 1), new DateOnly(2026, 9, 10)));
+        var paper = await sender.Send(new ScheduleExamSubjectCommand(
+            examId, grade5.Id, maths.Id, new DateOnly(2026, 9, 2), 100m, 33m));
+        await sender.Send(new EnterMarksCommand(paper, [new MarkInput(enrollmentId, 88m, false)]));
+        await sender.Send(new PublishExamCommand(examId));
+
+        var sheet = await sender.Send(new GetStudentGradeSheetQuery(studentId));
+
+        // The result exists; the GPA does not, and says why rather than
+        // reporting 0.00 as though the child had failed.
+        sheet.Semesters.Should().ContainSingle();
+        sheet.Semesters.Single().Sgpa.Should().BeNull();
+        sheet.Cgpa.Should().BeNull();
+        sheet.Unavailable.Should().Contain("No paper carries credits");
     }
 
     [Fact]

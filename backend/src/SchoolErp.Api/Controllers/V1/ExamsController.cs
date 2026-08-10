@@ -21,6 +21,18 @@ public sealed class ExamsController : ControllerBase
 
     public ExamsController(ISender sender) => _sender = sender;
 
+    /// <summary>
+    /// A student's cumulative grade sheet: every published semester with its
+    /// SGPA, and the CGPA across them. Colleges on a credit system; a school's
+    /// papers carry no credits, so it reports as unavailable rather than zero.
+    /// </summary>
+    [HttpGet("students/{studentId:guid}/grade-sheet")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(typeof(GradeSheetDto), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<IActionResult> GetGradeSheet(Guid studentId, CancellationToken ct) =>
+        Ok(await _sender.Send(new GetStudentGradeSheetQuery(studentId), ct));
+
     /// <summary>Lists subjects.</summary>
     [HttpGet("subjects")]
     [HasPermission(Permissions.Examinations.View)]
