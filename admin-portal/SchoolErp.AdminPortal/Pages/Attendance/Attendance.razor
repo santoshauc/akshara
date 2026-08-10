@@ -3,6 +3,7 @@
 @inject AttendanceClient Client
 @inject AcademicsClient AcademicsApi
 @inject TimetableClient TimetableApi
+@inject InstitutionContext Institution
 @inject ISnackbar Snackbar
 
 <PageTitle>Attendance — Akshara</PageTitle>
@@ -11,7 +12,7 @@
 
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-        <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Style="min-width: 160px;"
+        <MudSelect T="Guid?" @bind-Value="_classId" Label="@Institution.Cohort" Style="min-width: 160px;"
                    SelectedValuesChanged="@(_ => OnClassChangedAsync())">
             @foreach (var schoolClass in _classes)
             {
@@ -112,7 +113,9 @@ else if (_grid is { } grid)
 }
 else
 {
-    <MudAlert Severity="Severity.Info">Pick a class, section and date to load the marking grid.</MudAlert>
+    <MudAlert Severity="Severity.Info">
+        Pick a @Institution.Cohort.ToLowerInvariant(), section and date to load the marking grid.
+    </MudAlert>
 }
 
 @code {
@@ -150,6 +153,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await Institution.EnsureLoadedAsync();
         try
         {
             _classes = await AcademicsApi.GetClassesAsync();

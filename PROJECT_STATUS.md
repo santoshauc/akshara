@@ -726,12 +726,11 @@ GOTCHAS (all cost real time this session):
 
 REMAINING (in agreed order):
 1. ~~Notification localization~~ DONE — see "Notification localization" below.
-1b. ~~Campuses + institution type~~, ~~Super Admin dashboard~~ and
-   ~~departments/programmes~~ DONE — all three below. Still open from that
-   thread: enrolling a student into a programme + semester rather than a
-   class/section (and the college wording that goes with it); a stored
-   contract price per school so ARR is contractual rather than list-rate; and
-   scoped impersonation so support can see what a school sees.
+1b. College support is COMPLETE — campuses + institution type, the Super Admin
+   dashboard, departments/programmes, programme enrollment and the college
+   wording are all done (sections below). Still open from that thread: a
+   stored contract price per school so ARR is contractual rather than
+   list-rate, and scoped impersonation so support can see what a school sees.
 2. Fee refunds (mid-year withdrawals).
 3. Nine list pages onto the Students pattern: Teachers, Fees, Transport,
    Inventory, Front office, Library, Hostel, Users, Audit, Admissions.
@@ -940,9 +939,31 @@ classes-and-sections shape of a K-12 school. Closed.
 - Browser-verified: admitted Rahul Sharma into MCA Semester 1, MCA went from
   1 cohort / — students to 1 / 1; the school's admit form still says "Class"
   with no Programme field.
-- STILL OPEN: the rest of the college UI (attendance, timetable, exams) still
-  says "class" where a college would say "semester".
+- ~~STILL OPEN: the rest of the college UI still says "class"~~ DONE — see
+  "College wording" below.
   Suite: 65 unit + 178 integration.
+
+## College wording (feature/college-wording)
+
+- `Services/InstitutionContext.cs` holds the institution type and the words
+  that follow from it (`Cohort`, `CohortPlural`, `CohortAndSection`,
+  `CohortNameHint`). One place, not a conditional on every page that names the
+  concept.
+- It loads itself once from the branding endpoint, so a page never depends on
+  the layout having finished first; MainLayout `Adopt()`s the branding it
+  already fetched, so the common path costs no extra request. A failure falls
+  back to School — wording is cosmetic and must not take a page down.
+- Applied to Academics (heading, add button, name hint, empty state, promotion
+  selects), Attendance (filter + hint), Timetable, Exams (filter + table
+  header), Fees, Homework, Teachers (table header) and the admission form.
+- Browser-verified both ways: the college sees "Semesters & sections",
+  "Add semester" and "Pick a semester, section and date…"; the school still
+  sees "Classes & sections", "Add class" and "Class".
+- NOT renamed: the underlying entity is still `SchoolClass`/`school_classes`.
+  Renaming the table would touch every module for a vocabulary difference the
+  UI already absorbs.
+- GOTCHA: portal .razor files are CRLF, so a `perl -0pi` substitution anchored
+  on `\n` silently matches nothing. Check the grep after a bulk edit.
 
 ## Super Admin dashboard (feature/platform-dashboard)
 

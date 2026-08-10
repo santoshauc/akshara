@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject FeesClient Client
 @inject AcademicsClient AcademicsApi
+@inject InstitutionContext Institution
 @inject ISnackbar Snackbar
 
 <PageTitle>Fees — Akshara</PageTitle>
@@ -49,7 +50,7 @@
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
                 <MudText Typo="Typo.h6">Class fee plan</MudText>
                 <MudSpacer />
-                <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Dense="true"
+                <MudSelect T="Guid?" @bind-Value="_classId" Label="@Institution.Cohort" Dense="true"
                            Style="min-width: 160px;" SelectedValuesChanged="@(_ => LoadPlanAsync())">
                     @foreach (var schoolClass in _classes)
                     {
@@ -178,6 +179,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await Institution.EnsureLoadedAsync();
         try
         {
             var years = await AcademicsApi.GetYearsAsync();
