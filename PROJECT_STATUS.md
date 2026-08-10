@@ -44,6 +44,13 @@ once the GitHub account clears the Actions hold (see below).
 Test suite: 88 unit + 185 integration = **273 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
+## Read this first if the goal is a shipped product
+
+`docs/roadmap-production.md` is the production plan. The short version: the
+architecture is production-grade, the OPERATIONS are a proof of concept —
+never deployed, CI has never run, and `appsettings.json` carries working
+credentials. Those gate everything below and are not on this feature list.
+
 ## Remaining scope (in rough priority order)
 
 1. ~~React Native driver app~~ DONE + E2E-verified (OTP login → manifest →
