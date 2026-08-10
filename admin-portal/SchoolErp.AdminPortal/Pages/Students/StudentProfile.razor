@@ -3,6 +3,7 @@
 @inject StudentsClient Client
 @inject AttendanceClient AttendanceApi
 @inject ExamsClient ExamsApi
+@inject InstitutionContext Institution
 @inject AcademicsClient AcademicsApi
 @inject FeesClient FeesApi
 @inject InsightsClient InsightsApi
@@ -156,6 +157,94 @@ else if (_student is { } student)
                             <MudChip Size="Size.Small">Leave @month.LeaveCount</MudChip>
                         }
                     </MudStack>
+                </MudPaper>
+            }
+
+            @if (Institution.IsCollege && _gradeSheet is { } sheet)
+            {
+                @* The cumulative record a university asks for: every published
+                   semester, its SGPA, and the CGPA across them. *@
+                <MudPaper Elevation="2" Class="pa-6 mb-4">
+                    <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-1" Wrap="Wrap.Wrap">
+                        <MudText Typo="Typo.h6">Grade sheet</MudText>
+                        @if (sheet.ProgrammeName is { } programme)
+                        {
+                            <MudChip Size="Size.Small" Variant="Variant.Outlined">@programme</MudChip>
+                        }
+                        <MudSpacer />
+                        @if (sheet.Cgpa is { } cgpa)
+                        {
+                            <MudText Typo="Typo.h5">CGPA @cgpa.ToString("0.00")</MudText>
+                        }
+                    </MudStack>
+
+                    @if (sheet.Unavailable is { } reason)
+                    {
+                        @* Says which problem it is — no results yet, or nobody
+                           set credits — instead of showing a blank panel. *@
+                        <AkEmptyState Title="No GPA to show"
+                                      Icon="@Icons.Material.Outlined.Calculate"
+                                      Description="@reason" />
+                    }
+                    else
+                    {
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @sheet.CreditsEarned of @sheet.CreditsAttempted credits earned ·
+                            UGC 10-point scale
+                        </MudText>
+
+                        @foreach (var semester in sheet.Semesters)
+                        {
+                            <MudPaper Outlined="true" Class="pa-4 mt-3">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2"
+                                          Wrap="Wrap.Wrap">
+                                    <MudText Typo="Typo.subtitle1">@semester.CohortName</MudText>
+                                    <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                        @semester.ExamName · @semester.EndDate.ToString("MMM yyyy")
+                                    </MudText>
+                                    <MudSpacer />
+                                    <MudText Typo="Typo.subtitle1">
+                                        SGPA @(semester.Sgpa?.ToString("0.00") ?? "—")
+                                    </MudText>
+                                </MudStack>
+                                <MudSimpleTable Dense="true" Hover="true">
+                                    <thead>
+                                        <tr>
+                                            <th>Paper</th>
+                                            <th style="width: 80px;">Credits</th>
+                                            <th style="width: 90px;">Marks</th>
+                                            <th style="width: 80px;">Grade</th>
+                                            <th style="width: 80px;">Points</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                                        @foreach (var paper in semester.Papers)
+                                        {
+                                            <tr>
+                                                <td>@paper.SubjectName</td>
+                                                <td>@(paper.Credits == 0 ? "—" : paper.Credits.ToString())</td>
+                                                <td>
+                                                    @(paper.IsAbsent
+                                                        ? "Absent"
+                                                        : paper.Percent is { } pct ? $"{pct:0.#}%" : "—")
+                                                </td>
+                                                <td>
+                                                    <MudChip Size="Size.Small"
+                                                             Color="@(paper.GradePoint == 0 ? Color.Error : Color.Default)">
+                                                        @paper.Grade
+                                                    </MudChip>
+                                                </td>
+                                                <td>@paper.GradePoint</td>
+                                            </tr>
+                                        }
+                                    </tbody>
+                                </MudSimpleTable>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @semester.CreditsEarned of @semester.CreditsAttempted credits earned
+                                </MudText>
+                            </MudPaper>
+                        }
+                    }
                 </MudPaper>
             }
 
@@ -524,12 +613,20 @@ else if (_student is { } student)
     private bool _loading = true;
     private StudentInsightsDto? _insights;
 
+    /// <summary>Cumulative record; only a college has one.</summary>
+    private GradeSheetDto? _gradeSheet;
+
     protected override async Task OnParametersSetAsync()
     {
         _loading = true;
         try
         {
+            await Institution.EnsureLoadedAsync();
             _student = await Client.GetStudentAsync(Id);
+            if (Institution.IsCollege)
+            {
+                _gradeSheet = await ExamsApi.GetGradeSheetAsync(Id);
+            }
             var today = DateTime.Today;
             _month = await AttendanceApi.GetStudentMonthAsync(Id, today.Year, today.Month);
 

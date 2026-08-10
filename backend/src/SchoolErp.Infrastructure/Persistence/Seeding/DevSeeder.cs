@@ -4,6 +4,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using SchoolErp.Domain.Academics;
 using SchoolErp.Domain.Campuses;
+using SchoolErp.Domain.Exams;
+using SchoolErp.Domain.Students;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Infrastructure.Identity;
 using SchoolErp.Shared.Authorization;
@@ -366,18 +368,135 @@ public static partial class DevSeeder
             .SetTenant(collegeId);
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
 
-        if (await db.AcademicYears.AnyAsync().ConfigureAwait(false))
+        if (!await db.AcademicYears.AnyAsync().ConfigureAwait(false))
+        {
+            db.AcademicYears.Add(new AcademicYear
+            {
+                Name = "2026-27",
+                StartDate = new DateOnly(2026, 6, 1),
+                EndDate = new DateOnly(2027, 4, 30),
+                IsCurrent = true,
+            });
+            await db.SaveChangesAsync().ConfigureAwait(false);
+        }
+
+        await EnsureCollegeResultsAsync(db).ConfigureAwait(false);
+    }
+
+    /// <summary>
+    /// A published semester with credits and marks, so the grade sheet has an
+    /// SGPA and a CGPA to show. Without it the panel only ever renders its
+    /// empty state and nobody can tell whether the arithmetic works.
+    /// </summary>
+    private static async Task EnsureCollegeResultsAsync(AppDbContext db)
+    {
+        // Guarded on THIS exam, not on "any student": a college that already
+        // had someone admitted by hand would otherwise never get results, and
+        // the grade sheet would sit on its empty state forever.
+        const string ExamName = "Semester 1 End Examination";
+        if (await db.Exams.AnyAsync(e => e.Name == ExamName).ConfigureAwait(false))
         {
             return;
         }
 
-        db.AcademicYears.Add(new AcademicYear
+        var year = await db.AcademicYears.FirstOrDefaultAsync(y => y.IsCurrent)
+            .ConfigureAwait(false);
+        var cohort = await db.SchoolClasses
+            .Include(c => c.Sections)
+            .FirstOrDefaultAsync(c => c.Name == "B.Tech CSE Semester 1")
+            .ConfigureAwait(false);
+        if (year is null || cohort?.Sections.FirstOrDefault() is not { } section)
         {
-            Name = "2026-27",
-            StartDate = new DateOnly(2026, 6, 1),
-            EndDate = new DateOnly(2027, 4, 30),
-            IsCurrent = true,
-        });
+            return;
+        }
+
+        // Three students, so a class average means something. Skipped if a
+        // previous run already created them.
+        var names = new[] { ("Aditya", "Menon"), ("Fatima", "Khan"), ("Rohit", "Deshmukh") };
+        var enrollmentIds = new List<Guid>();
+        if (await db.Students.AnyAsync(s => s.AdmissionNumber.StartsWith("MCA-2026-"))
+                .ConfigureAwait(false))
+        {
+            return;
+        }
+
+        for (var i = 0; i < names.Length; i++)
+        {
+            var (first, last) = names[i];
+            var student = new Student
+            {
+                AdmissionNumber = $"MCA-2026-{i + 1:D3}",
+                FirstName = first,
+                LastName = last,
+                DateOfBirth = new DateOnly(2005, 1, i + 1),
+                Gender = i == 1 ? Gender.Female : Gender.Male,
+                AdmissionDate = new DateOnly(2026, 7, 1),
+                Status = StudentStatus.Active,
+            };
+            db.Students.Add(student);
+
+            var enrollment = new Enrollment
+            {
+                StudentId = student.Id,
+                AcademicYearId = year.Id,
+                SchoolClassId = cohort.Id,
+                SectionId = section.Id,
+                ProgrammeId = cohort.ProgrammeId,
+                RollNumber = i + 1,
+            };
+            db.Enrollments.Add(enrollment);
+            enrollmentIds.Add(enrollment.Id);
+        }
+
+        var maths = new Subject { Name = "Engineering Mathematics", Code = "EM1" };
+        var programming = new Subject { Name = "Programming in C", Code = "PC" };
+        db.Subjects.AddRange(maths, programming);
+
+        var exam = new Exam
+        {
+            Name = ExamName,
+            AcademicYearId = year.Id,
+            StartDate = new DateOnly(2026, 11, 20),
+            EndDate = new DateOnly(2026, 11, 30),
+            Status = ExamStatus.Published,
+        };
+        db.Exams.Add(exam);
+
+        // 4 and 3 credits — ordinary weights for a first-semester B.Tech.
+        var mathsPaper = new ExamSubject
+        {
+            ExamId = exam.Id, SchoolClassId = cohort.Id, SubjectId = maths.Id,
+            ExamDate = new DateOnly(2026, 11, 21), MaxMarks = 100, PassMarks = 40, Credits = 4,
+        };
+        var programmingPaper = new ExamSubject
+        {
+            ExamId = exam.Id, SchoolClassId = cohort.Id, SubjectId = programming.Id,
+            ExamDate = new DateOnly(2026, 11, 25), MaxMarks = 100, PassMarks = 40, Credits = 3,
+        };
+        db.ExamSubjects.AddRange(mathsPaper, programmingPaper);
+
+        // A spread worth looking at: a topper, a middling result, and one
+        // failed paper so the grade sheet shows credits attempted ≠ earned.
+        decimal?[] mathsMarks = [92m, 71m, 34m];
+        decimal?[] programmingMarks = [88m, 65m, 58m];
+        for (var i = 0; i < enrollmentIds.Count; i++)
+        {
+            db.MarkEntries.Add(new MarkEntry
+            {
+                ExamSubjectId = mathsPaper.Id,
+                EnrollmentId = enrollmentIds[i],
+                StudentId = db.Enrollments.Local.First(e => e.Id == enrollmentIds[i]).StudentId,
+                MarksObtained = mathsMarks[i],
+            });
+            db.MarkEntries.Add(new MarkEntry
+            {
+                ExamSubjectId = programmingPaper.Id,
+                EnrollmentId = enrollmentIds[i],
+                StudentId = db.Enrollments.Local.First(e => e.Id == enrollmentIds[i]).StudentId,
+                MarksObtained = programmingMarks[i],
+            });
+        }
+
         await db.SaveChangesAsync().ConfigureAwait(false);
     }
 

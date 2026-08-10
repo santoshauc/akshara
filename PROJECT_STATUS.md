@@ -970,8 +970,17 @@ classes-and-sections shape of a K-12 school. Closed.
   in the denominator, absence, zero-credit papers, null vs zero) and 2
   integration tests (a published MCA semester scoring 6.67 across a 4-credit A
   and a 2-credit P; a school exam reporting no GPA with the reason).
-- NO UI for the grade sheet itself yet — it is API-only. The Credits field on
-  the schedule-paper form is the only portal change.
+- Grade sheet UI: a panel on the student profile (college only) — CGPA,
+  credits earned vs attempted, then a card per semester with its SGPA and
+  paper table (failed grades in red). When there is no GPA it renders the
+  reason, not a blank.
+- Demo college now carries a PUBLISHED semester: 3 students, Engineering
+  Maths (4 cr) and Programming in C (3 cr), marks spread so one student fails
+  a paper. Verified live — Aditya 9.57 (4×10 + 3×9)/7, Rohit 2.57
+  (4×0 + 3×6)/7 with "3 of 7 credits earned".
+- SEEDER GOTCHA: the top-up guard was `Students.AnyAsync()`, and the college
+  already had one student admitted by hand, so it skipped forever. Guard a
+  top-up on the thing it creates (the exam), not on a general precondition.
 - STILL MISSING: cumulative transcript PDF, arrear/supplementary exams,
   per-student electives, student logins, per-university grade scales.
   Suite: 88 unit + 183 integration.
