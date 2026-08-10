@@ -139,11 +139,11 @@
 
     <MudItem xs="12">
         <MudPaper Elevation="2" Class="pa-6">
-            <MudText Typo="Typo.h6" Class="mb-1">Year-end promotion</MudText>
+            <MudText Typo="Typo.h6" Class="mb-1">@PromotionTitle</MudText>
             <MudText Typo="Typo.body2" Class="mud-text-secondary mb-4">
-                Moves a section's active students into the next year. Untick students
-                who repeat the year — they keep their current enrollment. Running it
-                twice is safe: students already placed in the target year are skipped.
+                @PromotionHelp Untick students who repeat — they keep their current
+                enrollment. Running it twice is safe: students already placed in the
+                target @Institution.Cohort.ToLowerInvariant() are skipped.
             </MudText>
 
             <MudGrid Spacing="3">
@@ -282,6 +282,19 @@
     private IEnumerable<SectionDto> SectionsOf(Guid? classId) =>
         _classes.FirstOrDefault(c => c.Id == classId)?.Sections ?? [];
 
+    /// <summary>
+    /// A school promotes once, at year end. A college does it every semester,
+    /// twice inside one academic year — so the panel cannot be called
+    /// "year-end" for them.
+    /// </summary>
+    private string PromotionTitle =>
+        Institution.IsCollege ? "Promote students" : "Year-end promotion";
+
+    private string PromotionHelp => Institution.IsCollege
+        ? "Moves a section's active students into the next semester — the same " +
+          "academic year for an odd-to-even move, the next one for a new intake year."
+        : "Moves a section's active students into the next year.";
+
     private string YearName(Guid? id) =>
         _years.FirstOrDefault(y => y.Id == id)?.Name ?? string.Empty;
 
@@ -346,9 +359,15 @@
 
     private async Task PromoteAsync()
     {
-        if (_fromYearId == _toYearId)
+        // Same year is legitimate — a college advances Semester 1 to Semester 2
+        // inside one academic year. Only a move to the identical placement is
+        // meaningless.
+        if (_fromYearId == _toYearId && _fromClassId == _toClassId &&
+            _fromSectionId == _toSectionId)
         {
-            Snackbar.Add("Promotion must target a different academic year.", Severity.Warning);
+            Snackbar.Add(
+                $"Pick a different year, {Institution.Cohort.ToLowerInvariant()} or section to move students into.",
+                Severity.Warning);
             return;
         }
 

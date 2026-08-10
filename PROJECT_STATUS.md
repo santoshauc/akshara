@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 178 integration = **243 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 181 integration = **246 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -943,6 +943,38 @@ classes-and-sections shape of a K-12 school. Closed.
   "College wording" below.
   Suite: 65 unit + 178 integration.
 
+## Semester promotion (feature/semester-promotion)
+
+A college could be set up but could not run its year. Indian higher education
+puts an odd and an even semester INSIDE one academic year (Jul–Dec, Jan–May),
+and two things refused that.
+
+- `PromoteClassCommandValidator` demanded a different target academic year.
+  Replaced with "must move students somewhere": same year is fine as long as
+  the class or section differs; only an identical placement is refused.
+- THE REAL BLOCKER was a database constraint, not the validator:
+  `ix_enrollments_tenant_id_student_id_academic_year_id` was a plain unique
+  index — one enrollment per student per year. Two semesters in one year are
+  two enrollments in that year, so every same-year advance died on a 23505.
+  Narrowed to a PARTIAL unique index filtered on `status = 1 AND
+  is_deleted = false`: one ACTIVE placement per student per year, which is the
+  invariant that actually matters, with the closed rows left as history.
+- The re-run guard needed two changes once the target year can be the source
+  year: exclude the source rows (or every student looks "already enrolled" in
+  the year they are being moved within), and count only ACTIVE rows as a
+  placement (after Sem 1 → 2 the student still holds a Promoted Sem 1 row in
+  that same year, and treating it as a placement refused Sem 3).
+- Portal: same-year is allowed; the panel reads "Promote students" with the
+  odd-to-even explanation for a college, "Year-end promotion" for a school.
+- 3 integration tests: Sem 1 → 2 → 3 inside one year (3 rows of history, one
+  Active, all stamped with the programme), re-running an advance changes
+  nothing, and an identical-placement move is refused.
+- STILL MISSING for a college: credits/GPA/CGPA (CBCS 10-point, SGPA/CGPA),
+  cumulative transcripts, arrear/supplementary exams, per-student electives,
+  and student logins (roles are SuperAdmin/SchoolAdmin/Teacher; the app
+  authenticates guardians by phone).
+  Suite: 65 unit + 181 integration.
+
 ## College wording (feature/college-wording)
 
 - `Services/InstitutionContext.cs` holds the institution type and the words
@@ -1528,3 +1560,10 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
   list. Read in a second call, or you will "confirm" a bug that isn't there.
 - MudChart bar charts pick their own y-axis: a max of 2 gets drawn against
   0–20 and reads as "nothing happened". Pass ChartOptions for small integers.
+- A rule can live in a UNIQUE INDEX as easily as in a validator. Relaxing
+  "one enrollment per student per year" in the validator only moved the
+  failure to a 23505 at SaveChanges. Grep the EF configuration before
+  concluding a constraint is gone.
+- `dotnet test -v q` prints the Failed! total but NOT the failing test names.
+  Re-run without `-v q` (or grep `^  Failed `) — this has now cost two
+  separate sessions a wasted full run.

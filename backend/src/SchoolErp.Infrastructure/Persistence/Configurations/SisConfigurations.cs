@@ -154,8 +154,18 @@ public sealed class EnrollmentConfiguration : IEntityTypeConfiguration<Enrollmen
     {
         builder.ToTable("enrollments");
 
-        // One placement per student per academic year.
-        builder.HasIndex(e => new { e.TenantId, e.StudentId, e.AcademicYearId }).IsUnique();
+        // One ACTIVE placement per student per academic year.
+        //
+        // It used to be one placement full stop, which is true of a school but
+        // not of a college: two semesters inside one academic year are two
+        // enrollments in that year, the earlier one closed as Promoted. The
+        // filter keeps the invariant that actually matters — a student is
+        // never in two places at once — while letting the closed rows stand as
+        // history. Status 1 is Active; soft-deleted rows are excluded so a
+        // re-admission after a delete is not blocked by a ghost.
+        builder.HasIndex(e => new { e.TenantId, e.StudentId, e.AcademicYearId })
+            .IsUnique()
+            .HasFilter("status = 1 AND is_deleted = false");
         builder.HasIndex(e => new { e.TenantId, e.AcademicYearId, e.SchoolClassId, e.SectionId });
 
         builder.HasOne(e => e.AcademicYear).WithMany()
