@@ -342,6 +342,118 @@ public sealed class CollegeStructureTests : IClassFixture<CollegeStructureFixtur
     }
 
     [Fact]
+    public async Task A_semester_advances_inside_one_academic_year()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // One Indian academic year holding an odd and an even semester.
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+
+        var deptId = await sender.Send(new CreateDepartmentCommand("Statistics", "STAT", null));
+        var programmeId = await sender.Send(new CreateProgrammeCommand(
+            deptId, "B.Sc Statistics", "BSCSTAT", ProgrammeLevel.Undergraduate, 3, 2));
+
+        var sem1 = await sender.Send(new CreateClassCommand("B.Sc Stat Semester 1", 1, ["A"], programmeId));
+        var sem2 = await sender.Send(new CreateClassCommand("B.Sc Stat Semester 2", 2, ["A"], programmeId));
+        var sem3 = await sender.Send(new CreateClassCommand("B.Sc Stat Semester 3", 3, ["A"], programmeId));
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Anil", "Kumar", new DateOnly(2007, 3, 3), Gender.Male,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 7, 5), yearId, sem1.Id, sem1.Sections.Single().Id, 1,
+            [new GuardianInput("Radha", "Kumar", GuardianRelation.Mother, "+919700000300", null, null, true)]));
+
+        // Semester 1 → 2, same year. This is the move that used to be refused.
+        var toSem2 = await sender.Send(new PromoteClassCommand(
+            yearId, sem1.Id, sem1.Sections.Single().Id,
+            yearId, sem2.Id, sem2.Sections.Single().Id, []));
+        toSem2.Promoted.Should().Be(1);
+        toSem2.AlreadyEnrolled.Should().Be(0,
+            "the row being moved out of is not a competing placement");
+
+        // ...and again into Semester 3. The closed Semester 1 row lives in the
+        // same year and must not read as "already placed".
+        var toSem3 = await sender.Send(new PromoteClassCommand(
+            yearId, sem2.Id, sem2.Sections.Single().Id,
+            yearId, sem3.Id, sem3.Sections.Single().Id, []));
+        toSem3.Promoted.Should().Be(1);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollments = await db.Enrollments
+            .Where(e => e.StudentId == studentId)
+            .ToListAsync();
+
+        enrollments.Should().HaveCount(3, "each semester is its own placement, kept as history");
+        enrollments.Count(e => e.Status == EnrollmentStatus.Active)
+            .Should().Be(1, "a student is only ever in one semester at a time");
+        enrollments.Single(e => e.Status == EnrollmentStatus.Active)
+            .SchoolClassId.Should().Be(sem3.Id);
+        enrollments.Should().OnlyContain(e => e.ProgrammeId == programmeId);
+    }
+
+    [Fact]
+    public async Task Re_running_a_semester_advance_changes_nothing()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+
+        var deptId = await sender.Send(new CreateDepartmentCommand("Botany", "BOT", null));
+        var programmeId = await sender.Send(new CreateProgrammeCommand(
+            deptId, "B.Sc Botany", "BSCBOT", ProgrammeLevel.Undergraduate, 3, 2));
+        var sem1 = await sender.Send(new CreateClassCommand("Botany Semester 1", 1, ["A"], programmeId));
+        var sem2 = await sender.Send(new CreateClassCommand("Botany Semester 2", 2, ["A"], programmeId));
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Sneha", "Pillai", new DateOnly(2007, 8, 8), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 7, 5), yearId, sem1.Id, sem1.Sections.Single().Id, 1,
+            [new GuardianInput("Anu", "Pillai", GuardianRelation.Mother, "+919700000301", null, null, true)]));
+
+        await sender.Send(new PromoteClassCommand(
+            yearId, sem1.Id, sem1.Sections.Single().Id,
+            yearId, sem2.Id, sem2.Sections.Single().Id, []));
+        var again = await sender.Send(new PromoteClassCommand(
+            yearId, sem1.Id, sem1.Sections.Single().Id,
+            yearId, sem2.Id, sem2.Sections.Single().Id, []));
+
+        again.Promoted.Should().Be(0);
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        (await db.Enrollments.CountAsync(e => e.StudentId == studentId)).Should().Be(2);
+    }
+
+    [Fact]
+    public async Task Promotion_that_moves_nobody_anywhere_is_refused()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+        var cohort = await sender.Send(new CreateClassCommand("Semester 1", 1, ["A"]));
+        var sectionId = cohort.Sections.Single().Id;
+
+        var noop = () => sender.Send(new PromoteClassCommand(
+            yearId, cohort.Id, sectionId, yearId, cohort.Id, sectionId, []));
+        await noop.Should().ThrowAsync<FluentValidation.ValidationException>()
+            .WithMessage("*must move students somewhere*");
+    }
+
+    [Fact]
     public async Task A_head_of_department_has_to_be_somebody_on_the_staff_list()
     {
         var tenantId = await _fixture.NewCollegeAsync();

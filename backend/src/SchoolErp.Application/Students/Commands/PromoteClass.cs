@@ -9,11 +9,16 @@ using SchoolErp.Domain.Students;
 namespace SchoolErp.Application.Students.Commands;
 
 /// <summary>
-/// Year-end promotion for one section: every Active enrollment in the source
+/// Promotion for one section: every Active enrollment in the source
 /// year/class/section (minus the opt-out list) is closed as Promoted and a
 /// fresh Active enrollment is created in the target year/class/section.
 /// Excluded students are left untouched — promote them separately (repeat
 /// year) or mark them Left/Completed by hand. Roll numbers do not carry over.
+///
+/// The target year MAY be the source year. An Indian college runs odd and
+/// even semesters inside one academic year, so advancing Semester 1 to
+/// Semester 2 in July–December → January–May is a same-year move; refusing it
+/// would make the semester system unusable.
 /// </summary>
 public sealed record PromoteClassCommand(
     Guid FromAcademicYearId,
@@ -32,9 +37,15 @@ public sealed class PromoteClassCommandValidator : AbstractValidator<PromoteClas
 {
     public PromoteClassCommandValidator()
     {
-        RuleFor(c => c.ToAcademicYearId)
-            .NotEqual(c => c.FromAcademicYearId)
-            .WithMessage("Promotion must target a different academic year.");
+        // Only a genuine no-op is refused. Same year with a different cohort
+        // is the semester advance; same year AND same cohort would close every
+        // enrollment and recreate it identically.
+        RuleFor(c => c)
+            .Must(c => c.ToAcademicYearId != c.FromAcademicYearId ||
+                       c.ToClassId != c.FromClassId ||
+                       c.ToSectionId != c.FromSectionId)
+            .WithMessage("Promotion must move students somewhere — pick a different " +
+                         "year, class or section.");
     }
 }
 
@@ -73,10 +84,22 @@ public sealed class PromoteClassCommandHandler
 
         // Students already placed in the target year keep that placement —
         // promoting twice must be harmless, not a duplicate-enrollment factory.
+        //
+        // Two qualifications, both of which only matter once the target year
+        // can be the SOURCE year (the semester case):
+        //  - the source rows themselves are excluded, or every student would
+        //    look "already enrolled" in the year they are being moved within;
+        //  - only ACTIVE rows count as a placement. After Semester 1 → 2 the
+        //    student still has a Promoted Semester 1 row in that same year,
+        //    and treating it as a placement would refuse to advance them to
+        //    Semester 3.
         var studentIds = source.Select(e => e.StudentId).ToList();
+        var sourceIds = source.Select(e => e.Id).ToList();
         var alreadyEnrolled = await _db.Enrollments
             .Where(e => e.AcademicYearId == request.ToAcademicYearId &&
-                        studentIds.Contains(e.StudentId))
+                        studentIds.Contains(e.StudentId) &&
+                        !sourceIds.Contains(e.Id) &&
+                        e.Status == EnrollmentStatus.Active)
             .Select(e => e.StudentId)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
