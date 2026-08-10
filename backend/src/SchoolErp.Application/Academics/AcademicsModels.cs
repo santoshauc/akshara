@@ -27,6 +27,10 @@ public sealed record SchoolClassDto
     public Guid Id { get; init; }
     public string Name { get; init; } = string.Empty;
     public int DisplayOrder { get; init; }
+
+    /// <summary>The programme this cohort belongs to; null at a school.</summary>
+    public Guid? ProgrammeId { get; init; }
+
     public IReadOnlyList<SectionDto> Sections { get; init; } = [];
 }
 
@@ -51,6 +55,7 @@ public static class AcademicsMappings
             Id = schoolClass.Id,
             Name = schoolClass.Name,
             DisplayOrder = schoolClass.DisplayOrder,
+            ProgrammeId = schoolClass.ProgrammeId,
             Sections = schoolClass.Sections
                 .OrderBy(s => s.Name)
                 .Select(s => new SectionDto { Id = s.Id, Name = s.Name, Capacity = s.Capacity })
@@ -71,6 +76,7 @@ public static class AcademicsMappings
         Id = schoolClass.Id,
         Name = schoolClass.Name,
         DisplayOrder = schoolClass.DisplayOrder,
+        ProgrammeId = schoolClass.ProgrammeId,
         Sections = schoolClass.Sections
             .OrderBy(s => s.Name)
             .Select(s => new SectionDto { Id = s.Id, Name = s.Name, Capacity = s.Capacity })

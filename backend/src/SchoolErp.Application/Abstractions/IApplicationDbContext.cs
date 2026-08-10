@@ -104,6 +104,12 @@ public interface IApplicationDbContext
 
     DbSet<Domain.Campuses.Campus> Campuses { get; }
 
+    /// <summary>Colleges only; a school's set is empty.</summary>
+    DbSet<Department> Departments { get; }
+
+    /// <inheritdoc cref="Departments"/>
+    DbSet<Programme> Programmes { get; }
+
     DbSet<Domain.Inventory.InventoryItem> InventoryItems { get; }
 
     DbSet<Domain.Inventory.StockMovement> StockMovements { get; }

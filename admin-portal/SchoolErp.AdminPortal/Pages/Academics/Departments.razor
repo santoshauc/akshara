@@ -1,0 +1,436 @@
+@page "/departments"
+@attribute [Authorize]
+@using Microsoft.AspNetCore.Authorization
+@using SchoolErp.Domain.Academics
+@inject DepartmentsClient Client
+@inject StaffClient StaffApi
+@inject ISnackbar Snackbar
+
+<PageTitle>Departments — Akshara</PageTitle>
+
+<AkPageHeader Title="Departments &amp; programmes"
+              Subtitle="How a college is organised. A programme's cohort for a given term is an ordinary class pointed at it, so attendance, timetables, exams and fees work the same way.">
+    <Actions>
+        <MudSwitch T="bool" Value="_includeClosed" ValueChanged="ToggleClosedAsync"
+                   Color="Color.Primary" Label="Show closed" />
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.Add" Disabled="@_busy"
+                   OnClick="StartAddDepartment">
+            Add department
+        </MudButton>
+    </Actions>
+</AkPageHeader>
+
+@if (_departmentDraft is { } dept)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            @(_departmentId is null ? "Add a department" : "Edit department")
+        </MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="5">
+                <MudTextField @bind-Value="dept.Name" Label="Department name"
+                              Placeholder="Computer Science" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudTextField @bind-Value="dept.Code" Label="Short code"
+                              HelperText="e.g. CSE" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="Guid?" @bind-Value="dept.HeadTeacherId" Label="Head of department"
+                           Clearable="true" HelperText="Optional; must be on the staff list">
+                    @foreach (var teacher in _teachers)
+                    {
+                        <MudSelectItem T="Guid?" Value="@teacher.Id">@teacher.FullName</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            @if (_departmentId is not null)
+            {
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="dept.IsActive" Color="Color.Primary"
+                               Label="@(dept.IsActive ? "Open" : "Closed")" />
+                </MudItem>
+            }
+        </MudGrid>
+        <MudStack Row="true" Spacing="2" Class="mt-4">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="SaveDepartmentAsync">
+                @(_busy ? "Saving…" : _departmentId is null ? "Add department" : "Save changes")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Disabled="@_busy"
+                       OnClick="@(() => _departmentDraft = null)">Cancel</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_programmeDraft is { } prog)
+{
+    <MudPaper Elevation="2" Class="pa-6 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-3">
+            @(_programmeId is null ? "Add a programme" : "Edit programme")
+        </MudText>
+        <MudGrid Spacing="3">
+            <MudItem xs="12" md="4">
+                <MudSelect T="Guid" @bind-Value="prog.DepartmentId" Label="Department">
+                    @foreach (var open in _departments.Where(d => d.IsActive))
+                    {
+                        <MudSelectItem T="Guid" Value="@open.Id">@open.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="5">
+                <MudTextField @bind-Value="prog.Name" Label="Programme name"
+                              Placeholder="B.Tech Computer Science" />
+            </MudItem>
+            <MudItem xs="12" md="3">
+                <MudTextField @bind-Value="prog.Code" Label="Short code" HelperText="e.g. BTCSE" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudSelect T="ProgrammeLevel" @bind-Value="prog.Level" Label="Level">
+                    <MudSelectItem T="ProgrammeLevel" Value="ProgrammeLevel.Certificate">Certificate</MudSelectItem>
+                    <MudSelectItem T="ProgrammeLevel" Value="ProgrammeLevel.Diploma">Diploma</MudSelectItem>
+                    <MudSelectItem T="ProgrammeLevel" Value="ProgrammeLevel.Undergraduate">Undergraduate</MudSelectItem>
+                    <MudSelectItem T="ProgrammeLevel" Value="ProgrammeLevel.Postgraduate">Postgraduate</MudSelectItem>
+                </MudSelect>
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudNumericField @bind-Value="prog.DurationYears" Label="Duration (years)"
+                                 Min="1" Max="10" />
+            </MudItem>
+            <MudItem xs="12" md="4">
+                <MudNumericField @bind-Value="prog.TermsPerYear" Label="Terms per year"
+                                 Min="1" Max="4"
+                                 HelperText="2 for a semester system" />
+            </MudItem>
+            @if (_programmeId is not null)
+            {
+                <MudItem xs="12">
+                    <MudSwitch T="bool" @bind-Value="prog.IsActive" Color="Color.Primary"
+                               Label="@(prog.IsActive ? "Running" : "Closed to new intake")" />
+                </MudItem>
+            }
+        </MudGrid>
+        <MudStack Row="true" Spacing="2" Class="mt-4" AlignItems="AlignItems.Center">
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="SaveProgrammeAsync">
+                @(_busy ? "Saving…" : _programmeId is null ? "Add programme" : "Save changes")
+            </MudButton>
+            <MudButton Variant="Variant.Text" Disabled="@_busy"
+                       OnClick="@(() => _programmeDraft = null)">Cancel</MudButton>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                @(prog.DurationYears * prog.TermsPerYear) cohorts across the full programme.
+            </MudText>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_loading)
+{
+    <AkTableSkeleton Rows="4" Columns="5" LoadingLabel="Loading departments" />
+}
+else if (_failed)
+{
+    <AkErrorState Title="Departments could not be loaded"
+                  Description="The server did not answer. Nothing has been changed."
+                  OnRetry="LoadAsync" />
+}
+else if (_departments.Count == 0)
+{
+    <AkEmptyState Title="No departments yet"
+                  Icon="@Icons.Material.Outlined.AccountTree"
+                  Description="Add the first department — Computer Science, Commerce, Physics — then the programmes it runs." />
+}
+else
+{
+    <MudStack Spacing="3">
+        @foreach (var department in _departments)
+        {
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
+                    <div>
+                        <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
+                            <MudText Typo="Typo.h6">@department.Name</MudText>
+                            <MudChip Size="Size.Small" Variant="Variant.Outlined">@department.Code</MudChip>
+                            @if (!department.IsActive)
+                            {
+                                <AkStatusBadge Label="Closed" Tone="AkStatusBadge.StatusTone.Neutral" />
+                            }
+                        </MudStack>
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            @(department.HeadTeacherName is { } head
+                                ? $"Head: {head}"
+                                : "No head of department recorded")
+                        </MudText>
+                    </div>
+                    <MudSpacer />
+                    <MudButton Size="Size.Small" Variant="Variant.Text" Disabled="@_busy"
+                               OnClick="@(() => StartEditDepartment(department))">Edit</MudButton>
+                    @if (department.IsActive)
+                    {
+                        <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@_busy"
+                                   StartIcon="@Icons.Material.Filled.Add"
+                                   OnClick="@(() => StartAddProgramme(department.Id))">
+                            Add programme
+                        </MudButton>
+                    }
+                </MudStack>
+
+                @if (department.Programmes.Count == 0)
+                {
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        No programmes under this department yet.
+                    </MudText>
+                }
+                else
+                {
+                    <MudTable Items="department.Programmes" Dense="true" Hover="true" Elevation="0"
+                              Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>Programme</MudTh>
+                            <MudTh>Code</MudTh>
+                            <MudTh>Level</MudTh>
+                            <MudTh>Structure</MudTh>
+                            <MudTh>Cohorts</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh />
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Programme">@context.Name</MudTd>
+                            <MudTd DataLabel="Code">@context.Code</MudTd>
+                            <MudTd DataLabel="Level">@Humanise(context.Level)</MudTd>
+                            <MudTd DataLabel="Structure">
+                                @context.DurationYears yr ·
+                                @(context.TermsPerYear == 2 ? "semesters" : $"{context.TermsPerYear}/yr")
+                            </MudTd>
+                            <MudTd DataLabel="Cohorts">
+                                @* Classes actually pointed at this programme —
+                                   the link between structure and teaching. *@
+                                @(context.Cohorts == 0 ? "—" : context.Cohorts.ToString())
+                            </MudTd>
+                            <MudTd DataLabel="Status">
+                                <AkStatusBadge Label="@(context.IsActive ? "Running" : "Closed")"
+                                               Tone="@(context.IsActive
+                                                   ? AkStatusBadge.StatusTone.Success
+                                                   : AkStatusBadge.StatusTone.Neutral)" />
+                            </MudTd>
+                            <MudTd Class="text-right">
+                                <MudButton Size="Size.Small" Variant="Variant.Outlined" Disabled="@_busy"
+                                           OnClick="@(() => StartEditProgramme(context))">Edit</MudButton>
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        }
+    </MudStack>
+}
+
+@code {
+    private sealed class DepartmentDraft
+    {
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public Guid? HeadTeacherId { get; set; }
+        public bool IsActive { get; set; } = true;
+    }
+
+    private sealed class ProgrammeDraft
+    {
+        public Guid DepartmentId { get; set; }
+        public string Name { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+        public ProgrammeLevel Level { get; set; } = ProgrammeLevel.Undergraduate;
+        public int DurationYears { get; set; } = 3;
+        public int TermsPerYear { get; set; } = 2;
+        public bool IsActive { get; set; } = true;
+    }
+
+    private List<DepartmentDto> _departments = [];
+    private List<TeacherDto> _teachers = [];
+    private DepartmentDraft? _departmentDraft;
+    private Guid? _departmentId;
+    private ProgrammeDraft? _programmeDraft;
+    private Guid? _programmeId;
+    private bool _includeClosed;
+    private bool _loading = true;
+    private bool _failed;
+    private bool _busy;
+
+    protected override async Task OnInitializedAsync()
+    {
+        await LoadAsync();
+        try
+        {
+            _teachers = await StaffApi.GetTeachersAsync();
+        }
+        catch (HttpRequestException)
+        {
+            // The head-of-department picker degrades to empty; the rest works.
+        }
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        _failed = false;
+        try
+        {
+            _departments = await Client.GetDepartmentsAsync(_includeClosed);
+        }
+        catch (HttpRequestException)
+        {
+            _failed = true;
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private async Task ToggleClosedAsync(bool include)
+    {
+        _includeClosed = include;
+        await LoadAsync();
+    }
+
+    private void StartAddDepartment()
+    {
+        _programmeDraft = null;
+        _departmentId = null;
+        _departmentDraft = new DepartmentDraft();
+    }
+
+    private void StartEditDepartment(DepartmentDto department)
+    {
+        _programmeDraft = null;
+        _departmentId = department.Id;
+        _departmentDraft = new DepartmentDraft
+        {
+            Name = department.Name,
+            Code = department.Code,
+            HeadTeacherId = department.HeadTeacherId,
+            IsActive = department.IsActive,
+        };
+    }
+
+    private void StartAddProgramme(Guid departmentId)
+    {
+        _departmentDraft = null;
+        _programmeId = null;
+        _programmeDraft = new ProgrammeDraft { DepartmentId = departmentId };
+    }
+
+    private void StartEditProgramme(ProgrammeDto programme)
+    {
+        _departmentDraft = null;
+        _programmeId = programme.Id;
+        _programmeDraft = new ProgrammeDraft
+        {
+            DepartmentId = programme.DepartmentId,
+            Name = programme.Name,
+            Code = programme.Code,
+            Level = programme.Level,
+            DurationYears = programme.DurationYears,
+            TermsPerYear = programme.TermsPerYear,
+            IsActive = programme.IsActive,
+        };
+    }
+
+    private async Task SaveDepartmentAsync()
+    {
+        if (_departmentDraft is not { } draft)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Code))
+        {
+            Snackbar.Add("A department needs a name and a short code.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = _departmentId is { } id
+                ? await Client.UpdateDepartmentAsync(id, new UpdateDepartmentRequest(
+                    draft.Name, draft.Code, draft.HeadTeacherId, draft.IsActive))
+                : await Client.CreateDepartmentAsync(new CreateDepartmentRequest(
+                    draft.Name, draft.Code, draft.HeadTeacherId));
+
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(_departmentId is null ? "Department added." : "Department updated.",
+                Severity.Success);
+            _departmentDraft = null;
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private async Task SaveProgrammeAsync()
+    {
+        if (_programmeDraft is not { } draft)
+        {
+            return;
+        }
+
+        if (string.IsNullOrWhiteSpace(draft.Name) || string.IsNullOrWhiteSpace(draft.Code) ||
+            draft.DepartmentId == Guid.Empty)
+        {
+            Snackbar.Add("A programme needs a department, a name and a short code.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = _programmeId is { } id
+                ? await Client.UpdateProgrammeAsync(id, new UpdateProgrammeRequest(
+                    draft.DepartmentId, draft.Name, draft.Code, draft.Level,
+                    draft.DurationYears, draft.TermsPerYear, draft.IsActive))
+                : await Client.CreateProgrammeAsync(new CreateProgrammeRequest(
+                    draft.DepartmentId, draft.Name, draft.Code, draft.Level,
+                    draft.DurationYears, draft.TermsPerYear));
+
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add(_programmeId is null ? "Programme added." : "Programme updated.",
+                Severity.Success);
+            _programmeDraft = null;
+            await LoadAsync();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
+
+    private static string Humanise(ProgrammeLevel level) => level switch
+    {
+        ProgrammeLevel.Certificate => "Certificate",
+        ProgrammeLevel.Diploma => "Diploma",
+        ProgrammeLevel.Postgraduate => "Postgraduate",
+        _ => "Undergraduate",
+    };
+}

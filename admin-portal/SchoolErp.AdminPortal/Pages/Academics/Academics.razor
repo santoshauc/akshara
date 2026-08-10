@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject AcademicsClient Client
 @inject StudentsClient StudentsApi
+@inject DepartmentsClient DepartmentsApi
 @inject ISnackbar Snackbar
 
 <PageTitle>Academics — Akshara</PageTitle>
@@ -90,6 +91,21 @@
                         <MudTextField @bind-Value="_className" Label="Class name (e.g. Grade 5)" />
                         <MudNumericField @bind-Value="_classOrder" Label="Display order" Min="0" />
                         <MudTextField @bind-Value="_classSections" Label="Sections (comma-separated, e.g. A, B, C)" />
+                        @if (_programmes.Count > 0)
+                        {
+                            @* Colleges only: a cohort like "Semester 3" is
+                               meaningless until you say which programme's. *@
+                            <MudSelect T="Guid?" @bind-Value="_classProgrammeId" Clearable="true"
+                                       Label="Programme"
+                                       HelperText="Which course of study this cohort belongs to">
+                                @foreach (var programme in _programmes)
+                                {
+                                    <MudSelectItem T="Guid?" Value="@programme.Id">
+                                        @programme.Name (@programme.Code)
+                                    </MudSelectItem>
+                                }
+                            </MudSelect>
+                        }
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
                                    OnClick="CreateClassAsync">Create class</MudButton>
                     </MudStack>
@@ -244,6 +260,10 @@
     private string _className = string.Empty;
     private int _classOrder;
     private string _classSections = "A";
+    private Guid? _classProgrammeId;
+
+    /// <summary>Empty at a school, which is what hides the programme picker.</summary>
+    private List<ProgrammeDto> _programmes = [];
 
     private Guid? _fromYearId;
     private Guid? _fromClassId;
@@ -269,6 +289,14 @@
             _years = await Client.GetYearsAsync();
             _classes = await Client.GetClassesAsync();
             _fromYearId ??= _years.FirstOrDefault(y => y.IsCurrent)?.Id;
+
+            // A school has no departments, so this comes back empty and the
+            // programme picker never appears.
+            _programmes = (await DepartmentsApi.GetDepartmentsAsync())
+                .SelectMany(d => d.Programmes)
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Name)
+                .ToList();
         }
         catch (HttpRequestException)
         {
@@ -414,12 +442,13 @@
         try
         {
             var error = await Client.CreateClassAsync(
-                new CreateClassRequest(_className.Trim(), _classOrder, sections));
+                new CreateClassRequest(_className.Trim(), _classOrder, sections, _classProgrammeId));
             if (error is null)
             {
                 Snackbar.Add("Class created.", Severity.Success);
                 _showClassForm = false;
                 _className = string.Empty;
+                _classProgrammeId = null;
                 await ReloadAsync();
             }
             else

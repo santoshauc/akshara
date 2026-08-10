@@ -164,7 +164,8 @@
 
     private bool DrawerOpen => _isCompact ? _mobileDrawerOpen : _desktopDrawerOpen;
 
-    private IReadOnlyList<NavSection> VisibleSections => NavModel.For(_isPlatformUser);
+    private IReadOnlyList<NavSection> VisibleSections =>
+        NavModel.For(_isPlatformUser, _branding?.InstitutionType == InstitutionType.College);
 
     /// <summary>Two-letter fallback mark when a school has no logo uploaded.</summary>
     private static string InitialsOf(string? name)

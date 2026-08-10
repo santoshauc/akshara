@@ -86,7 +86,8 @@ public sealed record TenantBrandingDto(
     string Name,
     string? LogoUrl,
     string? ThemePrimaryColor,
-    string? ThemeSecondaryColor);
+    string? ThemeSecondaryColor,
+    InstitutionType InstitutionType = InstitutionType.School);
 
 /// <summary>Invoice lifecycle (mirrors the API enum).</summary>
 public enum InvoiceStatus

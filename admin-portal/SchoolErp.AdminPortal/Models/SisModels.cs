@@ -18,7 +18,8 @@ public sealed record CreateAcademicYearRequest(
     string Name, DateOnly StartDate, DateOnly EndDate, bool MakeCurrent);
 
 /// <summary>Create-class payload (mirrors CreateClassCommand).</summary>
-public sealed record CreateClassRequest(string Name, int DisplayOrder, List<string> Sections);
+public sealed record CreateClassRequest(
+    string Name, int DisplayOrder, List<string> Sections, Guid? ProgrammeId = null);
 
 /// <summary>Year-end promotion payload (mirrors PromoteClassCommand).</summary>
 public sealed record PromoteClassRequest(

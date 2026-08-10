@@ -11,6 +11,17 @@ public class SchoolClass : TenantEntity
     /// <summary>Sort order in lists (Nursery … Grade 12).</summary>
     public int DisplayOrder { get; set; }
 
+    /// <summary>
+    /// The programme this cohort belongs to, for colleges — "Semester 3" only
+    /// means something under "B.Tech CSE". Null for schools, where a class is
+    /// the whole story. Optional on purpose: making colleges reuse the class
+    /// machinery is what keeps attendance, timetables, exams and fees working
+    /// for them without a second implementation of each.
+    /// </summary>
+    public Guid? ProgrammeId { get; set; }
+
+    public Programme? Programme { get; set; }
+
     public ICollection<Section> Sections { get; set; } = [];
 }
 
