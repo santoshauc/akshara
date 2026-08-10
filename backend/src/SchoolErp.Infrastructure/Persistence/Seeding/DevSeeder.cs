@@ -2,6 +2,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
+using SchoolErp.Domain.Academics;
+using SchoolErp.Domain.Campuses;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Infrastructure.Identity;
 using SchoolErp.Shared.Authorization;
@@ -19,6 +21,13 @@ public static partial class DevSeeder
     public const string DemoSchoolCode = "DEMO01";
     public const string DemoAdminEmail = "admin@demo.school";
     public const string DemoParentPhone = "+919000000001";
+
+    /// <summary>
+    /// A second demo tenant that is a COLLEGE, not a school. Without one there
+    /// is no way to see the departments/programmes side of the product.
+    /// </summary>
+    public const string DemoCollegeCode = "COLL01";
+    public const string DemoCollegeAdminEmail = "admin@demo.college";
 
     /// <summary>Default password for every seeded dev account.</summary>
     public const string Password = "ChangeMe@12345";
@@ -44,6 +53,10 @@ public static partial class DevSeeder
         // still need to sign out/in — permission claims live in the JWT.)
         await BackfillSchoolAdminClaimsAsync(db, logger).ConfigureAwait(false);
         await BackfillDemoEntitlementsAsync(db, logger).ConfigureAwait(false);
+
+        // Runs at every startup rather than only on a fresh database, so an
+        // environment seeded before colleges existed still gets one.
+        await EnsureDemoCollegeAsync(scope.ServiceProvider, db, logger).ConfigureAwait(false);
 
         if (await db.Users.AnyAsync().ConfigureAwait(false))
         {
@@ -191,6 +204,137 @@ public static partial class DevSeeder
         }
     }
 
+    /// <summary>
+    /// A demo college: tenant, admin, two departments, three programmes and
+    /// the cohorts they teach. Deliberately has no students — the platform
+    /// dashboard then flags it as "active but nobody enrolled", which is both
+    /// true and a live demonstration of that check.
+    /// </summary>
+    private static async Task EnsureDemoCollegeAsync(
+        IServiceProvider services, AppDbContext db, ILogger logger)
+    {
+        if (await db.Tenants.AnyAsync(t => t.Code == DemoCollegeCode).ConfigureAwait(false))
+        {
+            return;
+        }
+
+        var college = new Tenant
+        {
+            Id = Guid.NewGuid(),
+            Code = DemoCollegeCode,
+            Name = "Demo Degree College",
+            Subdomain = "democollege",
+            InstitutionType = InstitutionType.College,
+            AddressLine1 = "Survey No. 21, Gachibowli",
+            City = "Hyderabad",
+            State = "Telangana",
+            PostalCode = "500032",
+            ContactPhone = "+914066778899",
+            Plan = SubscriptionPlan.Premium,
+            EnabledModules = DemoModules,
+            SmsCredits = 5_000,
+            Status = TenantStatus.Active,
+        };
+        db.Tenants.Add(college);
+
+        var adminRole = new ApplicationRole
+        {
+            Id = Guid.NewGuid(),
+            Name = WellKnownRoles.SchoolAdmin,
+            NormalizedName = WellKnownRoles.SchoolAdmin.ToUpperInvariant(),
+            TenantId = college.Id,
+            Description = "Full administrative access within the college.",
+        };
+        db.Roles.Add(adminRole);
+        db.RoleClaims.AddRange(Permissions.TenantAssignable.Select(p => new IdentityRoleClaim<Guid>
+        {
+            RoleId = adminRole.Id,
+            ClaimType = Permissions.ClaimType,
+            ClaimValue = p,
+        }));
+
+        var admin = new ApplicationUser
+        {
+            Id = Guid.NewGuid(),
+            UserName = Guid.NewGuid().ToString("N"),
+            Email = DemoCollegeAdminEmail,
+            PhoneNumber = "+919000000010",
+            FullName = "Demo College Admin",
+            TenantId = college.Id,
+            EmailConfirmed = true,
+        };
+        var userManager = services.GetRequiredService<UserManager<ApplicationUser>>();
+        await CreateUserAsync(userManager, admin).ConfigureAwait(false);
+        db.UserRoles.Add(new IdentityUserRole<Guid> { UserId = admin.Id, RoleId = adminRole.Id });
+
+        await db.SaveChangesAsync().ConfigureAwait(false);
+
+        // Everything below lives in RLS'd tables, so it has to be written from
+        // a scope BOUND to the new college: the policy is FORCEd, and with
+        // app.tenant_id unset its WITH CHECK would reject every row.
+        await using var collegeScope = services
+            .GetRequiredService<IServiceScopeFactory>()
+            .CreateAsyncScope();
+        collegeScope.ServiceProvider.GetRequiredService<Application.Abstractions.ITenantContextSetter>()
+            .SetTenant(college.Id);
+        var collegeDb = collegeScope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        // The primary campus every institution has, same as the migration
+        // backfill gives the schools that predate campuses.
+        collegeDb.Campuses.Add(new Campus
+        {
+            Name = "Main Campus",
+            Code = "MAIN",
+            AddressLine1 = college.AddressLine1,
+            City = college.City,
+            State = college.State,
+            PostalCode = college.PostalCode,
+            ContactPhone = college.ContactPhone,
+            IsPrimary = true,
+            IsActive = true,
+        });
+
+        var computing = new Department { Name = "Computer Science", Code = "CSE" };
+        var commerce = new Department { Name = "Commerce", Code = "COM" };
+        collegeDb.Departments.AddRange(computing, commerce);
+
+        var btech = new Programme
+        {
+            DepartmentId = computing.Id,
+            Name = "B.Tech Computer Science", Code = "BTCSE",
+            Level = ProgrammeLevel.Undergraduate, DurationYears = 4, TermsPerYear = 2,
+        };
+        var mca = new Programme
+        {
+            DepartmentId = computing.Id,
+            Name = "Master of Computer Applications", Code = "MCA",
+            Level = ProgrammeLevel.Postgraduate, DurationYears = 2, TermsPerYear = 2,
+        };
+        var bcom = new Programme
+        {
+            DepartmentId = commerce.Id,
+            Name = "B.Com General", Code = "BCOM",
+            Level = ProgrammeLevel.Undergraduate, DurationYears = 3, TermsPerYear = 2,
+        };
+        collegeDb.Programmes.AddRange(btech, mca, bcom);
+
+        // Cohorts are ordinary classes pointed at a programme — that reuse is
+        // what makes attendance, timetables and exams work for a college.
+        collegeDb.SchoolClasses.Add(new SchoolClass
+        {
+            Name = "B.Tech CSE Semester 1", DisplayOrder = 1, ProgrammeId = btech.Id,
+            Sections = [new Section { Name = "A" }, new Section { Name = "B" }],
+        });
+        collegeDb.SchoolClasses.Add(new SchoolClass
+        {
+            Name = "B.Com Semester 1", DisplayOrder = 2, ProgrammeId = bcom.Id,
+            Sections = [new Section { Name = "A" }],
+        });
+
+        await collegeDb.SaveChangesAsync().ConfigureAwait(false);
+        LogCollegeSeeded(logger, DemoCollegeCode, DemoCollegeAdminEmail);
+    }
+
     /// <summary>Every module SchoolErp has actually shipped, for the demo school.</summary>
     private const TenantModules DemoModules =
         TenantModules.Core | TenantModules.Examination | TenantModules.Fees |
@@ -259,4 +403,8 @@ public static partial class DevSeeder
     [LoggerMessage(Level = LogLevel.Information,
         Message = "Demo school entitlements refreshed: all shipped modules enabled, SMS credits topped up")]
     private static partial void LogDemoEntitlements(ILogger logger);
+
+    [LoggerMessage(Level = LogLevel.Information,
+        Message = "Demo college seeded: {Code} | admin {Admin} (departments, programmes and cohorts included)")]
+    private static partial void LogCollegeSeeded(ILogger logger, string code, string admin);
 }

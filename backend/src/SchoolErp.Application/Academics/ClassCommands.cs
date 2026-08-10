@@ -9,7 +9,12 @@ namespace SchoolErp.Application.Academics;
 
 /// <summary>Creates a class with its sections (e.g. "Grade 5" with A/B/C).</summary>
 public sealed record CreateClassCommand(
-    string Name, int DisplayOrder, IReadOnlyList<string> Sections) : IRequest<SchoolClassDto>;
+    string Name,
+    int DisplayOrder,
+    IReadOnlyList<string> Sections,
+    // Colleges group their cohorts under a programme ("B.Tech CSE →
+    // Semester 3"); schools leave this null and nothing changes for them.
+    Guid? ProgrammeId = null) : IRequest<SchoolClassDto>;
 
 /// <summary>Class shape rules.</summary>
 public sealed class CreateClassCommandValidator : AbstractValidator<CreateClassCommand>
@@ -40,10 +45,24 @@ public sealed class CreateClassCommandHandler : IRequestHandler<CreateClassComma
             throw new ConflictException($"Class '{name}' already exists.");
         }
 
+        if (request.ProgrammeId is { } programmeId)
+        {
+            var programme = await _db.Programmes
+                .FirstOrDefaultAsync(p => p.Id == programmeId, cancellationToken)
+                .ConfigureAwait(false)
+                ?? throw new NotFoundException("Programme", programmeId);
+            if (!programme.IsActive)
+            {
+                throw new ConflictException(
+                    $"Programme '{programme.Name}' is closed; it cannot take new cohorts.");
+            }
+        }
+
         var schoolClass = new SchoolClass
         {
             Name = name,
             DisplayOrder = request.DisplayOrder,
+            ProgrammeId = request.ProgrammeId,
             Sections = request.Sections
                 .Select(s => new Section { Name = s.Trim() })
                 .ToList(),

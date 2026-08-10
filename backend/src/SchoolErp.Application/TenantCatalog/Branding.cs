@@ -15,7 +15,12 @@ public sealed record TenantBrandingDto(
     string Name,
     string? LogoUrl,
     string? ThemePrimaryColor,
-    string? ThemeSecondaryColor);
+    string? ThemeSecondaryColor,
+    // School or college. Here rather than in the token because the portal
+    // already fetches branding to theme itself, and a claim would only reach
+    // the UI after the next sign-in. Not sensitive: an institution's own
+    // website says which it is.
+    InstitutionType InstitutionType = InstitutionType.School);
 
 /// <summary>Branding for one school code (anonymous; 404 on unknown codes).</summary>
 public sealed record GetTenantBrandingQuery(string Code) : IRequest<TenantBrandingDto>;
@@ -35,7 +40,8 @@ public sealed class GetTenantBrandingQueryHandler
         return await _db.Tenants.AsNoTracking()
             .Where(t => t.Code == code)
             .Select(t => new TenantBrandingDto(
-                t.Name, t.LogoUrl, t.ThemePrimaryColor, t.ThemeSecondaryColor))
+                t.Name, t.LogoUrl, t.ThemePrimaryColor, t.ThemeSecondaryColor,
+                t.InstitutionType))
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false)
             ?? throw new NotFoundException(nameof(Tenant), request.Code);

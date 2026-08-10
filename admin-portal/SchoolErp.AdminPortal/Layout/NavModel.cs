@@ -8,12 +8,17 @@ namespace SchoolErp.AdminPortal.Layout;
 /// <param name="Icon">Material outlined glyph; the portal uses one icon family.</param>
 /// <param name="PlatformOnly">Shown only to platform operators.</param>
 /// <param name="SchoolOnly">Hidden from platform operators (school-scoped data).</param>
+/// <param name="CollegeOnly">
+/// Shown only where the tenant is a college. A K-12 school has no departments
+/// or programmes, and offering it the screen would be offering it nothing.
+/// </param>
 public sealed record NavItem(
     string LabelKey,
     string Href,
     string Icon,
     bool PlatformOnly = false,
-    bool SchoolOnly = false);
+    bool SchoolOnly = false,
+    bool CollegeOnly = false);
 
 /// <summary>A labelled group of destinations.</summary>
 public sealed record NavSection(string LabelKey, IReadOnlyList<NavItem> Items);
@@ -39,6 +44,8 @@ public static class NavModel
         new("nav.group.academics",
         [
             new("nav.academics", "academics", Icons.Material.Outlined.CalendarMonth, SchoolOnly: true),
+            new("nav.departments", "departments", Icons.Material.Outlined.AccountTree,
+                SchoolOnly: true, CollegeOnly: true),
             new("nav.timetable", "timetable", Icons.Material.Outlined.GridView, SchoolOnly: true),
             new("nav.exams", "exams", Icons.Material.Outlined.Assignment, SchoolOnly: true),
             new("nav.homework", "homework", Icons.Material.Outlined.MenuBook, SchoolOnly: true),
@@ -90,14 +97,15 @@ public static class NavModel
     /// platform operator should not see an "Academics" heading with nothing
     /// under it.
     /// </summary>
-    public static IReadOnlyList<NavSection> For(bool isPlatformUser)
+    public static IReadOnlyList<NavSection> For(bool isPlatformUser, bool isCollege = false)
     {
         var result = new List<NavSection>(All.Length);
         foreach (var section in All)
         {
             var items = section.Items
                 .Where(i => (!i.PlatformOnly || isPlatformUser) &&
-                            (!i.SchoolOnly || !isPlatformUser))
+                            (!i.SchoolOnly || !isPlatformUser) &&
+                            (!i.CollegeOnly || isCollege))
                 .ToList();
             if (items.Count > 0)
             {

@@ -18,6 +18,47 @@ public sealed class SchoolClassConfiguration : IEntityTypeConfiguration<SchoolCl
             .WithOne()
             .HasForeignKey(s => s.SchoolClassId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // Restrict, not Cascade: closing a programme must never take the
+        // cohorts — and therefore the attendance and marks hanging off them —
+        // with it.
+        builder.HasOne(c => c.Programme)
+            .WithMany()
+            .HasForeignKey(c => c.ProgrammeId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>Mapping for a college's departments.</summary>
+public sealed class DepartmentConfiguration : IEntityTypeConfiguration<Department>
+{
+    public void Configure(EntityTypeBuilder<Department> builder)
+    {
+        builder.ToTable("departments");
+        builder.Property(d => d.Name).HasMaxLength(128).IsRequired();
+        builder.Property(d => d.Code).HasMaxLength(16).IsRequired();
+
+        builder.HasIndex(d => new { d.TenantId, d.Code }).IsUnique();
+        builder.HasIndex(d => new { d.TenantId, d.Name }).IsUnique();
+
+        builder.HasMany(d => d.Programmes)
+            .WithOne(p => p.Department!)
+            .HasForeignKey(p => p.DepartmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+    }
+}
+
+/// <summary>Mapping for the courses of study a college runs.</summary>
+public sealed class ProgrammeConfiguration : IEntityTypeConfiguration<Programme>
+{
+    public void Configure(EntityTypeBuilder<Programme> builder)
+    {
+        builder.ToTable("programmes");
+        builder.Property(p => p.Name).HasMaxLength(128).IsRequired();
+        builder.Property(p => p.Code).HasMaxLength(16).IsRequired();
+
+        builder.HasIndex(p => new { p.TenantId, p.Code }).IsUnique();
+        builder.HasIndex(p => new { p.TenantId, p.DepartmentId });
     }
 }
 

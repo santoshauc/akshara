@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 169 integration = **234 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 176 integration = **241 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -466,6 +466,8 @@ hand-written mappings; the High advisory GHSA-rvv3-g6hj-g44x is resolved.)
 
 - Super Admin (platform): empty school code + `superadmin@schoolerp.local` / `ChangeMe@12345`
 - School admin: `DEMO01` + `admin@demo.school` / `ChangeMe@12345`
+- College admin: `COLL01` + `admin@demo.college` / `ChangeMe@12345` (the only
+  tenant with departments and programmes — use it to see that side)
 - Parent (OTP): school `DEMO01`, phone `+919876501234` (Priya Reddy — guardian
   of demo student Ananya Reddy, Grade 5 A). OTP code appears in API log as
   `[DEV SMS]`.
@@ -724,11 +726,12 @@ GOTCHAS (all cost real time this session):
 
 REMAINING (in agreed order):
 1. ~~Notification localization~~ DONE — see "Notification localization" below.
-1b. ~~Campuses + institution type~~ and ~~Super Admin dashboard~~ DONE — both
-   below. Still open from that thread: departments/programmes so a College
-   tenant stops being shown the classes-and-sections shape; a stored contract
-   price per school so ARR is contractual rather than list-rate; and scoped
-   impersonation so support can see what a school sees.
+1b. ~~Campuses + institution type~~, ~~Super Admin dashboard~~ and
+   ~~departments/programmes~~ DONE — all three below. Still open from that
+   thread: enrolling a student into a programme + semester rather than a
+   class/section (and the college wording that goes with it); a stored
+   contract price per school so ARR is contractual rather than list-rate; and
+   scoped impersonation so support can see what a school sees.
 2. Fee refunds (mid-year withdrawals).
 3. Nine list pages onto the Students pattern: Teachers, Fees, Transport,
    Inventory, Front office, Library, Hostel, Users, Audit, Admissions.
@@ -859,6 +862,54 @@ as-is — the platform dashboard added later is a separate page); HR/payroll
   row(s), but actually affected 0`.
 - 1 integration test (create with one board, add a second, drop one keeping
   the survivor's row, blank boards ignored). Suite: 65 unit + 158 integration.
+
+## Departments & programmes for colleges (feature/college-structure)
+
+The platform could mark a tenant as a College and then hand it the
+classes-and-sections shape of a K-12 school. Closed.
+
+- THE DESIGN DECISION: a college does NOT get a parallel SIS. `Department` and
+  `Programme` (both RLS'd) sit ABOVE the existing structure, and a cohort —
+  "B.Tech CSE Semester 1" — is an ordinary `SchoolClass` with a nullable
+  `ProgrammeId` pointing at its programme. That reuse is what keeps
+  attendance, timetables, exams and fees working for a college without a
+  second implementation of each. Schools leave `ProgrammeId` null and nothing
+  about them changes.
+- `Programme` carries Level (Certificate/Diploma/UG/PG), DurationYears and
+  TermsPerYear (2 = semesters), so duration × terms is how many cohorts a full
+  intake passes through.
+- No new permission constants — this is academic structure, so it reuses
+  `academics.view`/`academics.manage`. Nothing to backfill.
+- Rules: department and programme codes are unique per institution and
+  uppercased on write, department names too; a department cannot close while
+  it still runs an active programme; a closed programme takes no new cohorts;
+  a head of department must be somebody on the staff list. Closing, never
+  deleting — FK deletes are Restrict so closing a programme can never take the
+  cohorts (and their marks) with it.
+- The portal learns the institution type from the BRANDING endpoint, which
+  MainLayout already fetches to theme itself. A JWT claim would have been the
+  other option, but it only reaches the UI after the next sign-in. Branding is
+  anonymous and an institution's own website says which it is.
+  `NavItem.CollegeOnly` hides the Departments page from schools; the class
+  form's programme picker hides itself when the programme list comes back
+  empty, which at a school it always does.
+- DEMO COLLEGE: `COLL01` / `admin@demo.college` (same password), seeded
+  idempotently at EVERY startup rather than only on a fresh database, so an
+  environment seeded before colleges existed still gets one. Two departments,
+  three programmes, two cohorts, a primary campus, and deliberately NO
+  students — which makes the platform dashboard's "active but nobody enrolled"
+  check fire, truthfully.
+- GOTCHA: the seeder writes into RLS'd tables. Tenant and identity rows go in
+  a tenant-less scope; everything tenant-scoped needs a SECOND scope bound to
+  the new college, or the FORCEd policy's WITH CHECK rejects every row.
+- 7 integration tests, each on its own college.
+- Browser-verified: college admin sees Departments in the nav and the
+  programme picker on the class form; creating "MCA Semester 1" against MCA
+  moved its cohort count from — to 1; the school admin sees neither.
+- STILL OPEN: students still enroll into a class/section, not into a
+  programme + semester directly, and nothing renames "class" to "semester" in
+  the rest of the UI for a college.
+  Suite: 65 unit + 176 integration.
 
 ## Super Admin dashboard (feature/platform-dashboard)
 
