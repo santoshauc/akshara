@@ -175,6 +175,12 @@ else if (_student is { } student)
                         @if (sheet.Cgpa is { } cgpa)
                         {
                             <MudText Typo="Typo.h5">CGPA @cgpa.ToString("0.00")</MudText>
+                            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                                       StartIcon="@Icons.Material.Filled.Download"
+                                       Disabled="@_transcriptBusy"
+                                       OnClick="DownloadTranscriptAsync">
+                                @(_transcriptBusy ? "Preparing…" : "Download")
+                            </MudButton>
                         }
                     </MudStack>
 
@@ -615,6 +621,34 @@ else if (_student is { } student)
 
     /// <summary>Cumulative record; only a college has one.</summary>
     private GradeSheetDto? _gradeSheet;
+    private bool _transcriptBusy;
+
+    private async Task DownloadTranscriptAsync()
+    {
+        _transcriptBusy = true;
+        try
+        {
+            var pdf = await ExamsApi.GetTranscriptAsync(Id);
+            if (pdf is null)
+            {
+                Snackbar.Add("There is nothing to print on this grade sheet yet.", Severity.Warning);
+                return;
+            }
+
+            await Js.InvokeVoidAsync("schoolErpDownload",
+                $"grade-sheet-{_student?.AdmissionNumber ?? Id.ToString()}.pdf",
+                "application/pdf",
+                Convert.ToBase64String(pdf));
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _transcriptBusy = false;
+        }
+    }
 
     protected override async Task OnParametersSetAsync()
     {

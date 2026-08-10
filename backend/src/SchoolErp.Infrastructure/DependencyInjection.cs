@@ -184,6 +184,8 @@ public static class DependencyInjection
         // --- Reports -------------------------------------------------------
         services.AddSingleton<Application.Exams.Queries.IReportCardRenderer,
             Reports.QuestPdfReportCardRenderer>();
+        services.AddSingleton<Application.Exams.Queries.ITranscriptRenderer,
+            Reports.QuestPdfTranscriptRenderer>();
         services.AddSingleton<Application.Students.Queries.IStudentDocumentRenderer,
             Reports.QuestPdfStudentDocumentRenderer>();
         services.AddSingleton<Application.Fees.Queries.IReceiptRenderer,
