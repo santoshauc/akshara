@@ -86,6 +86,7 @@ public static class DependencyInjection
         services.AddScoped<IAuthService, AuthService>();
         services.AddScoped<Application.Users.IUserAdminService, UserAdminService>();
         services.AddScoped<Application.Platform.IPlatformOperatorService, PlatformOperatorService>();
+        services.AddScoped<Application.Abstractions.IPlatformMetrics, Platform.PlatformMetrics>();
         // MSG91 goes live when Sms:Provider says so; otherwise SMS is logged.
         services.AddOptions<Notifications.SmsOptions>()
             .Bind(configuration.GetSection(Notifications.SmsOptions.SectionName));

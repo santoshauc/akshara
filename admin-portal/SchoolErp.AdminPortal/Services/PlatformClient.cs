@@ -14,6 +14,21 @@ public sealed class PlatformClient
 
     public PlatformClient(HttpClient http) => _http = http;
 
+    /// <summary>
+    /// The whole-platform dashboard. Throws nothing on 403 — it returns null,
+    /// because an operator who has not set up MFA gets one and the page says
+    /// so rather than showing an error.
+    /// </summary>
+    public async Task<PlatformDashboardDto?> GetDashboardAsync(
+        int windowDays = 30, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync(
+            $"api/v1/platform/dashboard?windowDays={windowDays}", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<PlatformDashboardDto>(cancellationToken: ct)
+            : null;
+    }
+
     public async Task<List<PlatformOperatorDto>> GetOperatorsAsync(
         CancellationToken ct = default) =>
         await _http.GetFromJsonAsync<List<PlatformOperatorDto>>(

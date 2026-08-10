@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 65 unit + 163 integration = **228 green** (`dotnet test` from `school-erp/`).
+Test suite: 65 unit + 169 integration = **234 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -854,6 +854,52 @@ HR/payroll (own product).
 - 1 integration test (create with one board, add a second, drop one keeping
   the survivor's row, blank boards ignored). Suite: 65 unit + 158 integration.
 
+## Super Admin dashboard (feature/platform-dashboard)
+
+A platform operator used to land on "Sign in with a school account to see the
+dashboard". They now land on the platform's own command centre.
+
+- THE HARD PART was reading across tenants at all. Every people table is RLS'd
+  with FORCE, so a cross-tenant COUNT returns zero rows — not an error, which
+  is what makes it dangerous. Solved with `app_platform_tenant_counts()`, a
+  SECURITY DEFINER function (pinned `search_path`, EXECUTE revoked from PUBLIC
+  and granted only to the runtime role) that returns COUNTS GROUPED BY TENANT
+  and nothing else, so no row can escape through it. The alternative — looping
+  the catalog and re-running every query per tenant — is N round trips on a
+  page that loads at every sign-in.
+- `IPlatformMetrics` (Application) is the port for the two things a handler
+  cannot reach: those counts, and the identity store for staff-account totals.
+  Implemented in Infrastructure with raw ADO (the source is a set-returning
+  function, not an entity — mapping a keyless type would put a phantom table
+  in the model snapshot).
+- Everything else comes from tables with no RLS: tenants, invoices,
+  audit_events, outbox.
+- WHAT IS REAL: institutions by state and kind, students/teachers/guardians/
+  campuses/staff accounts, invoiced + collected in the window, outstanding,
+  overdue, plan mix, per-institution table, attention centre, activity feed,
+  outbox health, onboardings per month.
+- WHAT IS NOT, and is SAID so on the page rather than estimated: feature
+  adoption, DAU/MAU, mobile adoption, email deliverability, storage per
+  school, and contractual MRR/ARR. There is no stored recurring price per
+  school, so ARR cannot be computed; what IS shown is "annualised licence
+  value" = list rate for each plan × that school's enrolled students, labelled
+  in the UI as exactly that.
+- Attention centre fires on: expired subscription, renewal ≤30 days, unpaid
+  invoices, suspended school, SMS credits <500, active school with no
+  students, and onboarding stalled in Provisioning >14 days. Sorted most
+  severe first so the top row is the next thing to do.
+- `/` branches on the principal: no `tenant` claim means the platform page.
+  The school dashboard's old fallback alert became a real empty state for the
+  only case that reaches it (a school account without `students.view`).
+- 6 integration tests over three seeded schools — busy, empty college,
+  suspended — including withdrawn students, an inactive teacher and a closed
+  campus, none of which may be counted. The first test asserts the totals from
+  a scope with NO tenant bound, which is the RLS trap it exists to catch.
+- Browser-verified as Super Admin: real figures (22 students, 4 teachers,
+  20 guardians, 3 campuses across 2 schools), no console errors on a clean
+  tab, and a mobile viewport with no horizontal overflow.
+  Suite: 65 unit + 169 integration.
+
 ## Campuses + institution type (feature/campuses)
 
 Groundwork for the Super Admin dashboard: two facts the platform could not
@@ -1359,3 +1405,8 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
   is unset during migrations. Backfill first, enable RLS last.
 - Integration tests in one class share a fixture AND have no guaranteed
   order. Anything that asserts on "the first X" must mint its own tenant.
+- A cross-tenant aggregate over an RLS'd table returns ZERO ROWS, not an
+  error. Nothing fails; the number is just quietly wrong. Platform-wide counts
+  must go through `app_platform_tenant_counts()`.
+- MudChart bar charts pick their own y-axis: a max of 2 gets drawn against
+  0–20 and reads as "nothing happened". Pass ChartOptions for small integers.
