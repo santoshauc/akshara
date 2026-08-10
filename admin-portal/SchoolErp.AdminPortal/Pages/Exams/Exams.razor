@@ -22,6 +22,13 @@
                OnClick="@(() => _showReportSettings = !_showReportSettings)">
         Report card layout
     </MudButton>
+    @if (Institution.IsCollege)
+    {
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Grading"
+                   OnClick="ToggleGradeScaleAsync">
+            Grading scale
+        </MudButton>
+    }
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Add"
                OnClick="@(() => _showExamForm = !_showExamForm)">
         Create exam
@@ -70,6 +77,66 @@
                           Style="min-width: 340px;" />
             <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
                        OnClick="SaveReportSettingsAsync">Save layout</MudButton>
+        </MudStack>
+    </MudPaper>
+}
+
+@if (_showGradeScale)
+{
+    <MudPaper Elevation="2" Class="pa-4 mb-4">
+        <MudText Typo="Typo.h6" Class="mb-1">Grading scale</MudText>
+        <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
+            @(_scaleIsOwn
+                ? "This institution's own ordinance. Every SGPA and CGPA is computed against it."
+                : "Currently using the UGC recommended scale. Edit and save to record your own university's ordinance instead.")
+            Results already published keep the grades they were issued with.
+        </MudText>
+
+        <MudSimpleTable Dense="true" Style="max-width: 520px;">
+            <thead>
+                <tr>
+                    <th style="width: 140px;">From %</th>
+                    <th style="width: 120px;">Grade</th>
+                    <th style="width: 120px;">Points</th>
+                    <th />
+                </tr>
+            </thead>
+            <tbody>
+                @foreach (var (band, index) in _scaleBands.Select((b, i) => (b, i)))
+                {
+                    <tr>
+                        <td>
+                            <MudNumericField T="decimal" @bind-Value="band.MinPercent"
+                                             Min="0" Max="100" Margin="Margin.Dense" />
+                        </td>
+                        <td>
+                            <MudTextField @bind-Value="band.Letter" Margin="Margin.Dense" />
+                        </td>
+                        <td>
+                            <MudNumericField T="int" @bind-Value="band.Point"
+                                             Min="0" Max="100" Margin="Margin.Dense" />
+                        </td>
+                        <td>
+                            <MudIconButton Icon="@Icons.Material.Filled.Delete" Size="Size.Small"
+                                           Color="Color.Error"
+                                           OnClick="@(() => _scaleBands.RemoveAt(index))" />
+                        </td>
+                    </tr>
+                }
+            </tbody>
+        </MudSimpleTable>
+
+        <MudStack Row="true" Spacing="2" Class="mt-3" AlignItems="AlignItems.Center">
+            <MudButton Size="Size.Small" Variant="Variant.Outlined"
+                       StartIcon="@Icons.Material.Filled.Add"
+                       OnClick="@(() => _scaleBands.Add(new GradeBandRow()))">
+                Add band
+            </MudButton>
+            <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
+                       OnClick="SaveGradeScaleAsync">Save scale</MudButton>
+            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                Anything below the lowest band is F, worth nothing.
+            </MudText>
         </MudStack>
     </MudPaper>
 }
@@ -310,6 +377,81 @@ else
     /// <summary>Credit weight; only a college is asked for it. 4 is the
     /// commonest weight for an Indian degree paper.</summary>
     private int _paperCredits = 4;
+
+    /// <summary>Mutable row; MudBlazor two-way binding needs settable fields.</summary>
+    private sealed class GradeBandRow
+    {
+        public decimal MinPercent { get; set; }
+        public string Letter { get; set; } = string.Empty;
+        public int Point { get; set; }
+    }
+
+    private bool _showGradeScale;
+    private bool _scaleIsOwn;
+    private List<GradeBandRow> _scaleBands = [];
+
+    /// <summary>
+    /// Opens the editor pre-filled with whatever is in force — the UGC
+    /// fallback included, so an institution edits a real scale rather than
+    /// starting from an empty table and guessing the shape.
+    /// </summary>
+    private async Task ToggleGradeScaleAsync()
+    {
+        _showGradeScale = !_showGradeScale;
+        if (!_showGradeScale)
+        {
+            return;
+        }
+
+        try
+        {
+            var scale = await Client.GetGradeScaleAsync();
+            _scaleIsOwn = scale?.IsInstitutionDefined ?? false;
+            _scaleBands = (scale?.Bands ?? [])
+                .Select(b => new GradeBandRow
+                {
+                    MinPercent = b.MinPercent, Letter = b.Letter, Point = b.Point,
+                })
+                .ToList();
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+    }
+
+    private async Task SaveGradeScaleAsync()
+    {
+        if (_scaleBands.Any(b => string.IsNullOrWhiteSpace(b.Letter)))
+        {
+            Snackbar.Add("Every band needs a grade letter.", Severity.Warning);
+            return;
+        }
+
+        _busy = true;
+        try
+        {
+            var error = await Client.SetGradeScaleAsync(_scaleBands
+                .Select(b => new GradeBandDto(b.MinPercent, b.Letter.Trim(), b.Point))
+                .ToList());
+            if (error is not null)
+            {
+                Snackbar.Add(error, Severity.Error);
+                return;
+            }
+
+            Snackbar.Add("Grading scale saved.", Severity.Success);
+            _scaleIsOwn = _scaleBands.Count > 0;
+        }
+        catch (HttpRequestException)
+        {
+            Snackbar.Add("Cannot reach the server.", Severity.Error);
+        }
+        finally
+        {
+            _busy = false;
+        }
+    }
 
     protected override async Task OnInitializedAsync()
     {

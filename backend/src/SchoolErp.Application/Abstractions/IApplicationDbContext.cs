@@ -104,6 +104,12 @@ public interface IApplicationDbContext
 
     DbSet<Domain.Campuses.Campus> Campuses { get; }
 
+    /// <summary>
+    /// The institution's own grading ordinance. Empty means "use the UGC
+    /// default" — see CbcsGradeCalculator.
+    /// </summary>
+    DbSet<Domain.Exams.GradeBand> GradeBands { get; }
+
     /// <summary>Colleges only; a school's set is empty.</summary>
     DbSet<Department> Departments { get; }
 

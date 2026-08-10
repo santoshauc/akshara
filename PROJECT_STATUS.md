@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 88 unit + 183 integration = **271 green** (`dotnet test` from `school-erp/`).
+Test suite: 88 unit + 184 integration = **272 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -943,6 +943,39 @@ classes-and-sections shape of a K-12 school. Closed.
   "College wording" below.
   Suite: 65 unit + 178 integration.
 
+## Per-university grade scales (feature/grade-scales)
+
+The UGC 10-point table is a RECOMMENDATION, not a rule. Universities differ on
+where each grade starts and what it is worth, and a transcript printed against
+the wrong scale is wrong in a way nobody notices until a student disputes it.
+
+- `GradeBand` (RLS'd, `grade_bands`): MinPercent, Letter, Point. Unique per
+  (tenant, MinPercent) — two bands starting at the same percentage would make
+  the grade depend on row order.
+- NO bands means the UGC default still applies, so nothing changed for anyone
+  who has not looked. `GetGradeScaleQuery` returns `IsInstitutionDefined` so
+  the caller can tell a chosen scale from an unexamined one.
+- `CbcsGradeCalculator` gained band-taking overloads and SORTS the bands
+  itself: a list entered out of order in a settings screen would otherwise
+  award the first band that matched rather than the highest one that did.
+- Whole-set replacement, not per-band edits — a scale is only coherent as a
+  set, and editing one band at a time leaves gaps and overlaps live between
+  saves.
+- Published results are NOT recomputed when the scale changes. A transcript
+  that silently changes after the fact is worse than one that is out of date;
+  reissuing has to be deliberate.
+- The grade sheet loads the scale ONCE per request and threads it through
+  every paper, so a mid-request change cannot split one transcript across two
+  ordinances.
+- Portal: a Grading scale editor on the Exams page (college only), pre-filled
+  with whatever is in force — the UGC fallback included, so an institution
+  edits a real table instead of starting from an empty one.
+- 1 integration test proving the point: 75% is an A worth 8 under the UGC
+  scale and a B worth 6 under a stricter ordinance, same marks, same student.
+- STILL MISSING: relative/percentile grading (some IITs curve rather than band
+  absolute marks), and per-programme scales — the ordinance is institution-
+  wide.
+
 ## CBCS credits, SGPA and CGPA (feature/cbcs-credits)
 
 - `CbcsGradeCalculator` (Domain): the UGC 10-point scale — O 10, A+ 9, A 8,
@@ -962,10 +995,8 @@ classes-and-sections shape of a K-12 school. Closed.
   says WHY — "no published results yet" and "no paper carries credits" are
   different problems and the caller should not have to guess from a null.
 - Portal: a Credits field on the schedule-paper form, college only.
-- CAVEAT recorded in the code: the UGC scale is a RECOMMENDATION. Universities
-  vary (some start O at 91, some award 5 points at 50). There is no
-  per-institution scale configuration yet, so an ordinance that differs will
-  not match.
+- ~~CAVEAT: no per-institution scale~~ CLOSED — see "Per-university grade
+  scales" below. The UGC table is now the FALLBACK, not the only option.
 - 12 unit tests on the arithmetic (band boundaries, credit weighting, failure
   in the denominator, absence, zero-credit papers, null vs zero) and 2
   integration tests (a published MCA semester scoring 6.67 across a 4-credit A
