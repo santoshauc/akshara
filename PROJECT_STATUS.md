@@ -957,9 +957,12 @@ classes-and-sections shape of a K-12 school. Closed.
   whoever receives it.
 - 1 integration test: refused before publication with the reason, then a real
   PDF (checked for the `%PDF-` magic bytes, not merely non-empty).
-- NOT VISUALLY VERIFIED. The test proves it is a valid PDF and the layout
-  follows the report-card renderer's pattern, but nobody has opened one and
-  looked at the page. Do that before showing it to a customer.
+- HTTP-verified end to end: real login as the college admin → bearer token →
+  `GET .../grade-sheet/pdf` returned a 32,824-byte PDF. That exercises auth,
+  routing and permissions, which the integration test (which goes straight
+  through MediatR) does not.
+- STILL NOT VISUALLY VERIFIED, and it cannot be from here — see the gotcha
+  below. Open one before showing it to a customer.
   Suite: 88 unit + 185 integration.
 
 ## Per-university grade scales (feature/grade-scales)
@@ -1656,6 +1659,11 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
   "one enrollment per student per year" in the validator only moved the
   failure to a 23505 at SaveChanges. Grep the EF configuration before
   concluding a constraint is gone.
+- PDFs CANNOT be visually checked from this environment. Three routes all
+  fail: `Read` needs poppler (not installed), the Browser pane downloads a
+  PDF rather than displaying it (and pops a save dialog at the user), and
+  embedding a blob in a Blazor page trips its ErrorBoundary. Verify PDF bytes
+  and the HTTP path in code; the rendered page needs a human.
 - `dotnet test -v q` prints the Failed! total but NOT the failing test names.
   Re-run without `-v q` (or grep `^  Failed `) — this has now cost two
   separate sessions a wasted full run.
