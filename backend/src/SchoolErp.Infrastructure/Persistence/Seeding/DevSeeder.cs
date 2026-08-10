@@ -213,8 +213,14 @@ public static partial class DevSeeder
     private static async Task EnsureDemoCollegeAsync(
         IServiceProvider services, AppDbContext db, ILogger logger)
     {
-        if (await db.Tenants.AnyAsync(t => t.Code == DemoCollegeCode).ConfigureAwait(false))
+        var existing = await db.Tenants
+            .FirstOrDefaultAsync(t => t.Code == DemoCollegeCode)
+            .ConfigureAwait(false);
+        if (existing is not null)
         {
+            // Already here, but possibly seeded by an earlier version of this
+            // method — top up whatever that one did not create.
+            await TopUpCollegeAcademicsAsync(services, existing.Id).ConfigureAwait(false);
             return;
         }
 
@@ -294,6 +300,16 @@ public static partial class DevSeeder
             IsActive = true,
         });
 
+        // Without a current year nobody can be admitted, which would make the
+        // whole college unusable rather than merely empty.
+        collegeDb.AcademicYears.Add(new AcademicYear
+        {
+            Name = "2026-27",
+            StartDate = new DateOnly(2026, 6, 1),
+            EndDate = new DateOnly(2027, 4, 30),
+            IsCurrent = true,
+        });
+
         var computing = new Department { Name = "Computer Science", Code = "CSE" };
         var commerce = new Department { Name = "Commerce", Code = "COM" };
         collegeDb.Departments.AddRange(computing, commerce);
@@ -333,6 +349,36 @@ public static partial class DevSeeder
 
         await collegeDb.SaveChangesAsync().ConfigureAwait(false);
         LogCollegeSeeded(logger, DemoCollegeCode, DemoCollegeAdminEmail);
+    }
+
+    /// <summary>
+    /// Adds the pieces of the demo college that a previously-seeded database
+    /// may be missing. Only the academic year so far — without a current year
+    /// nobody can be admitted, which makes the college unusable rather than
+    /// merely empty.
+    /// </summary>
+    private static async Task TopUpCollegeAcademicsAsync(IServiceProvider services, Guid collegeId)
+    {
+        await using var scope = services
+            .GetRequiredService<IServiceScopeFactory>()
+            .CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<Application.Abstractions.ITenantContextSetter>()
+            .SetTenant(collegeId);
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+        if (await db.AcademicYears.AnyAsync().ConfigureAwait(false))
+        {
+            return;
+        }
+
+        db.AcademicYears.Add(new AcademicYear
+        {
+            Name = "2026-27",
+            StartDate = new DateOnly(2026, 6, 1),
+            EndDate = new DateOnly(2027, 4, 30),
+            IsCurrent = true,
+        });
+        await db.SaveChangesAsync().ConfigureAwait(false);
     }
 
     /// <summary>Every module SchoolErp has actually shipped, for the demo school.</summary>

@@ -81,6 +81,15 @@ public sealed class PromoteClassCommandHandler
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        // The programme of the class they are moving INTO — a student can
+        // transfer between programmes at promotion, and the new enrollment has
+        // to record where they actually ended up.
+        var targetProgrammeId = await _db.SchoolClasses
+            .Where(c => c.Id == request.ToClassId)
+            .Select(c => c.ProgrammeId)
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
         var excluded = request.ExcludedStudentIds.ToHashSet();
         var promoted = 0;
         foreach (var enrollment in source)
@@ -98,6 +107,7 @@ public sealed class PromoteClassCommandHandler
                 AcademicYearId = request.ToAcademicYearId,
                 SchoolClassId = request.ToClassId,
                 SectionId = request.ToSectionId,
+                ProgrammeId = targetProgrammeId,
                 Status = EnrollmentStatus.Active,
             });
             promoted++;

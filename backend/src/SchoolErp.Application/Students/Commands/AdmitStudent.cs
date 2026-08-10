@@ -137,6 +137,13 @@ public sealed class AdmitStudentCommandHandler : IRequestHandler<AdmitStudentCom
             SchoolClassId = request.SchoolClassId,
             SectionId = request.SectionId,
             RollNumber = request.RollNumber,
+            // Stamped from the cohort, not asked for: the caller already chose
+            // the class, and a second field could only ever contradict it.
+            ProgrammeId = await _db.SchoolClasses
+                .Where(c => c.Id == request.SchoolClassId)
+                .Select(c => c.ProgrammeId)
+                .FirstOrDefaultAsync(cancellationToken)
+                .ConfigureAwait(false),
         });
 
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

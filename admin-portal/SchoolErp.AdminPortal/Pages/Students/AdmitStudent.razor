@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject StudentsClient Client
 @inject AcademicsClient AcademicsApi
+@inject DepartmentsClient DepartmentsApi
 @inject AdmissionsClient AdmissionsApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
@@ -77,10 +78,26 @@
         <MudItem xs="12" sm="3">
             <MudNumericField @bind-Value="_rollNumber" Label="Roll no. (optional)" Min="1" />
         </MudItem>
+        @if (_programmes.Count > 0)
+        {
+            @* Colleges place a student into a programme first; the cohort list
+               below then only offers that programme's terms. Absent at a
+               school, where a class is the whole placement. *@
+            <MudItem xs="12" sm="3">
+                <MudSelect T="Guid?" @bind-Value="_programmeId" Label="Programme"
+                           Clearable="true"
+                           SelectedValuesChanged="@(_ => { _classId = null; _sectionId = null; })">
+                    @foreach (var programme in _programmes)
+                    {
+                        <MudSelectItem T="Guid?" Value="@programme.Id">@programme.Name</MudSelectItem>
+                    }
+                </MudSelect>
+            </MudItem>
+        }
         <MudItem xs="12" sm="3">
-            <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Required="true"
+            <MudSelect T="Guid?" @bind-Value="_classId" Label="@CohortLabel" Required="true"
                        SelectedValuesChanged="@(_ => _sectionId = null)">
-                @foreach (var schoolClass in _classes)
+                @foreach (var schoolClass in PlaceableClasses)
                 {
                     <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
                 }
@@ -208,6 +225,23 @@
     private IEnumerable<SectionDto> SectionsOfSelectedClass =>
         _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
 
+    /// <summary>Empty at a school, which is what hides the programme select.</summary>
+    private List<ProgrammeDto> _programmes = [];
+    private Guid? _programmeId;
+
+    /// <summary>A college calls the thing a student joins a semester, not a class.</summary>
+    private string CohortLabel => _programmes.Count > 0 ? "Semester / cohort" : "Class";
+
+    /// <summary>
+    /// Narrowed to the chosen programme once one is picked. With none picked a
+    /// college still sees everything, so a cohort that predates its programme
+    /// is never hidden from the person trying to admit into it.
+    /// </summary>
+    private IEnumerable<SchoolClassDto> PlaceableClasses =>
+        _programmeId is { } id
+            ? _classes.Where(c => c.ProgrammeId == id)
+            : _classes;
+
     protected override async Task OnInitializedAsync()
     {
         PrefillFromEnquiry();
@@ -216,6 +250,13 @@
             _years = await AcademicsApi.GetYearsAsync();
             _classes = await AcademicsApi.GetClassesAsync();
             _yearId = _years.FirstOrDefault(y => y.IsCurrent)?.Id ?? _years.FirstOrDefault()?.Id;
+
+            // Comes back empty at a school; the programme select never renders.
+            _programmes = (await DepartmentsApi.GetDepartmentsAsync())
+                .SelectMany(d => d.Programmes)
+                .Where(p => p.IsActive)
+                .OrderBy(p => p.Name)
+                .ToList();
         }
         catch (HttpRequestException)
         {

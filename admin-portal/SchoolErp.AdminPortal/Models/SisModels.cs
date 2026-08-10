@@ -11,7 +11,12 @@ public sealed record SectionDto(Guid Id, string Name, int? Capacity);
 
 /// <summary>Class with sections as returned by the API.</summary>
 public sealed record SchoolClassDto(
-    Guid Id, string Name, int DisplayOrder, List<SectionDto> Sections);
+    Guid Id,
+    string Name,
+    int DisplayOrder,
+    List<SectionDto> Sections,
+    // The programme this cohort belongs to; null at a school.
+    Guid? ProgrammeId = null);
 
 /// <summary>Create-year payload (mirrors CreateAcademicYearCommand).</summary>
 public sealed record CreateAcademicYearRequest(
