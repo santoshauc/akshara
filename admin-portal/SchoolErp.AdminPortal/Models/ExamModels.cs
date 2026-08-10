@@ -110,3 +110,35 @@ public sealed record ReportCardSettingsDto(
     bool ShowAttendance,
     bool ShowRemarks,
     IReadOnlyList<string> Signatories);
+
+/// <summary>One paper on a grade sheet (mirrors GradeSheetPaperDto).</summary>
+public sealed record GradeSheetPaperDto(
+    string SubjectName,
+    int Credits,
+    decimal? Percent,
+    string Grade,
+    int GradePoint,
+    bool IsAbsent);
+
+/// <summary>One semester's result and its SGPA.</summary>
+public sealed record SemesterResultDto(
+    Guid ExamId,
+    string ExamName,
+    string CohortName,
+    DateOnly EndDate,
+    decimal? Sgpa,
+    int CreditsEarned,
+    int CreditsAttempted,
+    List<GradeSheetPaperDto> Papers);
+
+/// <summary>A student's cumulative record across published semesters.</summary>
+public sealed record GradeSheetDto(
+    Guid StudentId,
+    string StudentName,
+    string AdmissionNumber,
+    string? ProgrammeName,
+    decimal? Cgpa,
+    int CreditsEarned,
+    int CreditsAttempted,
+    List<SemesterResultDto> Semesters,
+    string? Unavailable);

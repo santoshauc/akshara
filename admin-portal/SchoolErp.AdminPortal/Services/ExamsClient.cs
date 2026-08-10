@@ -52,6 +52,20 @@ public sealed class ExamsClient
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
 
+    /// <summary>
+    /// The cumulative grade sheet. Null only when the call fails; a student
+    /// with no published results still returns a sheet that says so.
+    /// </summary>
+    public async Task<GradeSheetDto?> GetGradeSheetAsync(
+        Guid studentId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync(
+            $"api/v1/exams/students/{studentId}/grade-sheet", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadFromJsonAsync<GradeSheetDto>(cancellationToken: ct)
+            : null;
+    }
+
     public async Task<StudentResultDto?> GetStudentResultAsync(
         Guid examId, Guid studentId, CancellationToken ct = default)
     {
