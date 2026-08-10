@@ -4,6 +4,7 @@
 @inject AcademicsClient AcademicsApi
 @inject ExamsClient ExamsApi
 @inject StaffClient StaffApi
+@inject InstitutionContext Institution
 @inject ISnackbar Snackbar
 
 <PageTitle>Timetable — Akshara</PageTitle>
@@ -11,7 +12,7 @@
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
     <MudText Typo="Typo.h4">Timetable</MudText>
     <MudSpacer />
-    <MudSelect T="Guid?" @bind-Value="_classId" Label="Class" Dense="true" Style="min-width: 150px;"
+    <MudSelect T="Guid?" @bind-Value="_classId" Label="@Institution.Cohort" Dense="true" Style="min-width: 150px;"
                SelectedValuesChanged="@(_ => OnScopeChangedAsync())">
         @foreach (var schoolClass in _classes)
         {
@@ -271,6 +272,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await Institution.EnsureLoadedAsync();
         try
         {
             _classes = await AcademicsApi.GetClassesAsync();

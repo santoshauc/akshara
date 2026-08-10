@@ -3,6 +3,7 @@
 @inject AcademicsClient Client
 @inject StudentsClient StudentsApi
 @inject DepartmentsClient DepartmentsApi
+@inject InstitutionContext Institution
 @inject ISnackbar Snackbar
 
 <PageTitle>Academics — Akshara</PageTitle>
@@ -75,12 +76,12 @@
     <MudItem xs="12" md="6">
         <MudPaper Elevation="2" Class="pa-6">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudText Typo="Typo.h6">Classes &amp; sections</MudText>
+                <MudText Typo="Typo.h6">@Institution.CohortAndSection</MudText>
                 <MudSpacer />
                 <MudButton Size="Size.Small" Variant="Variant.Outlined" Color="Color.Primary"
                            StartIcon="@Icons.Material.Filled.Add"
                            OnClick="@(() => _showClassForm = !_showClassForm)">
-                    Add class
+                    Add @Institution.Cohort.ToLowerInvariant()
                 </MudButton>
             </MudStack>
 
@@ -88,7 +89,7 @@
             {
                 <MudPaper Outlined="true" Class="pa-4 mb-4">
                     <MudStack Spacing="3">
-                        <MudTextField @bind-Value="_className" Label="Class name (e.g. Grade 5)" />
+                        <MudTextField @bind-Value="_className" Label="@Institution.CohortNameHint" />
                         <MudNumericField @bind-Value="_classOrder" Label="Display order" Min="0" />
                         <MudTextField @bind-Value="_classSections" Label="Sections (comma-separated, e.g. A, B, C)" />
                         @if (_programmes.Count > 0)
@@ -107,14 +108,18 @@
                             </MudSelect>
                         }
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
-                                   OnClick="CreateClassAsync">Create class</MudButton>
+                                   OnClick="CreateClassAsync">
+                            Create @Institution.Cohort.ToLowerInvariant()
+                        </MudButton>
                     </MudStack>
                 </MudPaper>
             }
 
             @if (_classes.Count == 0)
             {
-                <MudText Class="mud-text-secondary">No classes yet.</MudText>
+                <MudText Class="mud-text-secondary">
+                    No @Institution.CohortPlural.ToLowerInvariant() yet.
+                </MudText>
             }
             else
             {
@@ -152,7 +157,7 @@
                                 <MudSelectItem T="Guid?" Value="@year.Id">@year.Name</MudSelectItem>
                             }
                         </MudSelect>
-                        <MudSelect T="Guid?" @bind-Value="_fromClassId" Label="Class" Dense="true"
+                        <MudSelect T="Guid?" @bind-Value="_fromClassId" Label="@Institution.Cohort" Dense="true"
                                    Style="min-width: 140px;"
                                    SelectedValuesChanged="@(_ => { _fromSectionId = null; _promoStudents = null; })">
                             @foreach (var cls in _classes)
@@ -181,7 +186,7 @@
                                 <MudSelectItem T="Guid?" Value="@year.Id">@year.Name</MudSelectItem>
                             }
                         </MudSelect>
-                        <MudSelect T="Guid?" @bind-Value="_toClassId" Label="Class" Dense="true"
+                        <MudSelect T="Guid?" @bind-Value="_toClassId" Label="@Institution.Cohort" Dense="true"
                                    Style="min-width: 140px;"
                                    SelectedValuesChanged="@(_ => _toSectionId = null)">
                             @foreach (var cls in _classes)
@@ -280,7 +285,11 @@
     private string YearName(Guid? id) =>
         _years.FirstOrDefault(y => y.Id == id)?.Name ?? string.Empty;
 
-    protected override Task OnInitializedAsync() => ReloadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await Institution.EnsureLoadedAsync();
+        await ReloadAsync();
+    }
 
     private async Task ReloadAsync()
     {

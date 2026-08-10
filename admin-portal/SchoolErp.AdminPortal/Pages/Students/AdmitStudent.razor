@@ -3,6 +3,7 @@
 @inject StudentsClient Client
 @inject AcademicsClient AcademicsApi
 @inject DepartmentsClient DepartmentsApi
+@inject InstitutionContext Institution
 @inject AdmissionsClient AdmissionsApi
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
@@ -230,7 +231,7 @@
     private Guid? _programmeId;
 
     /// <summary>A college calls the thing a student joins a semester, not a class.</summary>
-    private string CohortLabel => _programmes.Count > 0 ? "Semester / cohort" : "Class";
+    private string CohortLabel => Institution.Cohort;
 
     /// <summary>
     /// Narrowed to the chosen programme once one is picked. With none picked a
@@ -244,6 +245,7 @@
 
     protected override async Task OnInitializedAsync()
     {
+        await Institution.EnsureLoadedAsync();
         PrefillFromEnquiry();
         try
         {

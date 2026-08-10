@@ -3,6 +3,7 @@
 @inject AuthApiClient AuthApi
 @inject NavigationManager Navigation
 @inject TenantsClient TenantsApi
+@inject InstitutionContext Institution
 @inject HttpClient Http
 @inject IJSRuntime Js
 @inject AuthenticationStateProvider AuthState
@@ -307,6 +308,13 @@
 
             _brandingAttempted = true;
             _branding = await TenantsApi.GetBrandingAsync(code);
+            if (_branding is { } fetched)
+            {
+                // Hand it over so no page has to fetch branding again just to
+                // know whether to say "class" or "semester".
+                Institution.Adopt(fetched.InstitutionType);
+            }
+
             if (_branding?.ThemePrimaryColor is { } primary)
             {
                 _theme = AksharaTheme.Build(primary, _branding.ThemeSecondaryColor);

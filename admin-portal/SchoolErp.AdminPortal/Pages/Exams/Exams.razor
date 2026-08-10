@@ -4,6 +4,7 @@
 @inject AcademicsClient AcademicsApi
 @inject StudentsClient StudentsApi
 @inject NavigationManager Navigation
+@inject InstitutionContext Institution
 @inject ISnackbar Snackbar
 @inject IDialogService DialogService
 @inject IJSRuntime Js
@@ -128,7 +129,7 @@ else
             {
                 <MudPaper Outlined="true" Class="pa-4 mb-3">
                     <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-                        <MudSelect T="Guid?" @bind-Value="_paperClassId" Label="Class" Style="min-width: 140px;">
+                        <MudSelect T="Guid?" @bind-Value="_paperClassId" Label="@Institution.Cohort" Style="min-width: 140px;">
                             @foreach (var schoolClass in _classes)
                             {
                                 <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name</MudSelectItem>
@@ -161,7 +162,7 @@ else
                 <MudSimpleTable Dense="true" Hover="true">
                     <thead>
                         <tr>
-                            <th>Class</th>
+                            <th>@Institution.Cohort</th>
                             <th>Subject</th>
                             <th>Date</th>
                             <th>Max / Pass</th>
@@ -300,6 +301,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        await Institution.EnsureLoadedAsync();
         try
         {
             var years = await AcademicsApi.GetYearsAsync();

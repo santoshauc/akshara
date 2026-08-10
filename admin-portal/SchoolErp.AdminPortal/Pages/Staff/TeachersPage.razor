@@ -2,6 +2,7 @@
 @attribute [Authorize]
 @inject StaffClient Client
 @inject TimetableClient TimetableApi
+@inject InstitutionContext Institution
 @inject ISnackbar Snackbar
 
 <PageTitle>Teachers — Akshara</PageTitle>
@@ -244,7 +245,7 @@
                             <th>Time</th>
                             <th>Period</th>
                             <th>Subject</th>
-                            <th>Class</th>
+                            <th>@Institution.Cohort</th>
                             <th>Status</th>
                         </tr>
                     </thead>
@@ -300,7 +301,11 @@
     private bool _loading = true;
     private bool _busy;
 
-    protected override async Task OnInitializedAsync() => await LoadAsync();
+    protected override async Task OnInitializedAsync()
+    {
+        await Institution.EnsureLoadedAsync();
+        await LoadAsync();
+    }
 
     private async Task LoadAsync()
     {
