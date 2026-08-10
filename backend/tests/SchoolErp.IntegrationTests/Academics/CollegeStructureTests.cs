@@ -590,6 +590,50 @@ public sealed class CollegeStructureTests : IClassFixture<CollegeStructureFixtur
     }
 
     [Fact]
+    public async Task The_transcript_renders_a_pdf_and_refuses_to_print_a_blank_one()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+        var cohort = await sender.Send(new CreateClassCommand("Semester 1", 1, ["A"]));
+        var sectionId = cohort.Sections.Single().Id;
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Vikas", "Joshi", new DateOnly(2005, 3, 3), Gender.Male,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 7, 5), yearId, cohort.Id, sectionId, 1,
+            [new GuardianInput("Sunita", "Joshi", GuardianRelation.Mother, "+919700000600", null, null, true)]));
+
+        // Nothing published: printing must be refused, with the reason.
+        var blank = () => sender.Send(new GetTranscriptPdfQuery(studentId));
+        await blank.Should().ThrowAsync<ConflictException>()
+            .WithMessage("*No published results*");
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollmentId = await db.Enrollments
+            .Where(e => e.StudentId == studentId).Select(e => e.Id).SingleAsync();
+
+        var subject = await sender.Send(new CreateSubjectCommand("Thermodynamics", "THERM"));
+        var examId = await sender.Send(new CreateExamCommand(
+            "Semester 1 End", yearId, new DateOnly(2026, 11, 20), new DateOnly(2026, 11, 30)));
+        var paper = await sender.Send(new ScheduleExamSubjectCommand(
+            examId, cohort.Id, subject.Id, new DateOnly(2026, 11, 21), 100m, 40m, Credits: 4));
+        await sender.Send(new EnterMarksCommand(paper, [new MarkInput(enrollmentId, 82m, false)]));
+        await sender.Send(new PublishExamCommand(examId));
+
+        var pdf = await sender.Send(new GetTranscriptPdfQuery(studentId));
+
+        pdf.Should().NotBeEmpty();
+        System.Text.Encoding.ASCII.GetString(pdf, 0, 5).Should().Be("%PDF-",
+            "a real PDF, not an error page or an empty buffer");
+    }
+
+    [Fact]
     public async Task A_school_exam_reports_no_gpa_rather_than_zero()
     {
         var tenantId = await _fixture.NewCollegeAsync();

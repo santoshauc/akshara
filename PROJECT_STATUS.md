@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 88 unit + 184 integration = **272 green** (`dotnet test` from `school-erp/`).
+Test suite: 88 unit + 185 integration = **273 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 
 ## Remaining scope (in rough priority order)
@@ -942,6 +942,25 @@ classes-and-sections shape of a K-12 school. Closed.
 - ~~STILL OPEN: the rest of the college UI still says "class"~~ DONE — see
   "College wording" below.
   Suite: 65 unit + 178 integration.
+
+## Transcript PDF (feature/transcript-pdf)
+
+- `QuestPdfTranscriptRenderer` (same Community licence as the other
+  renderers): school header, student block, one table per semester with its
+  SGPA, and the CGPA. `GET exams/students/{id}/grade-sheet/pdf`, with a
+  Download button beside the CGPA on the profile panel.
+- REFUSES to print when there is no CGPA, returning 409 with the reason. A
+  consolidated grade sheet whose entire purpose is the CGPA is worse than no
+  document at all if it goes out blank.
+- The footer states WHICH ordinance produced the grades — the institution's
+  own or the UGC scale. A transcript that does not say is unverifiable by
+  whoever receives it.
+- 1 integration test: refused before publication with the reason, then a real
+  PDF (checked for the `%PDF-` magic bytes, not merely non-empty).
+- NOT VISUALLY VERIFIED. The test proves it is a valid PDF and the layout
+  follows the report-card renderer's pattern, but nobody has opened one and
+  looked at the page. Do that before showing it to a customer.
+  Suite: 88 unit + 185 integration.
 
 ## Per-university grade scales (feature/grade-scales)
 

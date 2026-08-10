@@ -52,6 +52,19 @@ public sealed class ExamsClient
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
 
+    /// <summary>
+    /// The consolidated grade sheet as a PDF. Null when the server refuses —
+    /// there is nothing worth printing yet.
+    /// </summary>
+    public async Task<byte[]?> GetTranscriptAsync(Guid studentId, CancellationToken ct = default)
+    {
+        var response = await _http.GetAsync(
+            $"api/v1/exams/students/{studentId}/grade-sheet/pdf", ct);
+        return response.IsSuccessStatusCode
+            ? await response.Content.ReadAsByteArrayAsync(ct)
+            : null;
+    }
+
     /// <summary>The grading ordinance in force (own bands, or the UGC fallback).</summary>
     public async Task<GradeScaleDto?> GetGradeScaleAsync(CancellationToken ct = default) =>
         await _http.GetFromJsonAsync<GradeScaleDto>("api/v1/exams/grade-scale", ct);

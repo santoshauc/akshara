@@ -161,6 +161,20 @@ public sealed class ExamsController : ControllerBase
         return File(pdf, "application/pdf", $"report-card-{studentId:N}.pdf");
     }
 
+    /// <summary>
+    /// The consolidated grade sheet as a PDF. 409 when there is nothing to
+    /// print — a transcript whose purpose is the CGPA should not go out blank.
+    /// </summary>
+    [HttpGet("students/{studentId:guid}/grade-sheet/pdf")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    public async Task<IActionResult> GetTranscript(Guid studentId, CancellationToken ct)
+    {
+        var pdf = await _sender.Send(new GetTranscriptPdfQuery(studentId), ct);
+        return File(pdf, "application/pdf", $"grade-sheet-{studentId:N}.pdf");
+    }
+
     /// <summary>Term report definitions of a year.</summary>
     [HttpGet("term-reports")]
     [HasPermission(Permissions.Examinations.View)]

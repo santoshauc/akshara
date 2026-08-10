@@ -204,3 +204,70 @@ public sealed class GetStudentGradeSheetQueryHandler
             : null;
     }
 }
+
+/// <summary>Everything a transcript prints, ready for rendering.</summary>
+public sealed record TranscriptData(
+    string SchoolName,
+    string? SchoolCity,
+    GradeSheetDto Sheet,
+    bool IsInstitutionDefinedScale);
+
+/// <summary>Turns a transcript into a PDF. Implemented in Infrastructure.</summary>
+public interface ITranscriptRenderer
+{
+    byte[] Render(TranscriptData data);
+}
+
+/// <summary>A student's consolidated grade sheet as a PDF.</summary>
+public sealed record GetTranscriptPdfQuery(Guid StudentId) : IRequest<byte[]>;
+
+/// <summary>
+/// Composes the sheet with the school header. Refuses to print a transcript
+/// with no GPA: a consolidated grade sheet whose whole purpose is the CGPA is
+/// worse than no document at all if it would go out blank.
+/// </summary>
+public sealed class GetTranscriptPdfQueryHandler : IRequestHandler<GetTranscriptPdfQuery, byte[]>
+{
+    private readonly IApplicationDbContext _db;
+    private readonly ISender _sender;
+    private readonly ITranscriptRenderer _renderer;
+    private readonly ITenantContext _tenantContext;
+
+    public GetTranscriptPdfQueryHandler(
+        IApplicationDbContext db,
+        ISender sender,
+        ITranscriptRenderer renderer,
+        ITenantContext tenantContext)
+    {
+        _db = db;
+        _sender = sender;
+        _renderer = renderer;
+        _tenantContext = tenantContext;
+    }
+
+    public async Task<byte[]> Handle(
+        GetTranscriptPdfQuery request, CancellationToken cancellationToken)
+    {
+        var sheet = await _sender.Send(new GetStudentGradeSheetQuery(request.StudentId), cancellationToken)
+            .ConfigureAwait(false);
+
+        if (sheet.Cgpa is null)
+        {
+            throw new ConflictException(
+                sheet.Unavailable ?? "There is nothing to print on this transcript yet.");
+        }
+
+        var school = await _db.Tenants.AsNoTracking()
+            .Where(t => t.Id == _tenantContext.TenantId)
+            .Select(t => new { t.Name, t.City })
+            .FirstOrDefaultAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        var isOwnScale = await _db.GradeBands.AsNoTracking()
+            .AnyAsync(cancellationToken)
+            .ConfigureAwait(false);
+
+        return _renderer.Render(new TranscriptData(
+            school?.Name ?? "—", school?.City, sheet, isOwnScale));
+    }
+}
