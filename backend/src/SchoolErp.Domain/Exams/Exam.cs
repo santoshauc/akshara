@@ -50,6 +50,15 @@ public class ExamSubject : TenantEntity
     public decimal MaxMarks { get; set; } = 100;
 
     public decimal PassMarks { get; set; } = 33;
+
+    /// <summary>
+    /// Credit weight of this paper, for colleges on a credit system. Null at a
+    /// school, and at a college until someone sets it — which is why SGPA is
+    /// reported as unavailable rather than zero when nothing carries credits.
+    /// Lives on the paper, not the subject: the same subject is worth
+    /// different credits in different programmes.
+    /// </summary>
+    public int? Credits { get; set; }
 }
 
 /// <summary>A student's marks for one paper. Upserted during entry; frozen on publish.</summary>

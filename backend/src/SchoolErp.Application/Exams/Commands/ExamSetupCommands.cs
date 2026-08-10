@@ -123,7 +123,9 @@ public sealed record ScheduleExamSubjectCommand(
     Guid SubjectId,
     DateOnly? ExamDate,
     decimal MaxMarks,
-    decimal PassMarks) : IRequest<Guid>;
+    decimal PassMarks,
+    // Credit weight, for colleges on the CBCS system. Null at a school.
+    int? Credits = null) : IRequest<Guid>;
 
 /// <summary>Paper shape rules.</summary>
 public sealed class ScheduleExamSubjectCommandValidator : AbstractValidator<ScheduleExamSubjectCommand>
@@ -134,6 +136,12 @@ public sealed class ScheduleExamSubjectCommandValidator : AbstractValidator<Sche
         RuleFor(c => c.PassMarks).GreaterThanOrEqualTo(0)
             .LessThanOrEqualTo(c => c.MaxMarks)
             .WithMessage("Pass marks cannot exceed maximum marks.");
+
+        // Indian degree papers run 1–6 credits; anything outside that is a
+        // typo, and a wrong credit silently skews every GPA it touches.
+        RuleFor(c => c.Credits!.Value).InclusiveBetween(1, 12)
+            .When(c => c.Credits is not null)
+            .WithMessage("Credits must be between 1 and 12.");
     }
 }
 
@@ -189,6 +197,7 @@ public sealed class ScheduleExamSubjectCommandHandler
             ExamDate = request.ExamDate,
             MaxMarks = request.MaxMarks,
             PassMarks = request.PassMarks,
+            Credits = request.Credits,
         };
         _db.ExamSubjects.Add(paper);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);

@@ -147,6 +147,14 @@ else
                                          Style="width: 110px;" />
                         <MudNumericField @bind-Value="_paperPass" Label="Pass marks" Min="0"
                                          Style="width: 110px;" />
+                        @if (Institution.IsCollege)
+                        {
+                            @* Without this the paper carries no credits and
+                               contributes nothing to the SGPA. *@
+                            <MudNumericField @bind-Value="_paperCredits" Label="Credits"
+                                             Min="1" Max="12" Style="width: 110px;"
+                                             HelperText="Counts toward SGPA" />
+                        }
                         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
                                    OnClick="@(() => SchedulePaperAsync(exam.Id))">Add paper</MudButton>
                     </MudStack>
@@ -298,6 +306,10 @@ else
     private DateTime? _paperDate;
     private decimal _paperMax = 100;
     private decimal _paperPass = 33;
+
+    /// <summary>Credit weight; only a college is asked for it. 4 is the
+    /// commonest weight for an Indian degree paper.</summary>
+    private int _paperCredits = 4;
 
     protected override async Task OnInitializedAsync()
     {
@@ -534,7 +546,8 @@ else
             var error = await Client.SchedulePaperAsync(examId, new SchedulePaperRequest(
                 _paperClassId.Value, _paperSubjectId.Value,
                 _paperDate is null ? null : DateOnly.FromDateTime(_paperDate.Value),
-                _paperMax, _paperPass));
+                _paperMax, _paperPass,
+                Institution.IsCollege ? _paperCredits : null));
             if (error is null)
             {
                 Snackbar.Add("Paper scheduled.", Severity.Success);
