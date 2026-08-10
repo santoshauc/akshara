@@ -724,6 +724,11 @@ GOTCHAS (all cost real time this session):
 
 REMAINING (in agreed order):
 1. ~~Notification localization~~ DONE — see "Notification localization" below.
+1b. ~~Campuses + institution type~~ and ~~Super Admin dashboard~~ DONE — both
+   below. Still open from that thread: departments/programmes so a College
+   tenant stops being shown the classes-and-sections shape; a stored contract
+   price per school so ARR is contractual rather than list-rate; and scoped
+   impersonation so support can see what a school sees.
 2. Fee refunds (mid-year withdrawals).
 3. Nine list pages onto the Students pattern: Teachers, Fees, Transport,
    Inventory, Front office, Library, Hostel, Users, Audit, Admissions.
@@ -738,8 +743,9 @@ REMAINING (in agreed order):
 8. Optional: promote the duplicated mobile design system to a shared package
    (needs Metro watchFolders + extraNodeModules in both apps).
 
-NOT DOING: dashboard redesign (user asked to leave Home.razor as-is);
-HR/payroll (own product).
+NOT DOING: redesign of the SCHOOL dashboard (user asked to leave Home.razor
+as-is — the platform dashboard added later is a separate page); HR/payroll
+(own product).
 
 ## Notification localization (feature/notification-localization)
 
