@@ -1,0 +1,69 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  ⚠ THIS FILE DOES NOT WORK YET. Passing it with --settings produced ZERO
+  coverage files instead of two. Do not trust a coverage run using it until
+  that is fixed and a non-empty cobertura file is confirmed.
+
+  Prime suspect: the collector friendlyName here is "XPlat code coverage"
+  while the command line passes --collect:"XPlat Code Coverage". The casing
+  must match or no collector is selected and the run silently produces
+  nothing — the failure mode is an empty results directory, not an error.
+  Second suspect: the whitespace and newlines inside <ExcludeByFile>.
+
+  The exclusion list below is still the right list — it is kept for that
+  reason. Verify with:
+    dotnet test SchoolErp.sln --collect:"XPlat code coverage" \
+      --settings coverlet.runsettings --results-directory ./TestResults
+    ls TestResults/*/coverage.cobertura.xml   # must be 2 files, not 0
+
+  Original notes:
+
+  Coverage settings. Use with:
+    dotnet test SchoolErp.sln --collect:"XPlat Code Coverage" \
+      --settings coverlet.runsettings
+
+  Without the exclusions below the number is meaningless: EF's generated
+  migrations and model snapshot are ~156,000 of ~171,000 "lines", none of them
+  executed by tests and none of them worth testing. Measured raw, the whole
+  suite reports 0.6%; measured against hand-written code it is an order of
+  magnitude higher.
+-->
+<RunSettings>
+  <DataCollectionRunSettings>
+    <DataCollectors>
+      <DataCollector friendlyName="XPlat code coverage">
+        <Configuration>
+          <Format>cobertura</Format>
+
+          <!-- Generated or third-party: excluded by source path. -->
+          <ExcludeByFile>
+            **/Migrations/*.cs,
+            **/Migrations/**/*.cs,
+            **/obj/**/*.cs,
+            **/*.Designer.cs,
+            **/*.g.cs,
+            **/*.razor.g.cs
+          </ExcludeByFile>
+
+          <!-- Test projects must not count toward their own coverage. -->
+          <Exclude>[SchoolErp.UnitTests]*,[SchoolErp.IntegrationTests]*</Exclude>
+
+          <!-- Compiler-generated members and anything explicitly opted out. -->
+          <ExcludeByAttribute>
+            Obsolete,
+            GeneratedCodeAttribute,
+            CompilerGeneratedAttribute,
+            ExcludeFromCodeCoverageAttribute
+          </ExcludeByAttribute>
+
+          <!-- Merge the unit and integration runs into one figure; measuring
+               either alone understates the suite badly, since the handlers are
+               covered by integration tests and the calculators by unit ones. -->
+          <SingleHit>false</SingleHit>
+          <UseSourceLink>true</UseSourceLink>
+          <IncludeTestAssembly>false</IncludeTestAssembly>
+        </Configuration>
+      </DataCollector>
+    </DataCollectors>
+  </DataCollectionRunSettings>
+</RunSettings>

@@ -1674,3 +1674,30 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
 - `dotnet test -v q` prints the Failed! total but NOT the failing test names.
   Re-run without `-v q` (or grep `^  Failed `) — this has now cost two
   separate sessions a wasted full run.
+
+## Test coverage — measured, and what the number means
+
+Measured 10 Aug 2026 with `--collect:"XPlat Code Coverage"` (no runsettings):
+
+- RAW: 1,063 / 171,210 lines = **0.6%** — meaningless. EF's generated
+  migrations and model snapshot are 156,372 of those lines, none executed by
+  tests and none worth testing.
+- HAND-WRITTEN code only: 1,063 / 14,838 = **7.2%**.
+- BOTH figures are UNIT TESTS ONLY (88 tests). The run produced one cobertura
+  file, not two — the 185 integration tests, which are where the handler
+  coverage actually lives, were not counted. The true backend figure is
+  materially higher than 7.2%; nobody has measured it yet.
+
+`coverlet.runsettings` exists with the right exclusion list but DOES NOT WORK —
+passing it produced zero coverage files. See the banner in that file; prime
+suspect is the collector friendlyName casing not matching `--collect`.
+
+BEFORE writing tests toward any coverage target, fix the measurement:
+1. Make the runsettings actually collect (2 files, non-empty).
+2. Merge the unit and integration runs into one figure.
+3. Publish it in CI — which needs the git remote, so it depends on Phase 0.
+
+Writing tests toward an unmeasurable target is working blind. Also decide
+whether "70%" means backend only or includes the ~60 `.razor` portal files,
+which have no test infrastructure (bUnit is not referenced) — that choice
+changes the size of the job by a large factor.
