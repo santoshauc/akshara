@@ -5,9 +5,18 @@
 @inject NavigationManager Navigation
 @inject ISnackbar Snackbar
 @inject LocalizationService L
+@inject AuthenticationStateProvider AuthState
 
 <PageTitle>Dashboard — Akshara</PageTitle>
 
+@* A platform operator has no school, so the school dashboard has nothing to
+   show them. They get the platform's own command centre instead. *@
+@if (_isPlatformUser)
+{
+    <SchoolErp.AdminPortal.Pages.Platform.PlatformDashboard />
+}
+else
+{
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
     <MudText Typo="Typo.h4">@L["home.title"]</MudText>
     <MudSpacer />
@@ -207,15 +216,16 @@ else if (_data is { } data)
 }
 else
 {
-    <MudAlert Severity="Severity.Info">
-        Sign in with a school account to see the dashboard. Platform (Super Admin)
-        accounts manage <MudLink Href="tenants">Schools</MudLink> instead.
-    </MudAlert>
+    @* Reached only by a school account whose token lacks students.view. *@
+    <AkEmptyState Title="Nothing to show on the dashboard"
+                  Description="This account cannot see student data, which every tile here is built from. Ask an administrator to grant it, or use the pages in the sidebar." />
+}
 }
 
 @code {
     private DashboardDto? _data;
     private bool _loading = true;
+    private bool _isPlatformUser;
 
     private List<ChartSeries> _attendanceSeries = [];
     private string[] _attendanceLabels = [];
@@ -225,6 +235,18 @@ else
     protected override async Task OnInitializedAsync()
     {
         L.Changed += OnLanguageChanged;
+
+        // No "tenant" claim means a platform operator; their dashboard is a
+        // different page and calling the school endpoint would only 403.
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _isPlatformUser = state.User.Identity?.IsAuthenticated == true &&
+                          state.User.FindFirst("tenant") is null;
+        if (_isPlatformUser)
+        {
+            _loading = false;
+            return;
+        }
+
         try
         {
             _data = await Client.GetAsync();

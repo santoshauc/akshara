@@ -1,0 +1,481 @@
+@* The Super Admin command centre. Every number here is measured; nothing on
+   this page is a placeholder, and metrics the platform does not actually
+   record are named in the "Not measured yet" panel instead of being drawn as
+   an empty chart that reads as zero. *@
+@inject PlatformClient Client
+@inject NavigationManager Navigation
+
+<AkPageHeader Title="Platform overview"
+              Subtitle="@Subtitle">
+    <Actions>
+        <MudSelect T="int" Value="_windowDays" ValueChanged="ChangeWindowAsync"
+                   Dense="true" Style="min-width: 150px;" Label="Period">
+            <MudSelectItem T="int" Value="7">Last 7 days</MudSelectItem>
+            <MudSelectItem T="int" Value="30">Last 30 days</MudSelectItem>
+            <MudSelectItem T="int" Value="90">Last 90 days</MudSelectItem>
+            <MudSelectItem T="int" Value="365">Last 12 months</MudSelectItem>
+        </MudSelect>
+        <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Refresh"
+                   Disabled="@_loading" OnClick="LoadAsync">Refresh</MudButton>
+        <MudButton Variant="Variant.Filled" Color="Color.Primary"
+                   StartIcon="@Icons.Material.Filled.AddBusiness"
+                   OnClick="@(() => Navigation.NavigateTo("tenants/new"))">
+            Onboard school
+        </MudButton>
+    </Actions>
+</AkPageHeader>
+
+@if (_loading)
+{
+    <AkTableSkeleton Rows="4" Columns="6" LoadingLabel="Loading platform figures" />
+}
+else if (_data is null)
+{
+    <AkErrorState Title="Platform figures are unavailable"
+                  Description="The dashboard could not be loaded. If you have not finished setting up two-factor authentication, every platform screen stays closed until you do."
+                  OnRetry="LoadAsync" />
+}
+else
+{
+    var d = _data;
+
+    <MudGrid Spacing="3">
+        @* --- headline metrics ------------------------------------------- *@
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="height: 100%; cursor: pointer;"
+                      @onclick="@(() => Navigation.NavigateTo("tenants"))">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Institutions</MudText>
+                <MudText Typo="Typo.h4">@d.Overview.Total</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @d.Overview.Active active · @d.Overview.Schools schools ·
+                    @d.Overview.Colleges colleges
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Students</MudText>
+                <MudText Typo="Typo.h4">@d.People.Students.ToString("N0")</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    across @d.People.Campuses campus(es)
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Teachers &amp; guardians</MudText>
+                <MudText Typo="Typo.h4">@d.People.Teachers.ToString("N0")</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    @d.People.Guardians.ToString("N0") guardians ·
+                    @d.People.StaffAccounts.ToString("N0") staff accounts
+                </MudText>
+            </MudPaper>
+        </MudItem>
+        <MudItem xs="12" sm="6" md="3">
+            <MudPaper Elevation="2" Class="pa-4" Style="height: 100%;">
+                <MudText Typo="Typo.body2" Class="mud-text-secondary">Outstanding</MudText>
+                <MudText Typo="Typo.h4"
+                         Style="@(d.Revenue.Outstanding > 0 ? "color: var(--mud-palette-warning);" : "")">
+                    ₹@d.Revenue.Outstanding.ToString("N0")
+                </MudText>
+                <MudText Typo="Typo.caption"
+                         Style="@(d.Revenue.Overdue > 0 ? "color: var(--mud-palette-error);" : "")">
+                    @(d.Revenue.Overdue > 0
+                        ? $"₹{d.Revenue.Overdue:N0} overdue across {d.Revenue.OverdueInvoices} invoice(s)"
+                        : "nothing overdue")
+                </MudText>
+            </MudPaper>
+        </MudItem>
+
+        @* --- money over the window --------------------------------------- *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-3">Billing · last @d.WindowDays days</MudText>
+                <MudStack Spacing="3">
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Invoiced</MudText>
+                        <MudText Typo="Typo.h5">₹@d.Revenue.BilledInWindow.ToString("N0")</MudText>
+                    </div>
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">Collected</MudText>
+                        <MudText Typo="Typo.h5">₹@d.Revenue.CollectedInWindow.ToString("N0")</MudText>
+                    </div>
+                    <MudDivider />
+                    <div>
+                        <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                            Annualised licence value
+                        </MudText>
+                        <MudText Typo="Typo.h5">
+                            ₹@d.Revenue.AnnualisedLicenceValue.ToString("N0")
+                        </MudText>
+                        @* Said plainly: this is arithmetic on the price list,
+                           not a contracted figure. *@
+                        <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                            List rate for each school's plan × its enrolled students.
+                            Not a contracted ARR — no recurring price is stored per school.
+                        </MudText>
+                    </div>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        @* --- plan mix ------------------------------------------------------ *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-3">Plan mix</MudText>
+                @if (d.PlanMix.Count == 0)
+                {
+                    <AkEmptyState Title="No live schools"
+                                  Description="Plan distribution appears once a school is active or provisioning." />
+                }
+                else
+                {
+                    <MudTable Items="d.PlanMix" Dense="true" Elevation="0">
+                        <HeaderContent>
+                            <MudTh>Plan</MudTh>
+                            <MudTh>Schools</MudTh>
+                            <MudTh>Students</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="Plan">@context.Plan</MudTd>
+                            <MudTd DataLabel="Schools">@context.Institutions</MudTd>
+                            <MudTd DataLabel="Students">@context.Students.ToString("N0")</MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* --- delivery health ------------------------------------------------ *@
+        <MudItem xs="12" md="4">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-3">Notification pipeline</MudText>
+                <MudStack Spacing="3">
+                    <MudStack Row="true" AlignItems="AlignItems.Center">
+                        <AkStatusBadge Label="@($"{d.Health.OutboxPending} queued")"
+                                       Tone="@(d.Health.OutboxPending > 0
+                                           ? AkStatusBadge.StatusTone.Progress
+                                           : AkStatusBadge.StatusTone.Success)" />
+                        <MudSpacer />
+                        <AkStatusBadge Label="@($"{d.Health.OutboxFailed} given up")"
+                                       Tone="@(d.Health.OutboxFailed > 0
+                                           ? AkStatusBadge.StatusTone.Error
+                                           : AkStatusBadge.StatusTone.Success)"
+                                       Title="Messages the dispatcher abandoned after 5 attempts." />
+                    </MudStack>
+                    <MudText Typo="Typo.body2" Class="mud-text-secondary">
+                        @(d.Health.OldestPendingMinutes is { } minutes
+                            ? $"Oldest unsent message is {minutes} minute(s) old."
+                            : "Nothing is waiting to be sent.")
+                    </MudText>
+                </MudStack>
+            </MudPaper>
+        </MudItem>
+
+        @* --- attention centre ------------------------------------------------ *@
+        <MudItem xs="12" md="7">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-3">
+                    Needs attention
+                    @if (d.Attention.Count > 0)
+                    {
+                        <MudChip Size="Size.Small" Color="Color.Warning" Class="ml-2">
+                            @d.Attention.Count
+                        </MudChip>
+                    }
+                </MudText>
+
+                @if (d.Attention.Count == 0)
+                {
+                    <AkEmptyState Title="Nothing needs you right now"
+                                  Icon="@Icons.Material.Outlined.TaskAlt"
+                                  Description="No expiring subscriptions, unpaid invoices, suspended schools or stalled onboardings." />
+                }
+                else
+                {
+                    <MudStack Spacing="2" Style="max-height: 420px; overflow-y: auto;">
+                        @foreach (var item in d.Attention)
+                        {
+                            <MudPaper Outlined="true" Class="pa-3"
+                                      Style="@(item.TenantId is null ? "" : "cursor: pointer;")"
+                                      @onclick="@(() => OpenTenant(item.TenantId))">
+                                <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="3">
+                                    <AkStatusBadge Label="@item.Title" Tone="@ToneOf(item.Severity)" />
+                                    <div style="min-width: 0;">
+                                        <MudText Typo="Typo.body2">@item.Detail</MudText>
+                                        @if (item.TenantName is { } school)
+                                        {
+                                            <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                                @school
+                                            </MudText>
+                                        }
+                                    </div>
+                                </MudStack>
+                            </MudPaper>
+                        }
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* --- recent activity -------------------------------------------------- *@
+        <MudItem xs="12" md="5">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3">
+                    <MudText Typo="Typo.h6">Recent activity</MudText>
+                    <MudSpacer />
+                    <MudButton Size="Size.Small" Variant="Variant.Text"
+                               OnClick="@(() => Navigation.NavigateTo("platform/audit"))">
+                        Full log
+                    </MudButton>
+                </MudStack>
+
+                @if (d.Activity.Count == 0)
+                {
+                    <AkEmptyState Title="No recorded actions yet"
+                                  Icon="@Icons.Material.Outlined.History"
+                                  Description="The audit trail fills as operators and school staff make changes." />
+                }
+                else
+                {
+                    <MudStack Spacing="2" Style="max-height: 420px; overflow-y: auto;">
+                        @foreach (var entry in d.Activity)
+                        {
+                            <div>
+                                <MudText Typo="Typo.body2">@Humanise(entry.Action)</MudText>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                                    @entry.OccurredAt.ToLocalTime().ToString("dd MMM, HH:mm")
+                                    @(entry.UserName is { } who ? $" · {who}" : "")
+                                    @(entry.TenantName is { } school ? $" · {school}" : " · platform")
+                                </MudText>
+                            </div>
+                        }
+                    </MudStack>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* --- the institution table ---------------------------------------------- *@
+        <MudItem xs="12">
+            <MudPaper Elevation="2" Class="pa-6">
+                <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-3" Wrap="Wrap.Wrap">
+                    <MudText Typo="Typo.h6">Institutions</MudText>
+                    <MudSpacer />
+                    <MudTextField @bind-Value="_search" Placeholder="Search name or code"
+                                  Adornment="Adornment.Start" Immediate="true"
+                                  AdornmentIcon="@Icons.Material.Filled.Search"
+                                  Style="min-width: 240px;" Margin="Margin.Dense" />
+                </MudStack>
+
+                @if (FilteredRows.Count == 0)
+                {
+                    <AkEmptyState Title="No institutions match"
+                                  Icon="@Icons.Material.Outlined.Domain"
+                                  Description="Clear the search, or onboard a school with the button above." />
+                }
+                else
+                {
+                    <MudTable Items="FilteredRows" Dense="true" Hover="true" Elevation="0"
+                              Breakpoint="Breakpoint.Sm">
+                        <HeaderContent>
+                            <MudTh>School</MudTh>
+                            <MudTh>Type</MudTh>
+                            <MudTh>Plan</MudTh>
+                            <MudTh>Status</MudTh>
+                            <MudTh>Students</MudTh>
+                            <MudTh>Teachers</MudTh>
+                            <MudTh>Campuses</MudTh>
+                            <MudTh>Outstanding</MudTh>
+                            <MudTh>Renews</MudTh>
+                        </HeaderContent>
+                        <RowTemplate>
+                            <MudTd DataLabel="School">
+                                <MudLink Href="@($"tenants/{context.Id}")">@context.Name</MudLink>
+                                <MudText Typo="Typo.caption" Class="mud-text-secondary d-block">
+                                    @context.Code
+                                </MudText>
+                            </MudTd>
+                            <MudTd DataLabel="Type">
+                                @(context.InstitutionType == InstitutionType.College ? "College" : "School")
+                            </MudTd>
+                            <MudTd DataLabel="Plan">@context.Plan</MudTd>
+                            <MudTd DataLabel="Status">
+                                <AkStatusBadge Label="@context.Status.ToString()"
+                                               Tone="@StatusTone(context.Status)" />
+                            </MudTd>
+                            <MudTd DataLabel="Students">@context.Students.ToString("N0")</MudTd>
+                            <MudTd DataLabel="Teachers">@context.Teachers.ToString("N0")</MudTd>
+                            <MudTd DataLabel="Campuses">@context.Campuses</MudTd>
+                            <MudTd DataLabel="Outstanding">
+                                @(context.Outstanding > 0 ? $"₹{context.Outstanding:N0}" : "—")
+                            </MudTd>
+                            <MudTd DataLabel="Renews">
+                                @(context.SubscriptionExpiresOn is { } expiry
+                                    ? expiry.ToString("dd MMM yyyy")
+                                    : "—")
+                            </MudTd>
+                        </RowTemplate>
+                    </MudTable>
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* --- growth ---------------------------------------------------------- *@
+        <MudItem xs="12" md="7">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-1">Onboardings</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    Schools added per month over the last year.
+                </MudText>
+                @if (d.Growth.Sum(g => g.Institutions) == 0)
+                {
+                    <AkEmptyState Title="No schools onboarded in the last 12 months"
+                                  Icon="@Icons.Material.Outlined.ShowChart"
+                                  Description="Every institution on the platform predates this window." />
+                }
+                else
+                {
+                    @* Without a tick hint MudBlazor draws a 0–20 axis for a
+                       column of 2, which reads as "almost nothing happened". *@
+                    <MudChart ChartType="ChartType.Bar" ChartSeries="@_growthSeries"
+                              XAxisLabels="@_growthLabels" Width="100%" Height="240px"
+                              ChartOptions="@_growthOptions" />
+                }
+            </MudPaper>
+        </MudItem>
+
+        @* --- honest gaps ------------------------------------------------------- *@
+        <MudItem xs="12" md="5">
+            <MudPaper Elevation="2" Class="pa-6" Style="height: 100%;">
+                <MudText Typo="Typo.h6" Class="mb-1">Not measured yet</MudText>
+                <MudText Typo="Typo.caption" Class="mud-text-secondary">
+                    These would each need instrumentation the platform does not have.
+                    They are listed rather than estimated so nothing on this page
+                    has to be taken on trust.
+                </MudText>
+                <MudList T="string" Dense="true" Class="mt-2">
+                    @foreach (var gap in d.UnavailableMetrics)
+                    {
+                        <MudListItem T="string" Icon="@Icons.Material.Outlined.RemoveCircleOutline">
+                            <MudText Typo="Typo.body2">@gap</MudText>
+                        </MudListItem>
+                    }
+                </MudList>
+            </MudPaper>
+        </MudItem>
+    </MudGrid>
+}
+
+@code {
+    private PlatformDashboardDto? _data;
+    private bool _loading = true;
+    private int _windowDays = 30;
+    private string _search = string.Empty;
+
+    private List<ChartSeries> _growthSeries = [];
+    private string[] _growthLabels = [];
+    private ChartOptions _growthOptions = new();
+
+    private string Subtitle => _data is { } d
+        ? $"Every school on the platform, as of {d.GeneratedAt.ToLocalTime():dd MMM yyyy HH:mm}."
+        : "Every school on the platform.";
+
+    private List<PlatformInstitutionRowDto> FilteredRows =>
+        _data is null
+            ? []
+            : string.IsNullOrWhiteSpace(_search)
+                ? _data.Institutions
+                : _data.Institutions
+                    .Where(r => r.Name.Contains(_search, StringComparison.OrdinalIgnoreCase) ||
+                                r.Code.Contains(_search, StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+    protected override Task OnInitializedAsync() => LoadAsync();
+
+    private async Task ChangeWindowAsync(int days)
+    {
+        _windowDays = days;
+        await LoadAsync();
+    }
+
+    private async Task LoadAsync()
+    {
+        _loading = true;
+        try
+        {
+            _data = await Client.GetDashboardAsync(_windowDays);
+            BuildGrowthChart();
+        }
+        catch (HttpRequestException)
+        {
+            _data = null; // the error state explains it; no raw detail on screen
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private void BuildGrowthChart()
+    {
+        if (_data is not { } d)
+        {
+            return;
+        }
+
+        _growthSeries =
+        [
+            new ChartSeries
+            {
+                Name = "Schools",
+                Data = d.Growth.Select(g => (double)g.Institutions).ToArray(),
+            },
+        ];
+        _growthLabels = d.Growth
+            .Select(g => new DateTime(g.Year, g.Month, 1).ToString("MMM"))
+            .ToArray();
+
+        // Onboarding counts are small integers; a tick per school keeps the
+        // axis honest instead of dwarfing every bar.
+        var peak = Math.Max(1, d.Growth.Max(g => g.Institutions));
+        _growthOptions = new ChartOptions
+        {
+            YAxisTicks = 1,
+            MaxNumYAxisTicks = Math.Min(peak + 1, 10),
+        };
+    }
+
+    private void OpenTenant(Guid? tenantId)
+    {
+        if (tenantId is { } id)
+        {
+            Navigation.NavigateTo($"tenants/{id}");
+        }
+    }
+
+    private static AkStatusBadge.StatusTone ToneOf(AttentionSeverity severity) => severity switch
+    {
+        AttentionSeverity.Critical => AkStatusBadge.StatusTone.Error,
+        AttentionSeverity.Warning => AkStatusBadge.StatusTone.Warning,
+        _ => AkStatusBadge.StatusTone.Info,
+    };
+
+    private static AkStatusBadge.StatusTone StatusTone(TenantStatus status) => status switch
+    {
+        TenantStatus.Active => AkStatusBadge.StatusTone.Success,
+        TenantStatus.Provisioning => AkStatusBadge.StatusTone.Progress,
+        TenantStatus.Suspended => AkStatusBadge.StatusTone.Error,
+        _ => AkStatusBadge.StatusTone.Neutral,
+    };
+
+    /// <summary>"AdmitStudentCommand" reads as "Admit student" to a human.</summary>
+    private static string Humanise(string action)
+    {
+        var trimmed = action.EndsWith("Command", StringComparison.Ordinal)
+            ? action[..^"Command".Length]
+            : action;
+        var spaced = System.Text.RegularExpressions.Regex.Replace(
+            trimmed, "(?<!^)([A-Z])", " $1");
+        return spaced.Length == 0 ? action : char.ToUpperInvariant(spaced[0]) + spaced[1..].ToLowerInvariant();
+    }
+}
