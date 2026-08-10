@@ -81,6 +81,18 @@ public sealed class GetStudentGradeSheetQueryHandler
             .FirstOrDefaultAsync(cancellationToken)
             .ConfigureAwait(false);
 
+        // The institution's own ordinance, or the UGC scale where none is set.
+        // Loaded once and threaded through every grade on the sheet: reading
+        // it per paper would let a mid-request change split one transcript
+        // across two scales.
+        var ownBands = await _db.GradeBands.AsNoTracking()
+            .Select(b => new { b.MinPercent, b.Letter, b.Point })
+            .ToListAsync(cancellationToken)
+            .ConfigureAwait(false);
+        var scale = ownBands.Count > 0
+            ? ownBands.Select(b => (b.MinPercent, b.Letter, b.Point)).ToList()
+            : CbcsGradeCalculator.UgcDefault.ToList();
+
         // ExamSubject has no Exam navigation, so the published set is resolved
         // first and the marks filtered against it.
         var publishedExams = await _db.Exams.AsNoTracking()
@@ -134,7 +146,8 @@ public sealed class GetStudentGradeSheetQueryHandler
                         var percent = m.IsAbsent || m.MarksObtained is null
                             ? (decimal?)null
                             : GradeCalculator.Percent(m.MarksObtained.Value, m.MaxMarks);
-                        var grade = CbcsGradeCalculator.GradeFor(percent ?? 0m, m.IsAbsent);
+                        var grade = CbcsGradeCalculator.GradeFor(
+                            percent ?? 0m, scale, m.IsAbsent);
                         return new GradeSheetPaperDto(
                             m.SubjectName, m.Credits ?? 0, percent,
                             grade.Letter, grade.Point, m.IsAbsent);
@@ -146,7 +159,7 @@ public sealed class GetStudentGradeSheetQueryHandler
                     group.Key.ExamName,
                     group.Key.CohortName,
                     group.Key.EndDate,
-                    CbcsGradeCalculator.Gpa(ToCredited(papers)),
+                    CbcsGradeCalculator.Gpa(ToCredited(papers), scale),
                     CreditsEarned: papers.Where(Passed).Sum(p => p.Credits),
                     CreditsAttempted: papers.Sum(p => p.Credits),
                     papers);
@@ -160,7 +173,7 @@ public sealed class GetStudentGradeSheetQueryHandler
             student.FullName,
             student.AdmissionNumber,
             programmeName,
-            CbcsGradeCalculator.Gpa(ToCredited(allPapers)),
+            CbcsGradeCalculator.Gpa(ToCredited(allPapers), scale),
             CreditsEarned: allPapers.Where(Passed).Sum(p => p.Credits),
             CreditsAttempted: allPapers.Sum(p => p.Credits),
             semesters,

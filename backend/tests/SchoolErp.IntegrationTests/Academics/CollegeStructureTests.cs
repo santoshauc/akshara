@@ -7,6 +7,7 @@ using SchoolErp.Application;
 using SchoolErp.Application.Abstractions;
 using SchoolErp.Application.Academics;
 using SchoolErp.Application.Common.Exceptions;
+using SchoolErp.Application.Exams;
 using SchoolErp.Application.Exams.Commands;
 using SchoolErp.Application.Exams.Queries;
 using SchoolErp.Application.Students;
@@ -525,6 +526,67 @@ public sealed class CollegeStructureTests : IClassFixture<CollegeStructureFixtur
         // One semester in, the CGPA is that semester.
         sheet.Cgpa.Should().Be(6.67m);
         sheet.CreditsEarned.Should().Be(6);
+    }
+
+    [Fact]
+    public async Task The_institutions_own_ordinance_overrides_the_ugc_default()
+    {
+        var tenantId = await _fixture.NewCollegeAsync();
+
+        await using var scope = _fixture.CreateScope(tenantId);
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+        // Out of the box the UGC scale applies and is declared as a fallback.
+        var fallback = await sender.Send(new GetGradeScaleQuery());
+        fallback.IsInstitutionDefined.Should().BeFalse();
+        fallback.Bands.Should().Contain(b => b.Letter == "O" && b.MinPercent == 90m);
+
+        // A stricter ordinance: O starts at 95, and 75 is only a B.
+        await sender.Send(new SetGradeScaleCommand(
+        [
+            new GradeBandDto(95m, "O", 10),
+            new GradeBandDto(85m, "A", 9),
+            new GradeBandDto(50m, "B", 6),
+            new GradeBandDto(40m, "P", 4),
+        ]));
+
+        var own = await sender.Send(new GetGradeScaleQuery());
+        own.IsInstitutionDefined.Should().BeTrue();
+        own.Bands.Should().HaveCount(4);
+        own.Bands.First().MinPercent.Should().Be(95m, "highest band first");
+
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
+        var yearId = (await sender.Send(new GetAcademicYearsQuery())).Single().Id;
+        var cohort = await sender.Send(new CreateClassCommand("Semester 1", 1, ["A"]));
+        var sectionId = cohort.Sections.Single().Id;
+
+        var studentId = await sender.Send(new AdmitStudentCommand(
+            null, "Priya", "Iyer", new DateOnly(2005, 5, 5), Gender.Female,
+            null, null, null, null, null, null, null, null,
+            new DateOnly(2026, 7, 5), yearId, cohort.Id, sectionId, 1,
+            [new GuardianInput("Meena", "Iyer", GuardianRelation.Mother, "+919700000500", null, null, true)]));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        var enrollmentId = await db.Enrollments
+            .Where(e => e.StudentId == studentId).Select(e => e.Id).SingleAsync();
+
+        var subject = await sender.Send(new CreateSubjectCommand("Discrete Maths", "DM"));
+        var examId = await sender.Send(new CreateExamCommand(
+            "Semester 1 End", yearId, new DateOnly(2026, 11, 20), new DateOnly(2026, 11, 30)));
+        var paper = await sender.Send(new ScheduleExamSubjectCommand(
+            examId, cohort.Id, subject.Id, new DateOnly(2026, 11, 21), 100m, 40m, Credits: 4));
+        await sender.Send(new EnterMarksCommand(paper, [new MarkInput(enrollmentId, 75m, false)]));
+        await sender.Send(new PublishExamCommand(examId));
+
+        var sheet = await sender.Send(new GetStudentGradeSheetQuery(studentId));
+
+        // 75% is an A worth 8 under the UGC scale. Under THIS ordinance it is
+        // a B worth 6 — the whole point of the feature.
+        var single = sheet.Semesters.Single().Papers.Single();
+        single.Grade.Should().Be("B");
+        single.GradePoint.Should().Be(6);
+        sheet.Cgpa.Should().Be(6m);
     }
 
     [Fact]

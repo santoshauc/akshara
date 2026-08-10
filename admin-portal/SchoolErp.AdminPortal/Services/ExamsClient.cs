@@ -52,6 +52,19 @@ public sealed class ExamsClient
         return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
     }
 
+    /// <summary>The grading ordinance in force (own bands, or the UGC fallback).</summary>
+    public async Task<GradeScaleDto?> GetGradeScaleAsync(CancellationToken ct = default) =>
+        await _http.GetFromJsonAsync<GradeScaleDto>("api/v1/exams/grade-scale", ct);
+
+    /// <summary>Replaces the ordinance; null on success.</summary>
+    public async Task<string?> SetGradeScaleAsync(
+        List<GradeBandDto> bands, CancellationToken ct = default)
+    {
+        var response = await _http.PutAsJsonAsync(
+            "api/v1/exams/grade-scale", new { bands }, ct);
+        return response.IsSuccessStatusCode ? null : await ProblemResponse.ReadTitleAsync(response, ct);
+    }
+
     /// <summary>
     /// The cumulative grade sheet. Null only when the call fails; a student
     /// with no published results still returns a sheet that says so.

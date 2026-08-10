@@ -33,6 +33,31 @@ public sealed class ExamsController : ControllerBase
     public async Task<IActionResult> GetGradeSheet(Guid studentId, CancellationToken ct) =>
         Ok(await _sender.Send(new GetStudentGradeSheetQuery(studentId), ct));
 
+    /// <summary>
+    /// The grading ordinance in force, and whether it is the institution's own
+    /// or the UGC fallback.
+    /// </summary>
+    [HttpGet("grade-scale")]
+    [HasPermission(Permissions.Examinations.View)]
+    [ProducesResponseType(typeof(GradeScaleDto), StatusCodes.Status200OK)]
+    public async Task<IActionResult> GetGradeScale(CancellationToken ct) =>
+        Ok(await _sender.Send(new GetGradeScaleQuery(), ct));
+
+    /// <summary>
+    /// Replaces the ordinance. Already-published results keep the grades they
+    /// were computed with; a transcript that changes after the fact is worse
+    /// than one that is out of date.
+    /// </summary>
+    [HttpPut("grade-scale")]
+    [HasPermission(Permissions.Examinations.Manage)]
+    [ProducesResponseType(StatusCodes.Status204NoContent)]
+    public async Task<IActionResult> SetGradeScale(
+        [FromBody] SetGradeScaleCommand command, CancellationToken ct)
+    {
+        await _sender.Send(command, ct);
+        return NoContent();
+    }
+
     /// <summary>Lists subjects.</summary>
     [HttpGet("subjects")]
     [HasPermission(Permissions.Examinations.View)]

@@ -112,3 +112,18 @@ public sealed class TermStudentInputConfiguration : IEntityTypeConfiguration<Ter
         builder.HasIndex(t => new { t.TenantId, t.TermReportId, t.StudentId }).IsUnique();
     }
 }
+
+/// <summary>Mapping for an institution's own grading ordinance.</summary>
+public sealed class GradeBandConfiguration : IEntityTypeConfiguration<GradeBand>
+{
+    public void Configure(EntityTypeBuilder<GradeBand> builder)
+    {
+        builder.ToTable("grade_bands");
+        builder.Property(b => b.Letter).HasMaxLength(4).IsRequired();
+        builder.Property(b => b.MinPercent).HasPrecision(5, 2);
+
+        // Two bands starting at the same percentage would make the grade
+        // depend on row order.
+        builder.HasIndex(b => new { b.TenantId, b.MinPercent }).IsUnique();
+    }
+}

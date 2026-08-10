@@ -142,3 +142,9 @@ public sealed record GradeSheetDto(
     int CreditsAttempted,
     List<SemesterResultDto> Semesters,
     string? Unavailable);
+
+/// <summary>One band of the institution's grading ordinance.</summary>
+public sealed record GradeBandDto(decimal MinPercent, string Letter, int Point);
+
+/// <summary>The scale in force, and whether anyone chose it.</summary>
+public sealed record GradeScaleDto(List<GradeBandDto> Bands, bool IsInstitutionDefined);

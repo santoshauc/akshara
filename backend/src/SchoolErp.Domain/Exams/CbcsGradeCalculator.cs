@@ -29,6 +29,13 @@ public static class CbcsGradeCalculator
     /// <summary>Below this a paper is failed and carries no points.</summary>
     public const decimal PassPercent = 40m;
 
+    /// <summary>
+    /// The UGC scale as a band list, for an institution that has not defined
+    /// its own. Highest band first.
+    /// </summary>
+    public static IReadOnlyList<(decimal MinPercent, string Letter, int Point)> UgcDefault =>
+        Bands;
+
     /// <summary>UGC 10-point scale, highest band first.</summary>
     private static readonly (decimal MinPercent, string Letter, int Point)[] Bands =
     [
@@ -42,18 +49,30 @@ public static class CbcsGradeCalculator
     ];
 
     /// <summary>Grade for a percentage. Absence is F, not an exemption.</summary>
-    public static CbcsGrade GradeFor(decimal percent, bool isAbsent = false)
+    public static CbcsGrade GradeFor(decimal percent, bool isAbsent = false) =>
+        GradeFor(percent, Bands, isAbsent);
+
+    /// <summary>
+    /// Grade against a specific ordinance. Bands need not be sorted by the
+    /// caller — they are ordered here, because a band list entered out of
+    /// order in a settings screen would otherwise award the first band that
+    /// happens to match rather than the highest one that does.
+    /// </summary>
+    public static CbcsGrade GradeFor(
+        decimal percent,
+        IEnumerable<(decimal MinPercent, string Letter, int Point)> bands,
+        bool isAbsent = false)
     {
         if (isAbsent)
         {
             return new CbcsGrade("Ab", 0);
         }
 
-        foreach (var (minPercent, letter, point) in Bands)
+        foreach (var band in bands.OrderByDescending(b => b.MinPercent))
         {
-            if (percent >= minPercent)
+            if (percent >= band.MinPercent)
             {
-                return new CbcsGrade(letter, point);
+                return new CbcsGrade(band.Letter, band.Point);
             }
         }
 
@@ -70,8 +89,14 @@ public static class CbcsGradeCalculator
     /// nobody has set credits on — because 0.00 would read as "everyone
     /// failed" rather than "not measured".
     /// </summary>
-    public static decimal? Gpa(IEnumerable<CreditedPaper> papers)
+    public static decimal? Gpa(IEnumerable<CreditedPaper> papers) => Gpa(papers, Bands);
+
+    /// <inheritdoc cref="Gpa(IEnumerable{CreditedPaper})"/>
+    public static decimal? Gpa(
+        IEnumerable<CreditedPaper> papers,
+        IEnumerable<(decimal MinPercent, string Letter, int Point)> bands)
     {
+        var ordered = bands.OrderByDescending(b => b.MinPercent).ToList();
         var totalCredits = 0;
         var totalPoints = 0;
 
@@ -83,7 +108,7 @@ public static class CbcsGradeCalculator
             }
 
             totalCredits += paper.Credits;
-            totalPoints += paper.Credits * GradeFor(paper.Percent, paper.IsAbsent).Point;
+            totalPoints += paper.Credits * GradeFor(paper.Percent, ordered, paper.IsAbsent).Point;
         }
 
         return totalCredits == 0

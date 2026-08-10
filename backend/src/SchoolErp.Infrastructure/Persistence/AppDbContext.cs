@@ -157,6 +157,8 @@ public class AppDbContext : IdentityDbContext<ApplicationUser, ApplicationRole, 
     /// <summary>Library books (tenant-scoped).</summary>
     public DbSet<Domain.Campuses.Campus> Campuses => Set<Domain.Campuses.Campus>();
 
+    public DbSet<Domain.Exams.GradeBand> GradeBands => Set<Domain.Exams.GradeBand>();
+
     public DbSet<Department> Departments => Set<Department>();
 
     public DbSet<Programme> Programmes => Set<Programme>();
