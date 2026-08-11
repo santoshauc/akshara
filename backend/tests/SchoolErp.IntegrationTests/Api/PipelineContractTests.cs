@@ -17,7 +17,7 @@ namespace SchoolErp.IntegrationTests.Api;
 /// it cannot prove that object survives serialization, which is precisely where
 /// this codebase has already lost per-field validation errors once.
 /// </summary>
-[Collection(ApiCollection.Name)]
+[Collection(ApiCollectionDefinition.Name)]
 public sealed class PipelineContractTests
 {
     private readonly ApiFixture _api;
@@ -83,6 +83,74 @@ public sealed class PipelineContractTests
             .Should().BeTrue("a validation failure has to say WHICH fields failed");
         errors.EnumerateObject().Should().NotBeEmpty();
     }
+
+    [Fact]
+    public async Task A_created_student_comes_back_with_a_location_that_actually_resolves()
+    {
+        // CreatedAtAction has to generate a VERSIONED url, which is why the
+        // controller passes `version = "1"` by hand. Get that wrong and the API
+        // still returns 201 while handing the client a Location that 404s - a
+        // failure no handler test can see, because the handler only returns a
+        // Guid. So the Location is not just asserted, it is followed.
+        using var client = _api.CreateClient(TestPrincipal.SchoolAdmin);
+
+        var response = await client.PostAsJsonAsync(
+            new Uri("/api/v1/students", UriKind.Relative),
+            NewStudent($"HTTP-{Guid.NewGuid():N}"[..14]));
+
+        response.StatusCode.Should().Be(HttpStatusCode.Created);
+        response.Headers.Location.Should().NotBeNull();
+
+        var followed = await client.GetAsync(response.Headers.Location!);
+        followed.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task A_duplicate_admission_number_comes_back_as_a_409_problem()
+    {
+        // Its own admission number, minted per run, so this cannot collide with
+        // another test or with a re-run against the same container.
+        var admissionNumber = $"DUP-{Guid.NewGuid():N}"[..14];
+        using var client = _api.CreateClient(TestPrincipal.SchoolAdmin);
+
+        var first = await client.PostAsJsonAsync(
+            new Uri("/api/v1/students", UriKind.Relative), NewStudent(admissionNumber));
+        first.StatusCode.Should().Be(HttpStatusCode.Created);
+
+        var second = await client.PostAsJsonAsync(
+            new Uri("/api/v1/students", UriKind.Relative), NewStudent(admissionNumber));
+
+        second.StatusCode.Should().Be(HttpStatusCode.Conflict);
+
+        using var body = JsonDocument.Parse(await second.Content.ReadAsStringAsync());
+        body.RootElement.GetProperty("status").GetInt32().Should().Be(409);
+        body.RootElement.GetProperty("title").GetString().Should().NotBeNullOrWhiteSpace(
+            "the operator has to be told what collided, not just that something did");
+    }
+
+    private object NewStudent(string admissionNumber) => new
+    {
+        admissionNumber,
+        firstName = "Wire",
+        lastName = "Contract",
+        dateOfBirth = "2015-05-05",
+        gender = 1,
+        admissionDate = "2026-06-01",
+        academicYearId = _api.AcademicYearId,
+        schoolClassId = _api.SchoolClassId,
+        sectionId = _api.SectionId,
+        guardians = new[]
+        {
+            new
+            {
+                firstName = "Wire",
+                lastName = "Guardian",
+                relation = 1,
+                phone = "+919000012345",
+                isPrimary = true,
+            },
+        },
+    };
 
     [Fact]
     public async Task A_missing_record_answers_a_problem_document_not_an_empty_body()

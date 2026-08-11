@@ -16,7 +16,7 @@ namespace SchoolErp.IntegrationTests.Api;
 /// test that instantiates a filter cannot see whether that policy is actually
 /// wired to the endpoint; only a request can.
 /// </summary>
-[Collection(ApiCollection.Name)]
+[Collection(ApiCollectionDefinition.Name)]
 public sealed class AuthorizationPipelineTests
 {
     private readonly ApiFixture _api;
