@@ -1,37 +1,28 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  ⚠ THIS FILE DOES NOT WORK YET. Passing it with --settings produced ZERO
-  coverage files instead of two. Do not trust a coverage run using it until
-  that is fixed and a non-empty cobertura file is confirmed.
+  Coverage settings. Run it through scripts/coverage.ps1, which passes this file,
+  runs both test projects and merges their two reports into one figure.
 
-  Prime suspect: the collector friendlyName here is "XPlat code coverage"
-  while the command line passes --collect:"XPlat Code Coverage". The casing
-  must match or no collector is selected and the run silently produces
-  nothing — the failure mode is an empty results directory, not an error.
-  Second suspect: the whitespace and newlines inside <ExcludeByFile>.
+  WHY THE EXCLUSIONS MATTER: EF's generated migrations and model snapshot are
+  ~156,000 of ~171,000 "lines", none executed by tests and none worth testing.
+  Measured raw the suite reports 0.6%; measured against hand-written code it is
+  an order of magnitude higher. The number is meaningless without this list.
 
-  The exclusion list below is still the right list — it is kept for that
-  reason. Verify with:
-    dotnet test SchoolErp.sln --collect:"XPlat code coverage" \
-      --settings coverlet.runsettings --results-directory ./TestResults
-    ls TestResults/*/coverage.cobertura.xml   # must be 2 files, not 0
+  HISTORY, so nobody re-lives it: this file previously produced ZERO coverage
+  files, and the note left in it blamed the collector friendlyName casing. That
+  was wrong on both counts. The real fault was that the note itself contained a
+  double hyphen (from spelling out the command-line switches), and XML forbids
+  that inside a comment. VSTest rejected the whole file with "Settings file
+  provided does not conform to required format", printed it as one line in the
+  middle of ordinary test output, and carried on without a collector. Keep
+  command-line switches OUT of the comments here; put them in the script.
 
-  Original notes:
-
-  Coverage settings. Use with:
-    dotnet test SchoolErp.sln --collect:"XPlat Code Coverage" \
-      --settings coverlet.runsettings
-
-  Without the exclusions below the number is meaningless: EF's generated
-  migrations and model snapshot are ~156,000 of ~171,000 "lines", none of them
-  executed by tests and none of them worth testing. Measured raw, the whole
-  suite reports 0.6%; measured against hand-written code it is an order of
-  magnitude higher.
+  friendlyName matching is case-insensitive, verified by running it both ways.
 -->
 <RunSettings>
   <DataCollectionRunSettings>
     <DataCollectors>
-      <DataCollector friendlyName="XPlat code coverage">
+      <DataCollector friendlyName="XPlat Code Coverage">
         <Configuration>
           <Format>cobertura</Format>
 
@@ -56,11 +47,18 @@
             ExcludeFromCodeCoverageAttribute
           </ExcludeByAttribute>
 
-          <!-- Merge the unit and integration runs into one figure; measuring
-               either alone understates the suite badly, since the handlers are
-               covered by integration tests and the calculators by unit ones. -->
+          <!-- Record hit COUNTS rather than a hit/not-hit flag: it costs a little
+               speed and tells you whether a line ran once or ten thousand times.
+               (This has nothing to do with merging the two test runs — that is
+               ReportGenerator's job in scripts/coverage.ps1.) -->
           <SingleHit>false</SingleHit>
-          <UseSourceLink>true</UseSourceLink>
+          <!-- SourceLink rewrites every filename in the report into a
+               raw.githubusercontent URL pinned to the last COMMITTED sha. On a
+               private repo every one of those 404s, so the merge spends a few
+               hundred failed requests and the HTML report shows no source at
+               all — and uncommitted work points at a commit that predates it.
+               Local paths are more useful and work offline. -->
+          <UseSourceLink>false</UseSourceLink>
           <IncludeTestAssembly>false</IncludeTestAssembly>
         </Configuration>
       </DataCollector>
