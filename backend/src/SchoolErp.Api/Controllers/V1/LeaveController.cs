@@ -1,5 +1,6 @@
 using Asp.Versioning;
 using MediatR;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using SchoolErp.Api.Authorization;
 using SchoolErp.Application.Leave;
@@ -46,14 +47,26 @@ public sealed class LeaveController : ControllerBase
         return NoContent();
     }
 
-    /// <summary>The caller's own leave requests (any signed-in staff).</summary>
+    /// <summary>
+    /// The caller's own leave requests (any signed-in staff).
+    ///
+    /// [Authorize] rather than [HasPermission]: these two are the self-service
+    /// pair, open to every staff member regardless of role, so they demand a
+    /// signed-in caller and nothing more. It has to be stated explicitly — the
+    /// API has no fallback authorization policy, so an action with no attribute
+    /// at all is served to anybody. That is what happened here: this endpoint
+    /// answered 200 with an empty list to anonymous callers, and only looked
+    /// harmless because the handler found no user to match on.
+    /// </summary>
     [HttpGet("mine")]
+    [Authorize]
     [ProducesResponseType(typeof(IReadOnlyList<LeaveRequestDto>), StatusCodes.Status200OK)]
     public async Task<IActionResult> GetMine(CancellationToken ct) =>
         Ok(await _sender.Send(new GetMyLeaveRequestsQuery(), ct));
 
     /// <summary>Files the caller's own leave request (any signed-in staff).</summary>
     [HttpPost("mine")]
+    [Authorize]
     [ProducesResponseType(typeof(Guid), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [ProducesResponseType(StatusCodes.Status409Conflict)]

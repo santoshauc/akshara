@@ -51,7 +51,7 @@ is no longer a claim about one machine. Push access is currently borrowed: the
 local credential authenticates as `vivian-richard`, who is a collaborator here,
 so pushes depend on that invite standing.
 
-Test suite: 88 unit + 221 integration = **309 green** (`dotnet test` from `school-erp/`).
+Test suite: 125 unit + 240 integration = **365 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 Coverage is measurable again: `scripts/coverage.ps1` reports **90.3%** of the
 backend. See "Test coverage" below — the old 7.2% was a broken measurement.
@@ -1705,15 +1705,21 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
 Run it yourself: `powershell -ExecutionPolicy Bypass -File scripts/coverage.ps1`
 (CI runs the same file as `pwsh scripts/coverage.ps1`; ~4 min, needs Docker).
 
-**Backend: 5,584 / 6,181 lines = 90.3%**, branches 66.0%. Per assembly:
+**Backend: 5,641 / 6,181 lines = 91.3%**, branches 68.4%. Per assembly:
 
 | Assembly | Line rate |
 |---|---|
-| SchoolErp.Api | 48.3% (145/300) |
+| SchoolErp.Api | 62.0% (186/300) |
 | SchoolErp.Application | 92.0% |
-| SchoolErp.Domain | 79.2% |
+| SchoolErp.Domain | **100.0%** (77/77) |
 | SchoolErp.Infrastructure | 91.8% |
 | SchoolErp.Shared | 99.5% |
+
+Api is 62% and the rest is mostly controller CONSTRUCTORS — one line each, coverable
+only by invoking every controller with valid data and permissions, which re-tests
+handlers the integration suite already covers at 92%. Chasing it would buy a number,
+not evidence. What was worth covering (the pipeline, the anonymous surface, the
+account endpoints, checkout) is covered.
 
 DENOMINATOR, so the number is never misquoted: the five `backend/src` projects,
 excluding EF migrations and the model snapshot. The Blazor portal is NOT in it —
@@ -1796,6 +1802,26 @@ integration suite already covers; the pipeline itself is now covered.)
   carrying `tenants.view`/`tenants.manage`. It exists to prove the platform
   endpoints refuse school tokens on the POLICY, not the permission — the exact
   cross-tenant escalation this product shipped once.
+
+### SECOND SECURITY FIX: `leave/mine` required no sign-in at all
+
+Found by `EndpointExposureTests`, which audits the whole routing table rather
+than endpoints someone thought to test. `GET/POST leave/mine` carried NEITHER
+`[HasPermission]` nor `[Authorize]` — and this API has no fallback authorization
+policy, so an action with no attribute is served to anybody. The XML doc said
+"any signed-in staff"; the attribute enforcing it was never written.
+
+Measured before fixing: `GET /api/v1/leave/mine` answered **200 OK** to an
+anonymous caller. It returned `[]` only because the handler had no user to match
+on — the boundary was an accident of the query, not a control, and one change to
+that filter turns it into a leak. `POST` reached the handler too (404 "User
+'(anonymous)' was not found"). Fixed with `[Authorize]` on both.
+
+The audit is the durable part: it enumerates endpoints from the RUNNING host, so
+a controller added next year is covered the day it is mapped. It asserts three
+things — every endpoint states an intention (authorize or explicit
+`[AllowAnonymous]`), the anonymous surface matches an expected list exactly, and
+every protected endpoint really does challenge an anonymous request.
 
 ### SECURITY FIX found by those tests: the credential rate limit was inert
 
