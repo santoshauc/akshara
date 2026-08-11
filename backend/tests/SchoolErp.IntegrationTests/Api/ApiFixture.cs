@@ -1,3 +1,4 @@
+using MediatR;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.Testing;
@@ -8,6 +9,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Npgsql;
 using SchoolErp.Application.Abstractions;
+using SchoolErp.Application.Academics;
 using SchoolErp.Domain.TenantCatalog;
 using SchoolErp.Infrastructure;
 using SchoolErp.Infrastructure.Identity;
@@ -109,6 +111,15 @@ public sealed class ApiFixture : IAsyncLifetime, IDisposable
     /// <summary>The running host's services, for tests that need to look at state directly.</summary>
     public IServiceProvider Services => _factory.Services;
 
+    /// <summary>Current academic year, so a student can actually be admitted.</summary>
+    public Guid AcademicYearId { get; private set; }
+
+    /// <summary>"Grade 5" in the seeded school.</summary>
+    public Guid SchoolClassId { get; private set; }
+
+    /// <summary>Section "A" of <see cref="SchoolClassId"/>.</summary>
+    public Guid SectionId { get; private set; }
+
     /// <summary>
     /// A student id that belongs to nobody. Parent endpoints must answer 404 for
     /// it rather than 403 — telling a stranger "forbidden" confirms the child
@@ -135,6 +146,8 @@ public sealed class ApiFixture : IAsyncLifetime, IDisposable
         // Touching Services builds the host, so a startup failure surfaces here
         // rather than inside whichever test happened to run first.
         GuardAgainstTouchingTheDevDatabase(_factory.Services);
+
+        await SeedAcademicsAsync();
 
         // Tokens are MINTED rather than obtained by logging in. The auth
         // endpoints share one fixed-window limiter of 10 requests a minute
@@ -352,6 +365,33 @@ public sealed class ApiFixture : IAsyncLifetime, IDisposable
         }
 
         return user;
+    }
+
+    /// <summary>
+    /// A year and a class, created through the REAL commands rather than by
+    /// inserting rows, so admission has somewhere valid to place a student.
+    ///
+    /// This runs through the running host's own services with the tenant bound
+    /// the way the middleware would bind it - which also means it goes through
+    /// the restricted role and the RLS policies, exactly as a request does.
+    /// </summary>
+    private async Task SeedAcademicsAsync()
+    {
+        await using var scope = _factory.Services.CreateAsyncScope();
+        scope.ServiceProvider.GetRequiredService<ITenantContextSetter>().SetTenant(TenantId);
+
+        var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+        await sender.Send(new CreateAcademicYearCommand(
+            "2026-27", new DateOnly(2026, 6, 1), new DateOnly(2027, 4, 30), MakeCurrent: true));
+        await sender.Send(new CreateClassCommand("Grade 5", 5, ["A"]));
+
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        AcademicYearId = (await db.AcademicYears.AsNoTracking()
+            .FirstAsync(y => y.IsCurrent)).Id;
+        var schoolClass = await db.SchoolClasses.AsNoTracking().FirstAsync();
+        SchoolClassId = schoolClass.Id;
+        SectionId = (await db.Sections.AsNoTracking()
+            .FirstAsync(s => s.SchoolClassId == schoolClass.Id)).Id;
     }
 
     /// <summary>

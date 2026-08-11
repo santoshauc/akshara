@@ -201,7 +201,15 @@ try {
         foreach ($package in $merged.coverage.packages.package) {
             $summary += ('| {0} | {1:N1}% |' -f $package.name, (100.0 * [double]$package.'line-rate'))
         }
-        $summary -join "`n" | Out-File -FilePath $env:GITHUB_STEP_SUMMARY -Encoding utf8 -Append
+        # Written through .NET rather than Out-File because the two PowerShell
+        # versions disagree: 5.1's "utf8" means WITH a byte-order mark, 7's means
+        # without. A BOM landing in front of the leading "##" can stop GitHub
+        # rendering it as a heading, and this file is only ever exercised in CI -
+        # where nobody would connect the broken heading to the local shell.
+        [System.IO.File]::AppendAllText(
+            $env:GITHUB_STEP_SUMMARY,
+            ($summary -join "`n") + "`n",
+            (New-Object System.Text.UTF8Encoding $false))
     }
 
     if ($MinimumLineRate -gt 0 -and $lineRate -lt $MinimumLineRate) {

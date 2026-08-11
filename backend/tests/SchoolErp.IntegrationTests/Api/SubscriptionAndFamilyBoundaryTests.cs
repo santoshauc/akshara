@@ -18,7 +18,7 @@ namespace SchoolErp.IntegrationTests.Api;
 /// Both live in filters and helpers that only run inside a real request, with
 /// the tenant resolved from a real token.
 /// </summary>
-[Collection(ApiCollection.Name)]
+[Collection(ApiCollectionDefinition.Name)]
 public sealed class SubscriptionAndFamilyBoundaryTests
 {
     private readonly ApiFixture _api;

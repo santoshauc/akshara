@@ -13,7 +13,7 @@ namespace SchoolErp.IntegrationTests.Api;
 /// than spend a budget the others are relying on.
 /// </summary>
 [CollectionDefinition(Name)]
-public sealed class ApiCollection : ICollectionFixture<ApiFixture>
+public sealed class ApiCollectionDefinition : ICollectionFixture<ApiFixture>
 {
     public const string Name = "api-http";
 }

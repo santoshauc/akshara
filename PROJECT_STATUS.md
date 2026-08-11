@@ -41,7 +41,7 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 88 unit + 213 integration = **301 green** (`dotnet test` from `school-erp/`).
+Test suite: 88 unit + 221 integration = **309 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
 Coverage is measurable again: `scripts/coverage.ps1` reports **90.3%** of the
 backend. See "Test coverage" below — the old 7.2% was a broken measurement.
@@ -1695,11 +1695,11 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
 Run it yourself: `powershell -ExecutionPolicy Bypass -File scripts/coverage.ps1`
 (CI runs the same file as `pwsh scripts/coverage.ps1`; ~4 min, needs Docker).
 
-**Backend: 5,580 / 6,181 lines = 90.3%**, branches 64.5%. Per assembly:
+**Backend: 5,584 / 6,181 lines = 90.3%**, branches 66.0%. Per assembly:
 
 | Assembly | Line rate |
 |---|---|
-| SchoolErp.Api | 47.0% (141/300) |
+| SchoolErp.Api | 48.3% (145/300) |
 | SchoolErp.Application | 92.0% |
 | SchoolErp.Domain | 79.2% |
 | SchoolErp.Infrastructure | 91.8% |
@@ -1746,7 +1746,9 @@ failure mode cannot recur.
 `IntegrationTests/Api/` instantiate filters rather than issue requests. Nothing
 exercised routing, JWT validation, the permission policies, `[PlatformOnly]`, the
 module gate, the security headers or the health split as a wired pipeline. Adding
-28 tests took that assembly to 47%.
+36 tests took that assembly to 48.3%. (It is not higher because most of the
+remaining Api lines are controller actions that only delegate to a handler the
+integration suite already covers; the pipeline itself is now covered.)
 
 - `ApiFixture` boots the REAL API over a throwaway container via
   `WebApplicationFactory<Program>` (the `public partial class Program` hook at the
@@ -1755,8 +1757,16 @@ module gate, the security headers or the health split as a wired pipeline. Addin
   is not silently inert.
 - Files: `AuthorizationPipelineTests` (401 vs 403, permission policies, platform
   policy, tenant guard), `PipelineContractTests` (security headers, problem-body
-  shapes, routing, health, CORS), `SubscriptionAndFamilyBoundaryTests` (module gate,
-  family guard 404-not-403), `AuthEndpointTests` (real login round trip, rate limiter).
+  shapes, 201 + a Location that is FOLLOWED, 409 conflict, routing, health, CORS),
+  `SubscriptionAndFamilyBoundaryTests` (module gate, family guard 404-not-403),
+  `AuthEndpointTests` (real login round trip, rate limiter), `PublicSurfaceTests`
+  (the anonymous internet-facing surface: unsigned and forged payment webhooks,
+  file-key traversal, root service info, Swagger absent outside Development).
+- The fixture seeds a year and a class through the REAL commands so admission has
+  somewhere valid to place a student — which is what makes the 201/409 wire tests
+  possible. `ApiCollectionDefinition` is named that way, not `ApiCollection`,
+  because CA1711 refuses a type name ending in "Collection" (full-rebuild-only
+  warning — it will not appear on an incremental build).
 - **GOTCHA that cost the most time, and would have been expensive to miss:**
   `AddInfrastructure` reads `ConnectionStrings:Postgres` EAGERLY while services are
   being registered, and `WebApplicationFactory` applies `ConfigureAppConfiguration`

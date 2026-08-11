@@ -21,7 +21,7 @@ namespace SchoolErp.IntegrationTests.Api;
 /// a token the API will actually accept. That round trip is what this file is
 /// for.
 /// </summary>
-[Collection(ApiCollection.Name)]
+[Collection(ApiCollectionDefinition.Name)]
 public sealed class AuthEndpointTests : IDisposable
 {
     private readonly ApiFactory _host;
