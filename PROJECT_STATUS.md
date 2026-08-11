@@ -38,8 +38,18 @@ Monorepo layout is described in `README.md`.
 | Library: catalog, issue/return (availability + 3-loan limit), overdue | ✅ | ✅ | ✅ | ✅ card |
 | Hostel: buildings/rooms, capacity-checked stays, warden contact | ✅ | ✅ | ✅ | ✅ card |
 
-Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
-once the GitHub account clears the Actions hold (see below).
+Remote: https://github.com/santoshauc/akshara (public) as of 11 Aug 2026 —
+`origin`. The previous remote is kept as `oldorigin`
+(github.com/vivian-richard/akshara) and its history diverges: every commit was
+re-authored to `santoshauc <santoshauce@gmail.com>` before the first push here,
+so the SHAs differ. Do not force-push between the two. Safety refs for that
+rewrite: branch `backup-pre-santoshauc-rewrite` and tag `pre-santoshauc-rewrite`.
+
+**CI RUNS NOW, and is green** (all five jobs: backend, vulnscan, mobile ×2,
+docker). That closes Phase 0 item 1 of docs/roadmap-production.md — "273 green"
+is no longer a claim about one machine. Push access is currently borrowed: the
+local credential authenticates as `vivian-richard`, who is a collaborator here,
+so pushes depend on that invite standing.
 
 Test suite: 88 unit + 221 integration = **309 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
