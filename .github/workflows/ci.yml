@@ -65,13 +65,41 @@ jobs:
 
       - name: Fail on unaccepted High/Critical advisories
         run: |
-          dotnet list SchoolErp.sln package --vulnerable --include-transitive > vulns.txt || true
-          cat vulns.txt
-          # Accepted advisories are documented in docs/security-notes.md.
-          ACCEPTED='GHSA-rvv3-g6hj-g44x'
-          BAD=$(grep -E 'High|Critical' vulns.txt | grep -vE "$ACCEPTED" || true)
+          set -euo pipefail
+
+          # The scan's own failure must fail the step. This previously ended in
+          # "|| true", so a broken restore or an unreachable NuGet produced an
+          # EMPTY report, no High/Critical lines were found in it, and the gate
+          # went green having scanned nothing at all. A check that cannot tell
+          # "nothing vulnerable" from "never ran" is worse than no check.
+          # (`dotnet list --vulnerable` exits 0 when it finds advisories and
+          # non-zero only when it genuinely fails, so pipefail is safe here.)
+          dotnet list SchoolErp.sln package --vulnerable --include-transitive | tee vulns.txt
+
+          # Liveness: every project prints either "has no vulnerable packages"
+          # or "has the following vulnerable packages". No such line means the
+          # output is not a report, whatever the exit code claimed.
+          if ! grep -q "vulnerable packages" vulns.txt; then
+            echo "::error::Vulnerability scan produced no recognisable report - refusing to pass."
+            exit 1
+          fi
+
+          # Advisories we have consciously accepted, as regex alternatives
+          # (e.g. 'GHSA-aaaa-bbbb-cccc|GHSA-dddd-eeee-ffff'). Every entry must be
+          # justified in docs/security-notes.md. Empty on purpose: nothing
+          # High/Critical is currently accepted. The two open OpenTelemetry
+          # advisories are Moderate and sit below this threshold, so they do not
+          # belong here.
+          ACCEPTED=''
+
+          if [ -n "$ACCEPTED" ]; then
+            BAD=$(grep -E '\b(High|Critical)\b' vulns.txt | grep -vE "$ACCEPTED" || true)
+          else
+            BAD=$(grep -E '\b(High|Critical)\b' vulns.txt || true)
+          fi
+
           if [ -n "$BAD" ]; then
-            echo "::error::New High/Critical advisories found (not in docs/security-notes.md):"
+            echo "::error::Unaccepted High/Critical advisories (see docs/security-notes.md):"
             echo "$BAD"
             exit 1
           fi
