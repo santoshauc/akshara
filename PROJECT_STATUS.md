@@ -41,8 +41,10 @@ Monorepo layout is described in `README.md`.
 Remote: https://github.com/vivian-richard/akshara (private). CI runs on push
 once the GitHub account clears the Actions hold (see below).
 
-Test suite: 88 unit + 185 integration = **273 green** (`dotnet test` from `school-erp/`).
+Test suite: 88 unit + 213 integration = **301 green** (`dotnet test` from `school-erp/`).
 Integration tests use Testcontainers (needs Docker running).
+Coverage is measurable again: `scripts/coverage.ps1` reports **90.3%** of the
+backend. See "Test coverage" below — the old 7.2% was a broken measurement.
 
 ## Read this first if the goal is a shipped product
 
@@ -1674,30 +1676,118 @@ login, MFA optional, and its actions recorded but unreadable. Three fixes.
 - `dotnet test -v q` prints the Failed! total but NOT the failing test names.
   Re-run without `-v q` (or grep `^  Failed `) — this has now cost two
   separate sessions a wasted full run.
+- Windows PowerShell 5.1 (this box has no `pwsh`) reads a BOM-less file as
+  CP1252, so a UTF-8 em dash in a `.ps1` arrives as three characters ending in a
+  curly quote — which 5.1 treats as a STRING DELIMITER. The parser desynchronises
+  and blames innocent lines further down. Keep `.ps1` files ASCII-only.
+- NEVER clean up Testcontainers leftovers with a filter on the image alone:
+  `docker ps -aq --filter ancestor=postgres:16-alpine` also matches the
+  long-running `schoolerp-postgres` dev container, and `rm -f` will take it out.
+  (Recovered intact — the data is in the named volume `deployment_postgres-data`,
+  so `docker compose up -d` restores it — but nothing about that was deliberate.)
+  Testcontainers runs a ryuk reaper that cleans its own containers; leave it alone.
+- VSTest writes each coverage attachment TWICE (the GUID run folder and the trx
+  staging folder `In\<MACHINE>\`), so anything globbing for `coverage.cobertura.xml`
+  sees double. `scripts/coverage.ps1` filters the staging copies out.
 
-## Test coverage — measured, and what the number means
+## Test coverage — FIXED and measured (10 Aug 2026)
 
-Measured 10 Aug 2026 with `--collect:"XPlat Code Coverage"` (no runsettings):
+Run it yourself: `powershell -ExecutionPolicy Bypass -File scripts/coverage.ps1`
+(CI runs the same file as `pwsh scripts/coverage.ps1`; ~4 min, needs Docker).
 
-- RAW: 1,063 / 171,210 lines = **0.6%** — meaningless. EF's generated
-  migrations and model snapshot are 156,372 of those lines, none executed by
-  tests and none worth testing.
-- HAND-WRITTEN code only: 1,063 / 14,838 = **7.2%**.
-- BOTH figures are UNIT TESTS ONLY (88 tests). The run produced one cobertura
-  file, not two — the 185 integration tests, which are where the handler
-  coverage actually lives, were not counted. The true backend figure is
-  materially higher than 7.2%; nobody has measured it yet.
+**Backend: 5,580 / 6,181 lines = 90.3%**, branches 64.5%. Per assembly:
 
-`coverlet.runsettings` exists with the right exclusion list but DOES NOT WORK —
-passing it produced zero coverage files. See the banner in that file; prime
-suspect is the collector friendlyName casing not matching `--collect`.
+| Assembly | Line rate |
+|---|---|
+| SchoolErp.Api | 47.0% (141/300) |
+| SchoolErp.Application | 92.0% |
+| SchoolErp.Domain | 79.2% |
+| SchoolErp.Infrastructure | 91.8% |
+| SchoolErp.Shared | 99.5% |
 
-BEFORE writing tests toward any coverage target, fix the measurement:
-1. Make the runsettings actually collect (2 files, non-empty).
-2. Merge the unit and integration runs into one figure.
-3. Publish it in CI — which needs the git remote, so it depends on Phase 0.
+DENOMINATOR, so the number is never misquoted: the five `backend/src` projects,
+excluding EF migrations and the model snapshot. The Blazor portal is NOT in it —
+no test project references it and bUnit is not in the solution. This figure means
+"backend", never "the product". That was the open question in the old note; it is
+answered by exclusion, not by measurement, and the ~60 `.razor` files remain
+untested.
 
-Writing tests toward an unmeasurable target is working blind. Also decide
-whether "70%" means backend only or includes the ~60 `.razor` portal files,
-which have no test infrastructure (bUnit is not referenced) — that choice
-changes the size of the job by a large factor.
+### The old 0.6% / 7.2% figures were measurement artifacts, not coverage
+
+The previous note blamed the collector `friendlyName` casing. That was wrong, and
+so was the second suspect (whitespace in `ExcludeByFile`). Both were disproved by
+running them: friendlyName matching is case-INSENSITIVE, and the exclusion list
+worked fine as written.
+
+The real fault: **the warning comment inside `coverlet.runsettings` contained a
+doubled hyphen**, because it spelled out the `--settings` and `--collect`
+switches. XML forbids `--` inside a comment. VSTest rejected the entire settings
+file with `Settings file provided does not conform to required format`, printed
+it as ONE line in the middle of ordinary test output, and carried on with no
+collector — so the run went green and measured nothing. The note documenting the
+breakage was itself the breakage. Command-line switches now live in
+`scripts/coverage.ps1`, never in that file's comments.
+
+With the file parsing, one run produces two cobertura files (unit: 5,881
+coverable lines, no `SchoolErp.Api`; integration: 6,181 including it) and
+ReportGenerator merges them. `UseSourceLink` is now off: it rewrote every path to
+a `raw.githubusercontent` URL pinned to the last COMMITTED sha, which 404s on a
+private repo and leaves the HTML report with no source.
+
+CI publishes it: the backend job installs ReportGenerator, runs the same script,
+writes the figure to the job summary and uploads the HTML report as an artifact.
+The script FAILS the run if zero coverage files are produced, so the silent-green
+failure mode cannot recur.
+
+## API-layer HTTP tests (feature/coverage-and-api-tests)
+
+`SchoolErp.Api` was the least-covered assembly at 20% with every controller at
+0%, because all 185 integration tests call handlers directly and the two files in
+`IntegrationTests/Api/` instantiate filters rather than issue requests. Nothing
+exercised routing, JWT validation, the permission policies, `[PlatformOnly]`, the
+module gate, the security headers or the health split as a wired pipeline. Adding
+28 tests took that assembly to 47%.
+
+- `ApiFixture` boots the REAL API over a throwaway container via
+  `WebApplicationFactory<Program>` (the `public partial class Program` hook at the
+  bottom of Program.cs had been sitting there unused). Production shape: migrations
+  and Hangfire on the OWNER connection, the API itself on a restricted role, so RLS
+  is not silently inert.
+- Files: `AuthorizationPipelineTests` (401 vs 403, permission policies, platform
+  policy, tenant guard), `PipelineContractTests` (security headers, problem-body
+  shapes, routing, health, CORS), `SubscriptionAndFamilyBoundaryTests` (module gate,
+  family guard 404-not-403), `AuthEndpointTests` (real login round trip, rate limiter).
+- **GOTCHA that cost the most time, and would have been expensive to miss:**
+  `AddInfrastructure` reads `ConnectionStrings:Postgres` EAGERLY while services are
+  being registered, and `WebApplicationFactory` applies `ConfigureAppConfiguration`
+  LATER than that. The in-memory override was therefore ignored and the test host
+  quietly ran against the real dev database on localhost:5432 (`tenants visible =
+  [COLL01, DEMO01, GRWD01]`). Only reads happened, but writes were one test away.
+  Eagerly-read config MUST arrive as environment variables (`ConnectionStrings__Postgres`),
+  which `CreateBuilder` adds after the appsettings files so they outrank them.
+  Hangfire was unaffected because its lambda runs lazily — that contrast is the tell.
+  The fixture now asserts the DbContext's ACTUAL connection string before seeding;
+  the first version of that guard checked configuration, passed, and proved nothing.
+- Tokens are MINTED via `JwtTokenService` rather than obtained by logging in: the
+  credential endpoints allow 10 requests a minute, and signing six principals in
+  would spend most of that budget before the first test ran. `AuthEndpointTests`
+  covers the real login round trip on its own host.
+- The `TestPrincipal` enum has a `SchoolAdminWithPlatformPermission` deliberately
+  carrying `tenants.view`/`tenants.manage`. It exists to prove the platform
+  endpoints refuse school tokens on the POLICY, not the permission — the exact
+  cross-tenant escalation this product shipped once.
+
+### SECURITY FIX found by those tests: the credential rate limit was inert
+
+`[EnableRateLimiting("auth")]` (10/min, brute-force defence) was being shadowed by
+`app.MapControllers().RequireRateLimiting("global")` (300/min). `RequireRateLimiting`
+stamps its policy onto every controller endpoint AFTER the controller's own
+attribute, and the later metadata wins — so password login was limited at 300 a
+minute, 30x the intended budget. Measured, not inferred: `/auth/otp/request`
+returned its first 429 at request #300, not #10.
+
+Fixed by making the baseline a `GlobalLimiter` (applied IN ADDITION to whatever
+policy an endpoint names) and dropping `RequireRateLimiting` from `MapControllers`,
+so the two compose instead of overwriting. Identity lockout was always the primary
+defence, so this was defence-in-depth that wasn't there. Guarded by
+`Credential_stuffing_runs_out_of_budget_before_it_runs_out_of_guesses`.

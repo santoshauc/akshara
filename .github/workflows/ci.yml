@@ -31,8 +31,25 @@ jobs:
       - name: Build
         run: dotnet build SchoolErp.sln --no-restore --configuration Release
 
-      - name: Test (unit + integration via Testcontainers)
-        run: dotnet test SchoolErp.sln --no-build --configuration Release --logger "trx"
+      # ReportGenerator merges the unit and integration cobertura reports into
+      # one figure. Measuring either run alone understates the suite badly.
+      - name: Install ReportGenerator
+        run: dotnet tool install -g dotnet-reportgenerator-globaltool
+
+      # scripts/coverage.ps1 is the same script developers run locally, so the
+      # number here and the number on a dev box are produced identically. It
+      # fails the job if the collector produces no coverage files — that failure
+      # was silent for a whole session once, and read as "0.6% coverage".
+      - name: Test (unit + integration via Testcontainers) with coverage
+        run: pwsh scripts/coverage.ps1 -Configuration Release -NoBuild
+
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage
+          path: TestResults/merged
+          if-no-files-found: warn
 
   vulnscan:
     runs-on: ubuntu-latest

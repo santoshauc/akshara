@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Text;
+using System.Threading.RateLimiting;
 using Asp.Versioning;
 using Hangfire;
 using Hangfire.PostgreSql;
@@ -157,12 +158,24 @@ try
     builder.Services.AddRateLimiter(options =>
     {
         options.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
-        options.AddFixedWindowLimiter("global", limiter =>
-        {
-            limiter.PermitLimit = 300;
-            limiter.Window = TimeSpan.FromMinutes(1);
-            limiter.QueueLimit = 0;
-        });
+
+        // The baseline budget is a GLOBAL limiter rather than a named policy
+        // attached with RequireRateLimiting. That is not a style preference:
+        // RequireRateLimiting on MapControllers stamps its policy onto every
+        // controller endpoint AFTER the controller's own attribute, and the
+        // later metadata wins — which silently shadowed the tighter credential
+        // budget below, leaving password login limited at 300 a minute instead
+        // of 10. A global limiter is applied IN ADDITION to whatever policy an
+        // endpoint names, so the two compose instead of overwriting each other.
+        // Caught by AuthEndpointTests, which now guards it.
+        options.GlobalLimiter = PartitionedRateLimiter.Create<HttpContext, string>(_ =>
+            RateLimitPartition.GetFixedWindowLimiter("global", _ => new FixedWindowRateLimiterOptions
+            {
+                PermitLimit = 300,
+                Window = TimeSpan.FromMinutes(1),
+                QueueLimit = 0,
+            }));
+
         // Credential endpoints get a much tighter budget (brute-force defense).
         options.AddFixedWindowLimiter("auth", limiter =>
         {
@@ -249,7 +262,10 @@ try
     app.UseMiddleware<TenantResolutionMiddleware>();
     app.UseAuthorization();
 
-    app.MapControllers().RequireRateLimiting("global");
+    // No RequireRateLimiting here: the baseline budget is the global limiter
+    // configured above, which applies to every request without shadowing the
+    // per-endpoint policies (see the comment on AddRateLimiter).
+    app.MapControllers();
     // Liveness must not depend on downstream services — a database blip should
     // fail READINESS (stop routing traffic), not get the process restarted.
     app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
