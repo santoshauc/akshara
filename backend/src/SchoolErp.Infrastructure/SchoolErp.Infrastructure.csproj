@@ -17,6 +17,13 @@
     <PackageReference Include="System.IdentityModel.Tokens.Jwt" Version="7.1.2" />
     <PackageReference Include="Hangfire.Core" Version="1.8.17" />
     <PackageReference Include="Hangfire.PostgreSql" Version="1.20.10" />
+    <!-- Referenced directly ONLY to lift a transitive dependency off a High
+         advisory. Hangfire.Core asks for Newtonsoft.Json >= 11.0.1, and NuGet
+         resolves the floor - 11.0.1, which carries GHSA-5crp-9r3c-p9vr (a
+         crafted payload can exhaust the stack). Nothing in this project calls
+         Newtonsoft; the reference exists purely to raise the resolved version,
+         and can be dropped once Hangfire's own floor moves past 13.0.x. -->
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
   </ItemGroup>
 
   <ItemGroup>
