@@ -9,6 +9,20 @@
   projection plus `ToDto()` extensions for in-memory maps). No replacement
   dependency was introduced.
 
+### ~~Newtonsoft.Json 11.0.1 — GHSA-5crp-9r3c-p9vr (High)~~ RESOLVED
+
+- **How it got in:** transitively, and invisibly. `Hangfire.Core` declares
+  `Newtonsoft.Json >= 11.0.1`; NuGet resolves the FLOOR of an open range, so
+  the build quietly took 11.0.1 — a version where a crafted payload can
+  exhaust the stack. Nothing in this codebase calls Newtonsoft directly.
+- **Resolution:** a direct `PackageReference` to 13.0.3 in
+  `SchoolErp.Api` and `SchoolErp.Infrastructure`, which raises the resolved
+  version above the floor. Both projects need their own reference — a
+  transitive version is resolved per project, so pinning one does not lift
+  the other. Newtonsoft.Json is MIT, so this adds no licensing obligation.
+- **When to remove:** once Hangfire's own floor moves past 13.0.x.
+- **Caught by:** the CI `vulnscan` job, on its first-ever real execution.
+
 ### OpenTelemetry.Exporter.OpenTelemetryProtocol 1.11.2 — GHSA-4625-4j76-fww9 (Moderate)
 
 - **Status:** Monitoring for a patched 8.0-compatible release.
