@@ -84,8 +84,13 @@ order. This batch: the two pages a Telugu-medium school clerk touches daily.
   a miss proves nothing. Decode at both alignments before concluding a
   binary is stale. A false "stale DLL" conclusion from this sent the
   investigation down a wrong path for several minutes.
-- REMAINING for the clerk set: Fees, Admissions, AdmitStudent, Exams,
-  MarksEntry, Notices, Homework, Messages, StudentProfile.
+- Batch 3 added Fees, Notices and Homework (browser-verified in te the same
+  way; "Tuition" and other school-entered names correctly stay as entered).
+  New shared keys common.title, common.dueDate. The fee-split "Term {0}"
+  label is generated IN THE CLERK'S LANGUAGE and then stored — it becomes
+  school-entered data at that moment, which is consistent with the rule.
+- REMAINING for the clerk set: Admissions, AdmitStudent, Exams, MarksEntry,
+  Messages, StudentProfile.
 
 ## GST on platform invoices (feature/gst-invoices)
 

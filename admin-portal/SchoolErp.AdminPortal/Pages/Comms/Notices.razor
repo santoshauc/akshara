@@ -1,17 +1,19 @@
 @page "/notices"
 @attribute [Authorize]
+@implements IDisposable
 @inject CommsClient Client
 @inject AcademicsClient AcademicsApi
 @inject ISnackbar Snackbar
+@inject LocalizationService L
 
-<PageTitle>Notices — Akshara</PageTitle>
+<PageTitle>@L["notices.title"] — Akshara</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">Notices</MudText>
+    <MudText Typo="Typo.h4">@L["notices.title"]</MudText>
     <MudSpacer />
     <MudButton Variant="Variant.Filled" Color="Color.Primary" StartIcon="@Icons.Material.Filled.Campaign"
                OnClick="@(() => _showForm = !_showForm)">
-        Publish notice
+        @L["notices.publish"]
     </MudButton>
 </MudStack>
 
@@ -19,23 +21,23 @@
 {
     <MudPaper Elevation="2" Class="pa-6 mb-4">
         <MudStack Spacing="3">
-            <MudTextField @bind-Value="_title" Label="Title" />
-            <MudTextField @bind-Value="_body" Label="Message" Lines="4" />
+            <MudTextField @bind-Value="_title" Label="@L["common.title"]" />
+            <MudTextField @bind-Value="_body" Label="@L["notices.message"]" Lines="4" />
             <MudStack Row="true" Spacing="3" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-                <MudSelect T="Guid?" @bind-Value="_classId" Label="Audience" Clearable="true"
-                           HelperText="Empty = whole school" Style="min-width: 200px;">
+                <MudSelect T="Guid?" @bind-Value="_classId" Label="@L["notices.audience"]" Clearable="true"
+                           HelperText="@L["notices.wholeSchoolHint"]" Style="min-width: 200px;">
                     @foreach (var schoolClass in _classes)
                     {
-                        <MudSelectItem T="Guid?" Value="@schoolClass.Id">@schoolClass.Name only</MudSelectItem>
+                        <MudSelectItem T="Guid?" Value="@schoolClass.Id">@L.Format("notices.classOnly", schoolClass.Name)</MudSelectItem>
                     }
                 </MudSelect>
-                <MudDatePicker @bind-Date="_expires" Label="Expires (optional)" Editable="true"
+                <MudDatePicker @bind-Date="_expires" Label="@L["notices.expires"]" Editable="true"
                                Style="min-width: 170px;" />
-                <MudCheckBox T="bool" @bind-Value="_pinned" Label="Pin to top" />
+                <MudCheckBox T="bool" @bind-Value="_pinned" Label="@L["notices.pin"]" />
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
                            OnClick="PublishAsync">
-                    @(_busy ? "Publishing…" : "Publish")
+                    @(_busy ? L["notices.publishing"] : L["notices.publishBtn"])
                 </MudButton>
             </MudStack>
         </MudStack>
@@ -44,7 +46,7 @@
 
 @if (_notices.Count == 0)
 {
-    <MudAlert Severity="Severity.Info">No notices yet.</MudAlert>
+    <MudAlert Severity="Severity.Info">@L["notices.none"]</MudAlert>
 }
 else
 {
@@ -60,13 +62,13 @@ else
                 <MudSpacer />
                 <MudChip Size="Size.Small" Variant="Variant.Outlined"
                          Color="@(notice.SchoolClassId is null ? Color.Primary : Color.Secondary)">
-                    @(notice.ClassName ?? "Whole school")
+                    @(notice.ClassName ?? L["notices.wholeSchool"])
                 </MudChip>
             </MudStack>
             <MudText Typo="Typo.body2">@notice.Body</MudText>
             <MudText Typo="Typo.caption" Class="mud-text-secondary mt-1">
                 @notice.PublishedAt.ToLocalTime().ToString("dd MMM yyyy HH:mm")
-                @(notice.ExpiresOn is { } expiry ? $" · expires {expiry:dd MMM yyyy}" : "")
+                @(notice.ExpiresOn is { } expiry ? L.Format("notices.expiresOn", expiry.ToString("dd MMM yyyy")) : "")
             </MudText>
         </MudPaper>
     }
@@ -77,6 +79,10 @@ else
     private List<SchoolClassDto> _classes = [];
     private bool _showForm;
     private bool _busy;
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
     private string _title = string.Empty;
     private string _body = string.Empty;
     private Guid? _classId;
@@ -85,6 +91,7 @@ else
 
     protected override async Task OnInitializedAsync()
     {
+        L.Changed += OnLanguageChanged;
         try
         {
             _classes = await AcademicsApi.GetClassesAsync();
@@ -92,7 +99,7 @@ else
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            Snackbar.Add(L["common.cannotReach"], Severity.Error);
         }
     }
 
@@ -100,7 +107,7 @@ else
     {
         if (string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_body))
         {
-            Snackbar.Add("Title and message are required.", Severity.Warning);
+            Snackbar.Add(L["notices.needTitleBody"], Severity.Warning);
             return;
         }
 
@@ -112,7 +119,7 @@ else
                 _expires is null ? null : DateOnly.FromDateTime(_expires.Value), _pinned));
             if (error is null)
             {
-                Snackbar.Add("Notice published. Parents will see it in the app.", Severity.Success);
+                Snackbar.Add(L["notices.published"], Severity.Success);
                 _showForm = false;
                 _title = _body = string.Empty;
                 _classId = null;
