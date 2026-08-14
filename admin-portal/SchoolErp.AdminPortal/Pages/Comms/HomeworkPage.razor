@@ -1,15 +1,17 @@
 @page "/homework"
 @attribute [Authorize]
+@implements IDisposable
 @inject CommsClient Client
 @inject AcademicsClient AcademicsApi
 @inject InstitutionContext Institution
 @inject ExamsClient ExamsApi
 @inject ISnackbar Snackbar
+@inject LocalizationService L
 
-<PageTitle>Homework — Akshara</PageTitle>
+<PageTitle>@L["homework.title"] — Akshara</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-    <MudText Typo="Typo.h4">Homework</MudText>
+    <MudText Typo="Typo.h4">@L["homework.title"]</MudText>
     <MudSpacer />
     <MudSelect T="Guid?" @bind-Value="_classId" Label="@Institution.Cohort" Dense="true" Style="min-width: 160px;"
                SelectedValuesChanged="@(_ => OnClassChangedAsync())">
@@ -23,32 +25,32 @@
 @if (_classId is not null)
 {
     <MudPaper Elevation="2" Class="pa-6 mb-4">
-        <MudText Typo="Typo.h6" Class="mb-3">Assign homework</MudText>
+        <MudText Typo="Typo.h6" Class="mb-3">@L["homework.assignTitle"]</MudText>
         <MudStack Spacing="3">
             <MudStack Row="true" Spacing="3" Wrap="Wrap.Wrap">
-                <MudSelect T="Guid?" @bind-Value="_subjectId" Label="Subject" Style="min-width: 180px;">
+                <MudSelect T="Guid?" @bind-Value="_subjectId" Label="@L["homework.subject"]" Style="min-width: 180px;">
                     @foreach (var subject in _subjects)
                     {
                         <MudSelectItem T="Guid?" Value="@subject.Id">@subject.Name</MudSelectItem>
                     }
                 </MudSelect>
-                <MudSelect T="Guid?" @bind-Value="_sectionId" Label="Section" Clearable="true"
-                           HelperText="Empty = all sections" Style="min-width: 160px;">
+                <MudSelect T="Guid?" @bind-Value="_sectionId" Label="@L["common.section"]" Clearable="true"
+                           HelperText="@L["homework.allSectionsHint"]" Style="min-width: 160px;">
                     @foreach (var sec in SectionsOfSelectedClass)
                     {
                         <MudSelectItem T="Guid?" Value="@sec.Id">@sec.Name</MudSelectItem>
                     }
                 </MudSelect>
-                <MudDatePicker @bind-Date="_dueDate" Label="Due date" Editable="true"
+                <MudDatePicker @bind-Date="_dueDate" Label="@L["common.dueDate"]" Editable="true"
                                MinDate="DateTime.Today" Style="min-width: 160px;" />
             </MudStack>
-            <MudTextField @bind-Value="_title" Label="Title" />
-            <MudTextField @bind-Value="_instructions" Label="Instructions" Lines="3" />
+            <MudTextField @bind-Value="_title" Label="@L["common.title"]" />
+            <MudTextField @bind-Value="_instructions" Label="@L["homework.instructions"]" Lines="3" />
             <MudStack Row="true">
                 <MudSpacer />
                 <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
                            OnClick="AssignAsync">
-                    @(_busy ? "Assigning…" : "Assign homework")
+                    @(_busy ? L["homework.assigning"] : L["homework.assign"])
                 </MudButton>
             </MudStack>
         </MudStack>
@@ -56,18 +58,18 @@
 
     @if (_homework.Count == 0)
     {
-        <MudAlert Severity="Severity.Info">No homework for this class yet.</MudAlert>
+        <MudAlert Severity="Severity.Info">@L["homework.noneForClass"]</MudAlert>
     }
     else
     {
         <MudSimpleTable Hover="true" Dense="true" Elevation="2">
             <thead>
                 <tr>
-                    <th>Subject</th>
-                    <th>Title</th>
-                    <th>Section</th>
-                    <th>Assigned</th>
-                    <th>Due</th>
+                    <th>@L["homework.subject"]</th>
+                    <th>@L["common.title"]</th>
+                    <th>@L["common.section"]</th>
+                    <th>@L["homework.assigned"]</th>
+                    <th>@L["homework.due"]</th>
                 </tr>
             </thead>
             <tbody>
@@ -79,7 +81,7 @@
                             <MudText Typo="Typo.body2" Class="font-weight-bold">@item.Title</MudText>
                             <MudText Typo="Typo.caption" Class="mud-text-secondary">@item.Instructions</MudText>
                         </td>
-                        <td>@(item.SectionName ?? "All")</td>
+                        <td>@(item.SectionName ?? L["homework.allSections"])</td>
                         <td>@item.AssignedOn.ToString("dd MMM")</td>
                         <td>@item.DueDate.ToString("dd MMM yyyy")</td>
                     </tr>
@@ -90,7 +92,7 @@
 }
 else
 {
-    <MudAlert Severity="Severity.Info">Pick a class to view and assign homework.</MudAlert>
+    <MudAlert Severity="Severity.Info">@L["homework.pickClass"]</MudAlert>
 }
 
 @code {
@@ -105,11 +107,16 @@ else
     private string _instructions = string.Empty;
     private bool _busy;
 
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+
     private IEnumerable<SectionDto> SectionsOfSelectedClass =>
         _classes.FirstOrDefault(c => c.Id == _classId)?.Sections ?? [];
 
     protected override async Task OnInitializedAsync()
     {
+        L.Changed += OnLanguageChanged;
         await Institution.EnsureLoadedAsync();
         try
         {
@@ -118,7 +125,7 @@ else
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            Snackbar.Add(L["common.cannotReach"], Severity.Error);
         }
     }
 
@@ -136,7 +143,7 @@ else
         if (_classId is null || _subjectId is null || _dueDate is null ||
             string.IsNullOrWhiteSpace(_title) || string.IsNullOrWhiteSpace(_instructions))
         {
-            Snackbar.Add("Subject, due date, title and instructions are required.", Severity.Warning);
+            Snackbar.Add(L["homework.needFields"], Severity.Warning);
             return;
         }
 
@@ -148,7 +155,7 @@ else
                 _title.Trim(), _instructions.Trim(), DateOnly.FromDateTime(_dueDate.Value)));
             if (error is null)
             {
-                Snackbar.Add("Homework assigned. Parents can see it in the app.", Severity.Success);
+                Snackbar.Add(L["homework.assignedMsg"], Severity.Success);
                 _title = _instructions = string.Empty;
                 _homework = await Client.GetClassHomeworkAsync(_classId.Value);
             }

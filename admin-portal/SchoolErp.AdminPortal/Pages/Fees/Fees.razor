@@ -1,26 +1,28 @@
 @page "/fees"
 @attribute [Authorize]
+@implements IDisposable
 @inject FeesClient Client
 @inject AcademicsClient AcademicsApi
 @inject InstitutionContext Institution
 @inject ISnackbar Snackbar
+@inject LocalizationService L
 
-<PageTitle>Fees — Akshara</PageTitle>
+<PageTitle>@L["fees.title"] — Akshara</PageTitle>
 
-<MudText Typo="Typo.h4" Class="mb-4">Fee setup</MudText>
+<MudText Typo="Typo.h4" Class="mb-4">@L["fees.setupTitle"]</MudText>
 
 <MudGrid Spacing="4">
     <MudItem xs="12" md="4">
         <MudPaper Elevation="2" Class="pa-6">
-            <MudText Typo="Typo.h6" Class="mb-4">Fee heads</MudText>
+            <MudText Typo="Typo.h6" Class="mb-4">@L["fees.heads"]</MudText>
             <MudStack Spacing="2" Class="mb-3">
-                <MudTextField @bind-Value="_newHeadName" Label="New head (e.g. Tuition)" />
+                <MudTextField @bind-Value="_newHeadName" Label="@L["fees.newHead"]" />
                 <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center">
-                    <MudSelect T="LateFineType" @bind-Value="_newHeadFineType" Label="Late fine"
+                    <MudSelect T="LateFineType" @bind-Value="_newHeadFineType" Label="@L["fees.lateFine"]"
                                Dense="true" Style="width: 130px;">
-                        <MudSelectItem Value="LateFineType.None">None</MudSelectItem>
-                        <MudSelectItem Value="LateFineType.Flat">Flat ₹</MudSelectItem>
-                        <MudSelectItem Value="LateFineType.Percent">Percent</MudSelectItem>
+                        <MudSelectItem Value="LateFineType.None">@L["fees.fineNone"]</MudSelectItem>
+                        <MudSelectItem Value="LateFineType.Flat">@L["fees.fineFlat"]</MudSelectItem>
+                        <MudSelectItem Value="LateFineType.Percent">@L["fees.finePercent"]</MudSelectItem>
                     </MudSelect>
                     @if (_newHeadFineType != LateFineType.None)
                     {
@@ -29,16 +31,16 @@
                                          Min="0" Style="width: 100px;" HideSpinButtons="true" />
                     }
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
-                               OnClick="CreateHeadAsync">Add</MudButton>
+                               OnClick="CreateHeadAsync">@L["fees.add"]</MudButton>
                 </MudStack>
             </MudStack>
             @foreach (var head in _heads)
             {
                 <MudChip Size="Size.Small" Variant="Variant.Outlined" Class="ma-1">
                     @head.Name@(head.LateFineType == LateFineType.Flat
-                        ? $" (+₹{head.LateFineValue:N0} late)"
+                        ? L.Format("fees.lateFlat", head.LateFineValue.ToString("N0"))
                         : head.LateFineType == LateFineType.Percent
-                            ? $" (+{head.LateFineValue:0.#}% late)"
+                            ? L.Format("fees.latePercent", head.LateFineValue.ToString("0.#"))
                             : "")
                 </MudChip>
             }
@@ -48,7 +50,7 @@
     <MudItem xs="12" md="8">
         <MudPaper Elevation="2" Class="pa-6">
             <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4">
-                <MudText Typo="Typo.h6">Class fee plan</MudText>
+                <MudText Typo="Typo.h6">@L["fees.planTitle"]</MudText>
                 <MudSpacer />
                 <MudSelect T="Guid?" @bind-Value="_classId" Label="@Institution.Cohort" Dense="true"
                            Style="min-width: 160px;" SelectedValuesChanged="@(_ => LoadPlanAsync())">
@@ -61,7 +63,7 @@
 
             @if (_classId is null)
             {
-                <MudText Class="mud-text-secondary">Pick a class to edit its plan for the current year.</MudText>
+                <MudText Class="mud-text-secondary">@L["fees.pickClass"]</MudText>
             }
             else
             {
@@ -69,18 +71,18 @@
                 {
                     @* @key keeps pickers glued to their row when a middle row is deleted. *@
                     <MudStack @key="row" Row="true" Spacing="2" AlignItems="AlignItems.Center" Class="mb-2" Wrap="Wrap.Wrap">
-                        <MudSelect T="Guid?" @bind-Value="row.FeeHeadId" Label="Head" Dense="true"
+                        <MudSelect T="Guid?" @bind-Value="row.FeeHeadId" Label="@L["fees.head"]" Dense="true"
                                    Style="min-width: 160px;">
                             @foreach (var head in _heads)
                             {
                                 <MudSelectItem T="Guid?" Value="@head.Id">@head.Name</MudSelectItem>
                             }
                         </MudSelect>
-                        <MudTextField @bind-Value="row.Label" Label="Installment (e.g. Term 1)"
+                        <MudTextField @bind-Value="row.Label" Label="@L["fees.installmentLabel"]"
                                       Style="width: 160px;" />
-                        <MudNumericField T="decimal" @bind-Value="row.Amount" Label="Amount (₹)" Min="1"
+                        <MudNumericField T="decimal" @bind-Value="row.Amount" Label="@L["fees.amount"]" Min="1"
                                          Style="width: 140px;" HideSpinButtons="true" />
-                        <MudDatePicker @bind-Date="row.DueDate" Label="Due date" Editable="true"
+                        <MudDatePicker @bind-Date="row.DueDate" Label="@L["common.dueDate"]" Editable="true"
                                        Style="width: 150px;" />
                         <MudIconButton Icon="@Icons.Material.Filled.Delete" Color="Color.Error"
                                        Size="Size.Small" OnClick="@(() => _rows.RemoveAt(index))" />
@@ -88,41 +90,38 @@
                 }
 
                 <MudDivider Class="my-3" />
-                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">
-                    Split a head into equal installments — amounts and term due
-                    dates are generated; adjust rows after if needed.
-                </MudText>
+                <MudText Typo="Typo.body2" Class="mud-text-secondary mb-2">@L["fees.splitHelp"]</MudText>
                 <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap" Class="mb-2">
-                    <MudSelect T="Guid?" @bind-Value="_splitHeadId" Label="Head" Dense="true"
+                    <MudSelect T="Guid?" @bind-Value="_splitHeadId" Label="@L["fees.head"]" Dense="true"
                                Style="min-width: 150px;">
                         @foreach (var head in _heads)
                         {
                             <MudSelectItem T="Guid?" Value="@head.Id">@head.Name</MudSelectItem>
                         }
                     </MudSelect>
-                    <MudNumericField T="decimal" @bind-Value="_splitTotal" Label="Total (₹)" Min="1"
+                    <MudNumericField T="decimal" @bind-Value="_splitTotal" Label="@L["fees.splitTotal"]" Min="1"
                                      Style="width: 130px;" HideSpinButtons="true" />
-                    <MudNumericField T="int" @bind-Value="_splitCount" Label="Installments" Min="2" Max="12"
+                    <MudNumericField T="int" @bind-Value="_splitCount" Label="@L["fees.installments"]" Min="2" Max="12"
                                      Style="width: 120px;" />
-                    <MudDatePicker @bind-Date="_splitFirstDue" Label="First due" Editable="true"
+                    <MudDatePicker @bind-Date="_splitFirstDue" Label="@L["fees.firstDue"]" Editable="true"
                                    Style="width: 150px;" />
-                    <MudNumericField T="int" @bind-Value="_splitMonthsApart" Label="Months apart" Min="1" Max="6"
+                    <MudNumericField T="int" @bind-Value="_splitMonthsApart" Label="@L["fees.monthsApart"]" Min="1" Max="6"
                                      Style="width: 120px;" />
                     <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.CallSplit"
-                               OnClick="SplitIntoInstallments">Split</MudButton>
+                               OnClick="SplitIntoInstallments">@L["fees.split"]</MudButton>
                 </MudStack>
 
                 <MudStack Row="true" Spacing="2" Class="mt-4">
                     <MudButton Variant="Variant.Outlined" StartIcon="@Icons.Material.Filled.Add"
                                OnClick="@(() => _rows.Add(new PlanRow()))">
-                        Add installment
+                        @L["fees.addInstallment"]
                     </MudButton>
                     <MudSpacer />
                     <MudText Typo="Typo.subtitle1" Class="align-self-center mr-4">
-                        Total: ₹@_rows.Sum(r => r.Amount).ToString("N0")
+                        @L.Format("fees.totalLabel", _rows.Sum(r => r.Amount).ToString("N0"))
                     </MudText>
                     <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="@_busy"
-                               OnClick="SavePlanAsync">Save plan</MudButton>
+                               OnClick="SavePlanAsync">@L["fees.savePlan"]</MudButton>
                 </MudStack>
             }
         </MudPaper>
@@ -149,7 +148,7 @@
     {
         if (_splitHeadId is null || _splitFirstDue is null || _splitCount < 2 || _splitTotal <= 0)
         {
-            Snackbar.Add("Pick a head, total, count and first due date.", Severity.Warning);
+            Snackbar.Add(L["fees.needSplitFields"], Severity.Warning);
             return;
         }
 
@@ -160,7 +159,7 @@
             _rows.Add(new PlanRow
             {
                 FeeHeadId = _splitHeadId,
-                Label = $"Term {i + 1}",
+                Label = L.Format("fees.termLabel", i + 1),
                 Amount = per + (i == 0 ? remainder : 0),
                 DueDate = _splitFirstDue.Value.AddMonths(i * _splitMonthsApart),
             });
@@ -177,8 +176,13 @@
     private decimal _newHeadFineValue;
     private bool _busy;
 
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
+
     protected override async Task OnInitializedAsync()
     {
+        L.Changed += OnLanguageChanged;
         await Institution.EnsureLoadedAsync();
         try
         {
@@ -189,7 +193,7 @@
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            Snackbar.Add(L["common.cannotReach"], Severity.Error);
         }
     }
 
@@ -254,7 +258,7 @@
 
         if (_rows.Any(r => r.FeeHeadId is null || r.DueDate is null || r.Amount <= 0))
         {
-            Snackbar.Add("Every line needs a head, a positive amount and a due date.", Severity.Warning);
+            Snackbar.Add(L["fees.needLineFields"], Severity.Warning);
             return;
         }
 
@@ -268,7 +272,7 @@
                     string.IsNullOrWhiteSpace(r.Label) ? null : r.Label.Trim())).ToList()));
             if (error is null)
             {
-                Snackbar.Add("Fee plan saved.", Severity.Success);
+                Snackbar.Add(L["fees.planSaved"], Severity.Success);
                 await LoadPlanAsync();
             }
             else
