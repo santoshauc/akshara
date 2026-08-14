@@ -40,8 +40,13 @@ jobs:
       # number here and the number on a dev box are produced identically. It
       # fails the job if the collector produces no coverage files — that failure
       # was silent for a whole session once, and read as "0.6% coverage".
+      # The floor is deliberately BELOW the current figure (91.3%). A gate set at
+      # exactly today's number fails on the first honest refactor that deletes a
+      # well-covered file, and a gate people learn to ignore protects nothing.
+      # 85 catches a real regression - a whole module landing untested - while
+      # leaving room to move. Raise it when the number has been stable a while.
       - name: Test (unit + integration via Testcontainers) with coverage
-        run: pwsh scripts/coverage.ps1 -Configuration Release -NoBuild
+        run: pwsh scripts/coverage.ps1 -Configuration Release -NoBuild -MinimumLineRate 85
 
       - name: Upload coverage report
         if: always()

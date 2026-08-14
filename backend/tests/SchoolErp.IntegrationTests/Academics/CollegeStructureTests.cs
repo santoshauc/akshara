@@ -553,7 +553,7 @@ public sealed class CollegeStructureTests : IClassFixture<CollegeStructureFixtur
         var own = await sender.Send(new GetGradeScaleQuery());
         own.IsInstitutionDefined.Should().BeTrue();
         own.Bands.Should().HaveCount(4);
-        own.Bands.First().MinPercent.Should().Be(95m, "highest band first");
+        own.Bands[0].MinPercent.Should().Be(95m, "highest band first");
 
         await sender.Send(new CreateAcademicYearCommand(
             "2026-27", new DateOnly(2026, 7, 1), new DateOnly(2027, 5, 31), MakeCurrent: true));
