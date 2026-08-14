@@ -9,6 +9,25 @@
   projection plus `ToDto()` extensions for in-memory maps). No replacement
   dependency was introduced.
 
+### ~~SSH.NET 2023.0.0 — GHSA-q939-rpr3-3284 (High)~~ RESOLVED
+
+- **What it is:** a malicious SSH *server* can write arbitrary files on the
+  client during a recursive `ScpClient` download, via server-controlled
+  filenames. Vulnerable through 2025.1.0; first patched in 2026.0.0.
+- **How it got in:** transitively, via `Testcontainers` 3.10.0, which uses
+  SSH.NET for its port-forwarding feature. TEST-ONLY — no `backend/src` project
+  references it, so it has never shipped, and nothing here performs SCP at all.
+- **Resolution:** direct `PackageReference` to 2026.0.0 in
+  `SchoolErp.IntegrationTests`, lifting the transitive floor. Pinned forward
+  rather than added to the accepted list, because the CI gate does not reason
+  about blast radius and should not have to. Verified by running the full
+  integration suite against the newer package (240 tests, all green) — a
+  three-year version jump on a library Testcontainers calls at runtime is worth
+  proving rather than assuming.
+- **When to remove:** once Testcontainers' own floor moves past 2026.0.0.
+- **Caught by:** the CI `vulnscan` job, on a commit that was green hours earlier
+  — the advisory was published between the two runs.
+
 ### ~~Newtonsoft.Json 11.0.1 — GHSA-5crp-9r3c-p9vr (High)~~ RESOLVED
 
 - **How it got in:** transitively, and invisibly. `Hangfire.Core` declares
