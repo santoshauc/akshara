@@ -31,8 +31,37 @@ public class Invoice : AuditableEntity
 
     public DateOnly? PaidOn { get; set; }
 
-    /// <summary>Denormalized sum of the lines; kept in step on every write.</summary>
+    /// <summary>
+    /// Denormalized sum of the lines PLUS tax; kept in step on every write.
+    /// Pre-GST rows carry zero tax, so their totals still read exactly as issued.
+    /// </summary>
     public decimal TotalAmount { get; set; }
+
+    // GST is FROZEN onto the row at issue time, never derived from live
+    // configuration or the tenant afterwards. An invoice is a legal record: the
+    // operator registering for GST next quarter, or a school correcting its
+    // GSTIN, must not silently rewrite what last quarter's invoices say.
+
+    /// <summary>The platform's GSTIN as configured when this was issued; null = plain invoice.</summary>
+    public string? SupplierGstin { get; set; }
+
+    /// <summary>The school's GSTIN at issue time, when it had one.</summary>
+    public string? BuyerGstin { get; set; }
+
+    /// <summary>State used for the CGST/SGST-vs-IGST decision, for the printed record.</summary>
+    public string? PlaceOfSupply { get; set; }
+
+    /// <summary>Services Accounting Code printed on the invoice.</summary>
+    public string? SacCode { get; set; }
+
+    /// <summary>Whole GST rate applied (e.g. 18). Zero on plain invoices.</summary>
+    public decimal TaxRatePercent { get; set; }
+
+    public decimal CgstAmount { get; set; }
+
+    public decimal SgstAmount { get; set; }
+
+    public decimal IgstAmount { get; set; }
 
     public string? Notes { get; set; }
 

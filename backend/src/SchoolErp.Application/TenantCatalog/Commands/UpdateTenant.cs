@@ -34,7 +34,10 @@ public sealed record UpdateTenantCommand(
     // Nullable so an omitted field leaves the institution type alone. A
     // defaulted value would quietly demote a college to a school every time a
     // client posted a body that predates this field.
-    InstitutionType? InstitutionType = null) : IRequest<TenantDto>;
+    InstitutionType? InstitutionType = null,
+    // The school's GST registration, printed on platform invoices as the
+    // recipient GSTIN. Optional trailing param so older clients are untouched.
+    string? Gstin = null) : IRequest<TenantDto>;
 
 /// <summary>Shape rules for tenant updates.</summary>
 public sealed class UpdateTenantCommandValidator : AbstractValidator<UpdateTenantCommand>
@@ -58,6 +61,14 @@ public sealed class UpdateTenantCommandValidator : AbstractValidator<UpdateTenan
         RuleFor(c => c.EnabledModules)
             .Must(m => m.HasFlag(TenantModules.Core))
             .WithMessage("The Core module cannot be disabled.");
+
+        // 15 chars: 2-digit state code, 10-char PAN, entity digit, 'Z', checksum.
+        // Shape-checked here so a typo surfaces at the form, not on an issued
+        // invoice; the checksum itself is the GST portal's job, not ours.
+        RuleFor(c => c.Gstin)
+            .Matches("^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][0-9A-Z]Z[0-9A-Z]$")
+            .WithMessage("That does not look like a GSTIN (15 characters, e.g. 36ABCDE1234F1Z5).")
+            .When(c => !string.IsNullOrWhiteSpace(c.Gstin));
     }
 }
 
@@ -94,6 +105,11 @@ public sealed class UpdateTenantCommandHandler : IRequestHandler<UpdateTenantCom
         tenant.ContactPhone = request.ContactPhone?.Trim();
         tenant.City = request.City?.Trim();
         tenant.State = request.State?.Trim();
+        // Uppercased: GSTINs are case-insensitive on entry but canonical in
+        // caps, and the state-code prefix comparison depends on a stable form.
+        tenant.Gstin = string.IsNullOrWhiteSpace(request.Gstin)
+            ? null
+            : request.Gstin.Trim().ToUpperInvariant();
         tenant.InstitutionType = request.InstitutionType ?? tenant.InstitutionType;
         ApplyAffiliations(tenant, request.Affiliations);
         tenant.LogoUrl = request.LogoUrl;

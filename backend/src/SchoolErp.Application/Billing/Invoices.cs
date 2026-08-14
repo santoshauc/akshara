@@ -11,6 +11,18 @@ namespace SchoolErp.Application.Billing;
 /// <summary>One line as entered/shown.</summary>
 public sealed record InvoiceLineDto(string Description, decimal Quantity, decimal UnitAmount, decimal Amount);
 
+/// <summary>The GST detail of one invoice; null on plain (pre-registration) invoices.</summary>
+public sealed record InvoiceTaxDto(
+    string SupplierGstin,
+    string? BuyerGstin,
+    string? PlaceOfSupply,
+    string SacCode,
+    decimal RatePercent,
+    decimal TaxableAmount,
+    decimal Cgst,
+    decimal Sgst,
+    decimal Igst);
+
 /// <summary>An invoice with its school's name for list views.</summary>
 public sealed record InvoiceDto(
     Guid Id,
@@ -23,7 +35,8 @@ public sealed record InvoiceDto(
     DateOnly? PaidOn,
     decimal TotalAmount,
     string? Notes,
-    IReadOnlyList<InvoiceLineDto> Lines);
+    IReadOnlyList<InvoiceLineDto> Lines,
+    InvoiceTaxDto? Tax);
 
 /// <summary>Issues an invoice to a school. Lines carry quantity × unit price.</summary>
 public sealed record CreateInvoiceCommand(
@@ -54,11 +67,14 @@ public sealed class CreateInvoiceCommandValidator : AbstractValidator<CreateInvo
 public sealed class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceCommand, InvoiceDto>
 {
     private readonly IApplicationDbContext _db;
+    private readonly IPlatformTaxProfile _tax;
     private readonly TimeProvider _clock;
 
-    public CreateInvoiceCommandHandler(IApplicationDbContext db, TimeProvider clock)
+    public CreateInvoiceCommandHandler(
+        IApplicationDbContext db, IPlatformTaxProfile tax, TimeProvider clock)
     {
         _db = db;
+        _tax = tax;
         _clock = clock;
     }
 
@@ -91,7 +107,32 @@ public sealed class CreateInvoiceCommandHandler : IRequestHandler<CreateInvoiceC
                 Amount = Math.Round(l.Quantity * l.UnitAmount, 0),
             }).ToList(),
         };
-        invoice.TotalAmount = invoice.Lines.Sum(l => l.Amount);
+        var taxable = invoice.Lines.Sum(l => l.Amount);
+
+        // GST is computed and FROZEN here, at issue. Every invoice path — the
+        // portal builder, SMS top-ups, the annual renewal job — funnels through
+        // this handler, so this is the one place tax exists. When the operator
+        // is not registered the invoice stays plain, taxes at zero.
+        if (_tax.IsRegistered)
+        {
+            var intraState = GstCalculator.IsIntraState(
+                _tax.Gstin, _tax.State, tenant.Gstin, tenant.State);
+            var split = GstCalculator.Split(taxable, _tax.RatePercent, intraState);
+
+            invoice.SupplierGstin = _tax.Gstin;
+            invoice.BuyerGstin = string.IsNullOrWhiteSpace(tenant.Gstin) ? null : tenant.Gstin.Trim();
+            // What the split was actually decided ON, for the printed record:
+            // the school's own state when known, else the supplier's.
+            invoice.PlaceOfSupply = tenant.State ?? _tax.State;
+            invoice.SacCode = _tax.SacCode;
+            invoice.TaxRatePercent = _tax.RatePercent;
+            invoice.CgstAmount = split.Cgst;
+            invoice.SgstAmount = split.Sgst;
+            invoice.IgstAmount = split.Igst;
+        }
+
+        invoice.TotalAmount = taxable
+            + invoice.CgstAmount + invoice.SgstAmount + invoice.IgstAmount;
         _db.Invoices.Add(invoice);
         await _db.SaveChangesAsync(cancellationToken).ConfigureAwait(false);
 
@@ -256,5 +297,21 @@ public static class InvoiceMappings
         invoice.Notes,
         invoice.Lines
             .Select(l => new InvoiceLineDto(l.Description, l.Quantity, l.UnitAmount, l.Amount))
-            .ToList());
+            .ToList(),
+        invoice.ToTaxDto());
+
+    /// <summary>Tax detail when the row was issued as a tax invoice; null otherwise.</summary>
+    public static InvoiceTaxDto? ToTaxDto(this Invoice invoice) =>
+        invoice.SupplierGstin is not { Length: > 0 } gstin
+            ? null
+            : new InvoiceTaxDto(
+                gstin,
+                invoice.BuyerGstin,
+                invoice.PlaceOfSupply,
+                invoice.SacCode ?? string.Empty,
+                invoice.TaxRatePercent,
+                invoice.TotalAmount - invoice.CgstAmount - invoice.SgstAmount - invoice.IgstAmount,
+                invoice.CgstAmount,
+                invoice.SgstAmount,
+                invoice.IgstAmount);
 }

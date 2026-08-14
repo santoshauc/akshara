@@ -17,7 +17,8 @@ public sealed record InvoicePdfData(
     DateOnly? PaidOn,
     decimal TotalAmount,
     string? Notes,
-    IReadOnlyList<InvoiceLineDto> Lines);
+    IReadOnlyList<InvoiceLineDto> Lines,
+    InvoiceTaxDto? Tax);
 
 /// <summary>Renders the invoice PDF. Implemented in Infrastructure (QuestPDF).</summary>
 public interface IInvoiceRenderer
@@ -66,6 +67,7 @@ public sealed class GetInvoicePdfQueryHandler : IRequestHandler<GetInvoicePdfQue
             invoice.Notes,
             invoice.Lines
                 .Select(l => new InvoiceLineDto(l.Description, l.Quantity, l.UnitAmount, l.Amount))
-                .ToList()));
+                .ToList(),
+            invoice.ToTaxDto()));
     }
 }

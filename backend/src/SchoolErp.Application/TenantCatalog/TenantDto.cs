@@ -16,6 +16,9 @@ public sealed record TenantDto
     public string? ContactEmail { get; init; }
     public string? ContactPhone { get; init; }
 
+    /// <summary>The school's GST registration, printed on platform invoices.</summary>
+    public string? Gstin { get; init; }
+
     /// <summary>School or college — they count different things.</summary>
     public InstitutionType InstitutionType { get; init; }
 
@@ -57,6 +60,7 @@ public static class TenantMappings
             State = tenant.State,
             ContactEmail = tenant.ContactEmail,
             ContactPhone = tenant.ContactPhone,
+            Gstin = tenant.Gstin,
             InstitutionType = tenant.InstitutionType,
             Affiliations = tenant.Affiliations
                 .Select(a => new TenantAffiliationDto(a.Board, a.AffiliationNumber))
