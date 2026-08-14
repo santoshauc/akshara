@@ -15,6 +15,15 @@
     <PackageReference Include="Microsoft.AspNetCore.Mvc.Testing" Version="8.0.11" />
     <!-- Real PostgreSQL in Docker for integration + tenant-isolation tests. -->
     <PackageReference Include="Testcontainers.PostgreSql" Version="3.10.0" />
+    <!-- Referenced only to lift a transitive dependency off a High advisory:
+         Testcontainers 3.10 pulls SSH.NET 2023.0.0, and everything up to
+         2025.1.0 carries GHSA-q939-rpr3-3284 (a malicious SERVER can write
+         arbitrary files during a recursive ScpClient download). Nothing here
+         uses SCP, and this never leaves the test project - it is not referenced
+         by any src project, so it does not ship - but the CI gate does not
+         reason about blast radius and should not have to. Drop this once
+         Testcontainers' own floor moves past 2026.0.0. -->
+    <PackageReference Include="SSH.NET" Version="2026.0.0" />
     <PackageReference Include="coverlet.collector" Version="6.0.2">
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
