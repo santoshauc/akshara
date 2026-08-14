@@ -22,6 +22,7 @@ public sealed partial class OutboxProcessor
     private readonly ISmsSender _smsSender;
     private readonly IWhatsAppSender _whatsAppSender;
     private readonly Application.Notifications.IPushSender _pushSender;
+    private readonly IEmailSender _emailSender;
     private readonly TimeProvider _clock;
     private readonly ILogger<OutboxProcessor> _logger;
 
@@ -30,6 +31,7 @@ public sealed partial class OutboxProcessor
         ISmsSender smsSender,
         IWhatsAppSender whatsAppSender,
         Application.Notifications.IPushSender pushSender,
+        IEmailSender emailSender,
         TimeProvider clock,
         ILogger<OutboxProcessor> logger)
     {
@@ -37,6 +39,7 @@ public sealed partial class OutboxProcessor
         _smsSender = smsSender;
         _whatsAppSender = whatsAppSender;
         _pushSender = pushSender;
+        _emailSender = emailSender;
         _clock = clock;
         _logger = logger;
     }
@@ -159,6 +162,17 @@ public sealed partial class OutboxProcessor
                     .Deserialize<Application.Notifications.PushPayload>(message.Payload)
                     ?? throw new InvalidOperationException("Empty push payload.");
                 await _pushSender.SendAsync(push.Token, push.Title, push.Body, ct)
+                    .ConfigureAwait(false);
+                break;
+
+            // Not SMS-credit metered, for the same reason push is not: the cost
+            // of an email is the school's own mail provider, not a per-message
+            // credit this platform sells them.
+            case OutboxMessageTypes.Email:
+                var email = JsonSerializer
+                    .Deserialize<Application.Notifications.EmailPayload>(message.Payload)
+                    ?? throw new InvalidOperationException("Empty email payload.");
+                await _emailSender.SendAsync(email.To, email.Subject, email.Body, ct)
                     .ConfigureAwait(false);
                 break;
 

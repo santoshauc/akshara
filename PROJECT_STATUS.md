@@ -51,7 +51,38 @@ is no longer a claim about one machine. Push access is currently borrowed: the
 local credential authenticates as `vivian-richard`, who is a collaborator here,
 so pushes depend on that invite standing.
 
-Test suite: 125 unit + 240 integration = **365 green** (`dotnet test` from `school-erp/`).
+Test suite: 125 unit + 243 integration = **368 green** (`dotnet test` from `school-erp/`).
+
+## Email — the fourth notification channel (feature/email-channel)
+
+Closes Phase 1 item 1 of docs/roadmap-production.md. The outbox carried SMS and
+push; a school ERP that cannot email is missing a channel.
+
+- `IEmailSender` in Application/Abstractions, `DevEmailSender` (logs) and
+  `SmtpEmailSender` in Infrastructure. Config-activated on `Email:Provider=smtp`
+  exactly like MSG91, Meta and Expo — until then nothing leaves the machine.
+- `OutboxMessageTypes.Email` + `EmailPayload(To, Subject, Body, Template)`.
+  `Template` is the marker jobs match on, for the same reason SmsPayload has one:
+  matching on rendered prose breaks the moment a reader switches to Telugu.
+- `NotificationQueue` queues ONE email per guardian who has an address, rendered
+  from the SAME `NotificationStrings` call as the SMS — subject from the
+  template's `.title`, body from its `.body`. Channels cannot drift because
+  rendering happens once, at queue time.
+- Guardians with no address get no row. Most guardians here are reachable by
+  phone only; queueing regardless would fill the outbox with rows that can only
+  dead-letter.
+- NOT SMS-credit metered, like push: an email costs the school's own mail
+  provider, not a credit this platform sells.
+- 3 integration tests on the existing localization fixture (no 32nd container):
+  a Telugu guardian gets a Telugu subject AND body, the email text equals the SMS
+  text, and a guardian without an address gets nothing.
+- GOTCHA: `SmtpClient` is obsolete-flagged in favour of MailKit, but that
+  guidance is about OAuth and protocol coverage. This sends plain text over
+  authenticated submission to one relay, which SmtpClient does correctly without
+  a new dependency. Revisit only if a provider needs XOAUTH2.
+- STILL OPEN: attachments. Emailing a receipt or report-card PDF needs the
+  payload to reference a document the dispatcher renders at send time. The
+  renderers exist; the plumbing does not.
 Integration tests use Testcontainers (needs Docker running).
 Coverage is measurable again: `scripts/coverage.ps1` reports **90.3%** of the
 backend. See "Test coverage" below — the old 7.2% was a broken measurement.

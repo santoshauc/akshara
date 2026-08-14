@@ -64,6 +64,16 @@ public sealed class NotificationLocalizationFixture : IAsyncLifetime
 
     public RecordingPushSender PushSender { get; } = new();
 
+    public RecordingEmailSender EmailSender { get; } = new();
+
+    /// <summary>
+    /// The Telugu-reading guardian is the one with an email address. Deliberate:
+    /// it makes the harder case the tested one (a localized subject AND body),
+    /// and it leaves the English guardian without an address, which proves the
+    /// other half for free — no address, no email row.
+    /// </summary>
+    public const string TeluguGuardianEmail = "telugu.parent@example.test";
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -85,6 +95,7 @@ public sealed class NotificationLocalizationFixture : IAsyncLifetime
         services.AddSingleton<ISmsSender>(SmsSender);
         services.AddSingleton<IWhatsAppSender>(WhatsAppSender);
         services.AddSingleton<SchoolErp.Application.Notifications.IPushSender>(PushSender);
+        services.AddSingleton<IEmailSender>(EmailSender);
         _provider = services.BuildServiceProvider(validateScopes: true);
 
         await using (var scope = _provider.CreateAsyncScope())
@@ -115,7 +126,8 @@ public sealed class NotificationLocalizationFixture : IAsyncLifetime
             var english = await AdmitAsync(
                 sender, yearId, schoolClass.Id, "Ravi", EnglishGuardianPhone, "en", 1);
             var telugu = await AdmitAsync(
-                sender, yearId, schoolClass.Id, "Sita", TeluguGuardianPhone, "te", 2);
+                sender, yearId, schoolClass.Id, "Sita", TeluguGuardianPhone, "te", 2,
+                TeluguGuardianEmail);
 
             var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
             EnglishEnrollment = await db.Enrollments
@@ -186,14 +198,15 @@ public sealed class NotificationLocalizationFixture : IAsyncLifetime
 
     private async Task<Guid> AdmitAsync(
         ISender sender, Guid yearId, Guid classId,
-        string firstName, string guardianPhone, string language, int roll) =>
+        string firstName, string guardianPhone, string language, int roll,
+        string? guardianEmail = null) =>
         await sender.Send(new AdmitStudentCommand(
             null, firstName, "Kumar", new DateOnly(2016, 3, 12), Gender.Female,
             null, null, null, null, null, null, null, null,
             new DateOnly(2026, 6, 5), yearId, classId, SectionId, roll,
             [new GuardianInput(
                 "Guardian", "Kumar", GuardianRelation.Mother, guardianPhone,
-                null, null, IsPrimary: true, PreferredLanguage: language)]));
+                guardianEmail, null, IsPrimary: true, PreferredLanguage: language)]));
 }
 
 /// <summary>
@@ -299,6 +312,57 @@ public sealed class NotificationLocalizationTests
         await using var scope = _fixture.CreateScope();
         await scope.ServiceProvider.GetRequiredService<ISender>()
             .Send(new SetMyNotificationLanguageCommand(phone, language));
+    }
+
+    [Fact]
+    public async Task A_guardian_with_an_email_address_is_written_to_in_their_own_language()
+    {
+        // Email is the fourth channel and it renders from the SAME template call
+        // as the SMS, so a Telugu reader must get Telugu in their inbox too.
+        // Subject and body are asserted separately: the subject comes from the
+        // template's .title and the body from its .body, and a template missing
+        // one of the two would otherwise pass unnoticed.
+        var date = new DateOnly(2026, 7, 21);
+
+        await _fixture.MarkAbsentAndDispatchAsync(_fixture.TeluguEnrollment, date);
+
+        var email = _fixture.EmailSender.Sent.Last(
+            e => e.To == NotificationLocalizationFixture.TeluguGuardianEmail);
+        email.Body.Should().Be(ExpectedAbsenceBody("te", "Sita", date));
+        email.Subject.Should().NotBeNullOrWhiteSpace();
+        email.Subject.Should().NotBe(email.Body, "the subject is the template title, not a repeat of the body");
+    }
+
+    [Fact]
+    public async Task The_email_carries_the_same_words_the_sms_did()
+    {
+        // The channels must not drift. Rendering happens once, at queue time, so
+        // this is really asserting that nobody re-rendered per channel later.
+        var date = new DateOnly(2026, 7, 22);
+
+        await _fixture.MarkAbsentAndDispatchAsync(_fixture.TeluguEnrollment, date);
+
+        var sms = _fixture.SmsSender.Sent.Last(
+            s => s.Phone == NotificationLocalizationFixture.TeluguGuardianPhone);
+        var email = _fixture.EmailSender.Sent.Last(
+            e => e.To == NotificationLocalizationFixture.TeluguGuardianEmail);
+
+        email.Body.Should().Be(sms.Message);
+    }
+
+    [Fact]
+    public async Task A_guardian_with_no_email_address_gets_no_email()
+    {
+        // Most guardians in this market are reachable by phone and nothing else.
+        // Queueing a row per event regardless would fill the outbox with messages
+        // that can only ever dead-letter.
+        var before = _fixture.EmailSender.Sent.Count;
+
+        await _fixture.MarkAbsentAndDispatchAsync(
+            _fixture.EnglishEnrollment, new DateOnly(2026, 7, 23));
+
+        _fixture.EmailSender.Sent.Should().HaveCount(before,
+            "the English guardian has no address on file");
     }
 
     [Fact]

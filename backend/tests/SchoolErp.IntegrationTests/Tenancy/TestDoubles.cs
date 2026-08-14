@@ -27,6 +27,20 @@ internal sealed class StubCurrentUser : ICurrentUser
     public bool IsAuthenticated => true;
 }
 
+/// <summary>Records email instead of sending it.</summary>
+public sealed class RecordingEmailSender : SchoolErp.Application.Abstractions.IEmailSender
+{
+    private readonly List<(string To, string Subject, string Body)> _sent = [];
+
+    public IReadOnlyList<(string To, string Subject, string Body)> Sent => _sent;
+
+    public Task SendAsync(string to, string subject, string body, CancellationToken ct = default)
+    {
+        _sent.Add((to, subject, body));
+        return Task.CompletedTask;
+    }
+}
+
 /// <summary>Records push notifications instead of sending them.</summary>
 public sealed class RecordingPushSender : SchoolErp.Application.Notifications.IPushSender
 {
