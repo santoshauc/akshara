@@ -158,6 +158,10 @@ public static class DependencyInjection
         services.AddScoped<Notifications.OutboxDispatchJob>();
         services.AddScoped<Notifications.FeeReminderJob>();
         services.AddScoped<Billing.BillingCycleJob>();
+        // Singleton: configuration-only, read once. Billing:Gstin turns platform
+        // invoices into GST tax invoices; unset, they stay plain (correct for an
+        // operator below the registration threshold).
+        services.AddSingleton<IPlatformTaxProfile, Billing.PlatformTaxProfile>();
 
         // --- Payments ------------------------------------------------------
         // Razorpay goes live the moment credentials are configured; without

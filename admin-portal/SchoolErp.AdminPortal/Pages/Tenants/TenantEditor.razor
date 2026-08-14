@@ -61,6 +61,10 @@ else
             <MudItem xs="12" sm="4">
                 <MudTextField @bind-Value="_state" Label="State" />
             </MudItem>
+            <MudItem xs="12" sm="4">
+                <MudTextField @bind-Value="_gstin" Label="GSTIN"
+                              HelperText="Printed on platform invoices as the recipient GSTIN. Leave blank if unregistered." />
+            </MudItem>
             <MudItem xs="12">
                 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-2">
                     <MudText Typo="Typo.subtitle2">Board affiliations</MudText>
@@ -234,6 +238,7 @@ else
     private string? _customDomain;
     private string? _contactEmail;
     private string? _contactPhone;
+    private string? _gstin;
     private string? _city;
     private string? _state;
     private InstitutionType _institutionType = InstitutionType.School;
@@ -319,6 +324,7 @@ else
                 _customDomain = t.CustomDomain;
                 _contactEmail = t.ContactEmail;
                 _contactPhone = t.ContactPhone;
+                _gstin = t.Gstin;
                 _city = t.City;
                 _state = t.State;
                 _institutionType = t.InstitutionType;
@@ -390,7 +396,7 @@ else
                     _subscriptionExpires is { } exp ? DateOnly.FromDateTime(exp) : null,
                     _modules | TenantModules.Core,
                     _storageLimitMb, _smsCredits, _whatsAppEnabled, "Asia/Kolkata", _language,
-                    _institutionType));
+                    _institutionType, NullIfEmpty(_gstin)));
                 _error = error;
                 if (updated is not null)
                 {

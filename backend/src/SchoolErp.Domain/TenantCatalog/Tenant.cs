@@ -39,6 +39,14 @@ public class Tenant : AuditableEntity
     public string? PostalCode { get; set; }
     public string? ContactEmail { get; set; }
     public string? ContactPhone { get; set; }
+
+    /// <summary>
+    /// The school's GST registration, for platform invoices. Optional — many
+    /// schools are unregistered (education services are largely exempt), and a
+    /// plain B2C invoice to them is correct. Its first two digits are the state
+    /// code, which is what decides CGST+SGST versus IGST.
+    /// </summary>
+    public string? Gstin { get; set; }
     /// <summary>
     /// School or college. The platform runs both, and they count different
     /// things (classes and sections vs departments and programmes), so the

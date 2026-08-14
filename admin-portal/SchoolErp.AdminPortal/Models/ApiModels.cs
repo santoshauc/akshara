@@ -20,6 +20,7 @@ public sealed record TenantDto
     public string? State { get; init; }
     public string? ContactEmail { get; init; }
     public string? ContactPhone { get; init; }
+    public string? Gstin { get; init; }
     public InstitutionType InstitutionType { get; init; } = InstitutionType.School;
     /// <summary>Every board this school is affiliated to.</summary>
     public List<TenantAffiliationDto> Affiliations { get; init; } = [];
@@ -79,7 +80,8 @@ public sealed record UpdateTenantRequest(
     bool WhatsAppEnabled,
     string TimeZoneId,
     string DefaultLanguage,
-    InstitutionType InstitutionType);
+    InstitutionType InstitutionType,
+    string? Gstin);
 
 /// <summary>Public branding served anonymously by school code.</summary>
 public sealed record TenantBrandingDto(

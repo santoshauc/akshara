@@ -51,7 +51,44 @@ is no longer a claim about one machine. Push access is currently borrowed: the
 local credential authenticates as `vivian-richard`, who is a collaborator here,
 so pushes depend on that invite standing.
 
-Test suite: 125 unit + 243 integration = **368 green** (`dotnet test` from `school-erp/`).
+Test suite: 139 unit + 244 integration = **383 green** (`dotnet test` from `school-erp/`).
+
+## GST on platform invoices (feature/gst-invoices)
+
+The gap that made platform invoices commercially unusable: an Indian B2B
+invoice without GST is not a legal tax invoice, and a school's accounts
+department will refuse it.
+
+- `GstCalculator` in Domain (pure, unit-tested like the grade calculators):
+  intra-state splits the rate into equal CGST+SGST halves, inter-state levies
+  IGST. The buyer's GSTIN prefix (= state code) outranks the free-text address;
+  an unregistered buyer falls back to state-name comparison; a buyer with no
+  state at all defaults to intra-state (place of supply = supplier's location —
+  also the conservative error). Components round to the paise INDEPENDENTLY so
+  the printed lines sum to the charged tax exactly.
+- `IPlatformTaxProfile` reads `Billing:Gstin/GstState/SacCode/GstRatePercent`
+  LIVE per access — registering for GST is a config change, not a deploy.
+  Defaults SAC 997331 / 18%, both configurable (the CA's call, not ours).
+  No `Billing:Gstin` = plain invoices, which is CORRECT below the registration
+  threshold, not a degraded mode.
+- Tax is computed and FROZEN onto the invoice row at issue (supplier+buyer
+  GSTIN, place of supply, SAC, rate, three component amounts). Deregistering or
+  a school correcting its GSTIN must never rewrite an issued invoice.
+  `TotalAmount` = lines + tax; pre-GST rows carry zero tax so their totals read
+  exactly as issued. Every path funnels through CreateInvoiceCommand (portal
+  builder, SMS top-ups, BillingCycleJob renewals), so tax exists in ONE place.
+- `Tenant.Gstin` (migration AddInvoiceGst, additive-only) + shape validation
+  (15-char pattern; checksum is the GST portal's job) + tenant editor field.
+- PDF says "TAX INVOICE" (a term of art, not a flourish), prints both GSTINs,
+  SAC, place of supply, and the breakup: taxable value, then CGST+SGST or IGST.
+- 14 unit tests + 1 integration test (intra split, inter via buyer GSTIN,
+  frozen-after-deregistration, plain-again-when-unregistered, PDF renders).
+- GOTCHA (cost a red run): the renewal test counts licence invoices by
+  description match — a GST test line saying "Annual licence" collided with it.
+  Shared-fixture tests must not reuse the job's idempotency-tag vocabulary.
+- STILL OPEN commercially: no GSTR-1 export, no payment path for platform
+  invoices (schools pay offline and the operator marks paid), no per-school
+  contract price.
 
 ## Email — the fourth notification channel (feature/email-channel)
 

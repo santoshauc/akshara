@@ -35,6 +35,14 @@ public sealed class BillingFixture : IAsyncLifetime
 
     public Guid TenantId { get; } = Guid.NewGuid();
 
+    /// <summary>
+    /// The live configuration root. The GST test writes the operator's
+    /// registration here and restores it in a finally — the tax profile reads
+    /// configuration per access precisely so registration can arrive without a
+    /// restart, and this is that same mechanism.
+    /// </summary>
+    public IConfigurationRoot Configuration { get; private set; } = null!;
+
     public async Task InitializeAsync()
     {
         await _container.StartAsync();
@@ -51,6 +59,7 @@ public sealed class BillingFixture : IAsyncLifetime
                 ["Billing:SuspendGraceDays"] = "0",
             })
             .Build();
+        Configuration = configuration;
 
         var services = new ServiceCollection();
         services.AddLogging();
@@ -226,5 +235,80 @@ public sealed class BillingTests : IClassFixture<BillingFixture>
             .Status.Should().Be(TenantStatus.Suspended, "its invoice is past the grace period");
         (await db.Tenants.AsNoTracking().SingleAsync(t => t.Id == _fixture.TenantId))
             .Status.Should().Be(TenantStatus.Active, "its invoices are not overdue");
+    }
+
+    [Fact]
+    public async Task A_registered_operator_issues_tax_invoices_and_the_tax_is_frozen_on_the_row()
+    {
+        // Registration arrives as configuration, exactly as it does in
+        // production. Restored in the finally so the other tests in this class
+        // keep issuing the plain invoices their totals assert.
+        _fixture.Configuration["Billing:Gstin"] = "36AAAAA0000A1Z5";
+        _fixture.Configuration["Billing:GstState"] = "Telangana";
+        try
+        {
+            await using var scope = _fixture.CreateScope();
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+
+            // The seeded school has no GSTIN and no state on file, which is the
+            // common case - an unidentifiable recipient defaults to intra-state.
+            var intra = await sender.Send(new CreateInvoiceCommand(
+                _fixture.TenantId, new DateOnly(2026, 9, 30),
+                [new InvoiceLineDto("Software subscription (GST check)", 100, 100m, 0)], null));
+
+            intra.Tax.Should().NotBeNull();
+            intra.Tax!.TaxableAmount.Should().Be(10_000m);
+            intra.Tax.Cgst.Should().Be(900m);
+            intra.Tax.Sgst.Should().Be(900m);
+            intra.Tax.Igst.Should().Be(0m);
+            intra.TotalAmount.Should().Be(11_800m, "total = taxable + CGST + SGST");
+            intra.Tax.SacCode.Should().Be("997331");
+
+            // A Karnataka-registered school (GSTIN prefix 29) makes the same
+            // supply inter-state: one IGST levy instead of the split.
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var school = await db.Tenants.SingleAsync(t => t.Id == _fixture.TenantId);
+            school.Gstin = "29CCCCC2222C1Z7";
+            await db.SaveChangesAsync();
+
+            var inter = await sender.Send(new CreateInvoiceCommand(
+                _fixture.TenantId, new DateOnly(2026, 9, 30),
+                [new InvoiceLineDto("Software subscription (GST check)", 100, 100m, 0)], null));
+
+            inter.Tax!.Igst.Should().Be(1_800m);
+            inter.Tax.Cgst.Should().Be(0m);
+            inter.Tax.BuyerGstin.Should().Be("29CCCCC2222C1Z7");
+            inter.TotalAmount.Should().Be(11_800m);
+
+            // The PDF must still render as a valid document with the breakup on it.
+            var pdf = await sender.Send(new GetInvoicePdfQuery(inter.Id));
+            System.Text.Encoding.ASCII.GetString(pdf, 0, 5).Should().Be("%PDF-");
+
+            // FROZEN means frozen: deregistering must not rewrite what an
+            // already-issued invoice says. This is the property that makes the
+            // row a legal record rather than a view over live configuration.
+            _fixture.Configuration["Billing:Gstin"] = "";
+            var afterDeregistration = await sender.Send(new GetInvoicesQuery(_fixture.TenantId));
+            afterDeregistration.Single(i => i.Id == inter.Id)
+                .Tax!.Igst.Should().Be(1_800m);
+
+            // And a NEW invoice issued while unregistered is plain again.
+            var plain = await sender.Send(new CreateInvoiceCommand(
+                _fixture.TenantId, new DateOnly(2026, 9, 30),
+                [new InvoiceLineDto("Onboarding", 1, 5_000m, 0)], null));
+            plain.Tax.Should().BeNull();
+            plain.TotalAmount.Should().Be(5_000m);
+        }
+        finally
+        {
+            _fixture.Configuration["Billing:Gstin"] = "";
+            _fixture.Configuration["Billing:GstState"] = "";
+            // The seeded school's GSTIN must not leak into other tests' invoices.
+            await using var cleanup = _fixture.CreateScope();
+            var db = cleanup.ServiceProvider.GetRequiredService<AppDbContext>();
+            var school = await db.Tenants.SingleAsync(t => t.Id == _fixture.TenantId);
+            school.Gstin = null;
+            await db.SaveChangesAsync();
+        }
     }
 }
