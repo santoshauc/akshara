@@ -132,7 +132,8 @@ public sealed class EndpointExposureTests
             if (endpoint.Metadata.GetMetadata<IAuthorizeData>() is null) continue;
             if (endpoint.Metadata.GetMetadata<IAllowAnonymous>() is not null) continue;
 
-            var method = endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods.FirstOrDefault() ?? "GET";
+            var methods = endpoint.Metadata.GetMetadata<HttpMethodMetadata>()?.HttpMethods;
+            var method = methods is { Count: > 0 } ? methods[0] : "GET";
             var url = Concretize(endpoint.RoutePattern.RawText ?? string.Empty);
 
             using var request = new HttpRequestMessage(new HttpMethod(method), new Uri(url, UriKind.Relative));

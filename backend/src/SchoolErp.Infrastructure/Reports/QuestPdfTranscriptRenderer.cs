@@ -1,3 +1,4 @@
+using System.Globalization;
 using QuestPDF.Fluent;
 using QuestPDF.Helpers;
 using QuestPDF.Infrastructure;
@@ -74,7 +75,10 @@ public sealed class QuestPdfTranscriptRenderer : ITranscriptRenderer
                     {
                         row.RelativeItem().Text(semester.CohortName).Bold();
                         row.ConstantItem(120).AlignRight()
-                            .Text($"SGPA {(semester.Sgpa is { } s ? s.ToString("0.00") : "—")}").Bold();
+                            // Invariant, like every other academic figure in these
+                            // renderers: a transcript is a formal record, so "8.75"
+                            // must not become "8,75" because of the server's locale.
+                            .Text($"SGPA {(semester.Sgpa is { } s ? s.ToString("0.00", CultureInfo.InvariantCulture) : "—")}").Bold();
                     });
                     content.Item().Text($"{semester.ExamName} · {semester.EndDate:MMMM yyyy}")
                         .FontSize(9).FontColor(Colors.Grey.Darken1);
@@ -103,13 +107,15 @@ public sealed class QuestPdfTranscriptRenderer : ITranscriptRenderer
                         {
                             table.Cell().Element(BodyCell).Text(paper.SubjectName);
                             table.Cell().Element(BodyCell).AlignCenter()
-                                .Text(paper.Credits == 0 ? "—" : paper.Credits.ToString());
+                                .Text(paper.Credits == 0
+                                    ? "—"
+                                    : paper.Credits.ToString(CultureInfo.InvariantCulture));
                             table.Cell().Element(BodyCell).AlignCenter().Text(
                                 paper.IsAbsent ? "Absent"
                                     : paper.Percent is { } pct ? $"{pct:0.#}%" : "—");
                             table.Cell().Element(BodyCell).AlignCenter().Text(paper.Grade).Bold();
                             table.Cell().Element(BodyCell).AlignCenter()
-                                .Text(paper.GradePoint.ToString());
+                                .Text(paper.GradePoint.ToString(CultureInfo.InvariantCulture));
                         }
                     });
                 }
