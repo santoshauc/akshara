@@ -10,6 +10,16 @@ namespace SchoolErp.Application.Notifications;
 /// <summary>Payload of an outbox "push" message.</summary>
 public sealed record PushPayload(string Token, string Title, string Body);
 
+/// <summary>
+/// Payload of an outbox "email" message. <c>Template</c> mirrors
+/// <see cref="SchoolErp.Application.Attendance.SmsPayload"/>: it is the marker
+/// jobs match on when they need to find their own earlier messages, and it must
+/// not be inferred from the rendered text — that text changes with the reader's
+/// language, so matching on prose stops working the moment someone switches to
+/// Telugu.
+/// </summary>
+public sealed record EmailPayload(string To, string Subject, string Body, string? Template = null);
+
 /// <summary>Delivers push notifications. Implemented in Infrastructure.</summary>
 public interface IPushSender
 {
@@ -39,8 +49,8 @@ public static class NotificationQueue
         object?[] args,
         CancellationToken ct)
     {
-        var language = await ResolveLanguageAsync(db, phone, ct).ConfigureAwait(false);
-        var (title, message) = NotificationStrings.RenderMessage(language, templateKey, args);
+        var contact = await ResolveContactAsync(db, phone, ct).ConfigureAwait(false);
+        var (title, message) = NotificationStrings.RenderMessage(contact.Language, templateKey, args);
 
         db.OutboxMessages.Add(new OutboxMessage
         {
@@ -48,6 +58,22 @@ public static class NotificationQueue
             Type = OutboxMessageTypes.Sms,
             Payload = JsonSerializer.Serialize(new SmsPayload(phone, message, templateKey)),
         });
+
+        // Email only when the school actually holds an address. Most guardians in
+        // this market are reachable by phone and nothing else, so queueing a row
+        // per event regardless would fill the outbox with messages that can only
+        // ever dead-letter. The rendered copy is the SAME text in the SAME
+        // language as the SMS - the whole point of rendering once, here.
+        if (!string.IsNullOrWhiteSpace(contact.Email))
+        {
+            db.OutboxMessages.Add(new OutboxMessage
+            {
+                TenantId = tenantId,
+                Type = OutboxMessageTypes.Email,
+                Payload = JsonSerializer.Serialize(
+                    new EmailPayload(contact.Email, title, message, templateKey)),
+            });
+        }
 
         var tokens = await db.PushTokens.AsNoTracking()
             .Where(t => t.Phone == phone)
@@ -71,13 +97,30 @@ public static class NotificationQueue
     /// any of them answers, since the preference belongs to the person.
     /// </summary>
     public static async Task<string> ResolveLanguageAsync(
+        IApplicationDbContext db, string phone, CancellationToken ct) =>
+        (await ResolveContactAsync(db, phone, ct).ConfigureAwait(false)).Language;
+
+    /// <summary>
+    /// How to reach this guardian, and in which language — one query rather than
+    /// one per channel. Ordered so a row that HAS an email wins: sibling
+    /// admissions can leave several rows on the same phone, and only some of
+    /// them may carry an address.
+    /// </summary>
+    private static async Task<GuardianContact> ResolveContactAsync(
         IApplicationDbContext db, string phone, CancellationToken ct)
     {
-        var stored = await db.Guardians.AsNoTracking()
+        var rows = await db.Guardians.AsNoTracking()
             .Where(g => g.Phone == phone)
-            .Select(g => g.PreferredLanguage)
-            .FirstOrDefaultAsync(ct)
+            .Select(g => new { g.PreferredLanguage, g.Email })
+            .ToListAsync(ct)
             .ConfigureAwait(false);
-        return NotificationLanguages.Normalize(stored);
+
+        var preferred = rows.Find(r => !string.IsNullOrWhiteSpace(r.Email)) ?? rows.FirstOrDefault();
+
+        return new GuardianContact(
+            NotificationLanguages.Normalize(preferred?.PreferredLanguage),
+            string.IsNullOrWhiteSpace(preferred?.Email) ? null : preferred.Email.Trim());
     }
+
+    private sealed record GuardianContact(string Language, string? Email);
 }

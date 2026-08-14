@@ -140,6 +140,18 @@ public static class DependencyInjection
                 Notifications.DevPushSender>();
         }
 
+        // SMTP goes live on Email:Provider=smtp; otherwise email is logged.
+        services.AddOptions<Notifications.EmailOptions>()
+            .Bind(configuration.GetSection(Notifications.EmailOptions.SectionName));
+        if (string.Equals(configuration["Email:Provider"], "smtp", StringComparison.OrdinalIgnoreCase))
+        {
+            services.AddScoped<IEmailSender, Notifications.SmtpEmailSender>();
+        }
+        else
+        {
+            services.AddScoped<IEmailSender, Notifications.DevEmailSender>();
+        }
+
         // Outbox delivery core; the polling BackgroundService is registered by
         // the API host so tests can drive the processor synchronously.
         services.AddScoped<Notifications.OutboxProcessor>();

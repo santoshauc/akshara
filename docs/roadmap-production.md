@@ -40,8 +40,14 @@ interesting work; all of it is the difference between a demo and a product.
 
 Functional holes that a paying customer hits in the first month.
 
-1. **Email.** The outbox carries SMS and push only. A school ERP that cannot
-   email a fee receipt or a report card is missing a channel, not a feature.
+1. ~~**Email.**~~ DONE — the outbox now carries a fourth channel. `IEmailSender`
+   behind `Email:Provider=smtp` (dev logs otherwise), an `email` outbox type,
+   and `NotificationQueue` queueing one email per guardian who has an address
+   on file, rendered from the SAME localized template as the SMS. Not
+   SMS-credit metered — an email costs the school's mail provider, not a credit
+   this platform sells. STILL OPEN: attaching documents. Emailing a fee receipt
+   or report-card PDF needs the payload to reference a document the dispatcher
+   renders at send time; the renderers exist, the plumbing does not.
 2. **Arrear / supplementary exams.** A backlog cannot be recorded or cleared.
    Every Indian college needs this every cycle.
 3. **Per-student electives.** Subjects attach to a cohort, so everyone sits
@@ -49,8 +55,12 @@ Functional holes that a paying customer hits in the first month.
 4. **Student logins.** Roles are SuperAdmin/SchoolAdmin/Teacher and the app
    authenticates guardians by phone. College students are adults.
 5. **Fee refunds** for mid-year withdrawals. (Currently parked by request.)
-6. **Rate limiting on auth.** OTP send in particular: unthrottled it is both a
-   brute-force surface and a way to spend someone's SMS credits.
+6. ~~**Rate limiting on auth.**~~ DONE — the `auth` policy existed but was
+   inert: `RequireRateLimiting("global")` on `MapControllers` stamped its policy
+   onto every controller endpoint AFTER the controller's own attribute, and the
+   later metadata won. Credential endpoints were limited at 300/min instead of
+   10. The baseline is now a global limiter, which composes with per-endpoint
+   policies instead of overwriting them. Guarded by `AuthEndpointTests`.
 
 ## Phase 2 — finish the product surface
 
