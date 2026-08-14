@@ -53,6 +53,40 @@ so pushes depend on that invite standing.
 
 Test suite: 139 unit + 244 integration = **383 green** (`dotnet test` from `school-erp/`).
 
+## Portal localization batch 2: Attendance + Leave (feature/portal-l10n-daily-pages)
+
+Working through the 47 hardcoded-English portal pages by clerk value, not file
+order. This batch: the two pages a Telugu-medium school clerk touches daily.
+
+- Attendance and Leave fully localized (labels, table headers, snackbars,
+  empty states, the pick-prompt). New shared `common.*` keys (save, section,
+  date, status, approve/reject, cannotReach) so later pages reuse them.
+- `LocalizationService.Format(key, args)` added: templates carry {0} slots so
+  each language orders the sentence its own way — Telugu rarely wants the
+  number where English puts it. Full sentences per language, never English
+  frames with nouns interpolated in.
+- MudSelect items whose VALUES are API vocabulary (leave status filter) keep
+  English values; only display text localizes, and `ToStringFunc` keeps the
+  CLOSED select localized too — it otherwise echoes the raw bound value.
+- FIXED A PRE-EXISTING RACE that made the feature look broken since the first
+  localization batch: `InitializeAsync` read the persisted language but never
+  fired `Changed`, and reading localStorage is async — so pages routinely
+  finished their first render in English and stayed English until the user
+  manually toggled. Every direct page load with a Telugu preference showed
+  English. One line: fire `Changed` when the stored language differs.
+- Browser-verified live: direct load of /leave and /attendance with te
+  persisted renders fully Telugu; toggle flips both ways instantly.
+- Deliberately NOT localized: `Institution.Cohort` labels ("Class"/"Semester"
+  — the college-wording service is its own localization problem), and the
+  platform/operator pages (their audience is the operator).
+- GOTCHA (cost real time): searching a DLL for a string with one
+  `Encoding.Unicode.GetString(allBytes)` only finds it at EVEN byte offsets —
+  a miss proves nothing. Decode at both alignments before concluding a
+  binary is stale. A false "stale DLL" conclusion from this sent the
+  investigation down a wrong path for several minutes.
+- REMAINING for the clerk set: Fees, Admissions, AdmitStudent, Exams,
+  MarksEntry, Notices, Homework, Messages, StudentProfile.
+
 ## GST on platform invoices (feature/gst-invoices)
 
 The gap that made platform invoices commercially unusable: an Indian B2B

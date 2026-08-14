@@ -1,30 +1,36 @@
 @page "/leave"
 @attribute [Authorize]
+@implements IDisposable
 @inject LeaveClient Client
 @inject ISnackbar Snackbar
+@inject LocalizationService L
 
-<PageTitle>Leave — Akshara</PageTitle>
+<PageTitle>@L["leave.title"] — Akshara</PageTitle>
 
 <MudStack Row="true" AlignItems="AlignItems.Center" Class="mb-4" Wrap="Wrap.Wrap">
-    <MudText Typo="Typo.h4">Leave requests</MudText>
+    <MudText Typo="Typo.h4">@L["leave.requestsTitle"]</MudText>
     <MudSpacer />
-    <MudSelect T="string" @bind-Value="_statusFilter" Label="Status" Dense="true"
-               Style="width: 150px;" SelectedValuesChanged="@(_ => LoadAsync())">
-        <MudSelectItem T="string" Value="@("Pending")">Pending</MudSelectItem>
-        <MudSelectItem T="string" Value="@("Approved")">Approved</MudSelectItem>
-        <MudSelectItem T="string" Value="@("Rejected")">Rejected</MudSelectItem>
-        <MudSelectItem T="string" Value="@("all")">All</MudSelectItem>
+    @* Values stay English — they are the API's filter vocabulary. Only the
+       display text localizes, and ToStringFunc keeps the CLOSED select
+       localized too (it would otherwise echo the raw bound value). *@
+    <MudSelect T="string" @bind-Value="_statusFilter" Label="@L["common.status"]" Dense="true"
+               Style="width: 150px;" SelectedValuesChanged="@(_ => LoadAsync())"
+               ToStringFunc="@FilterLabel">
+        <MudSelectItem T="string" Value="@("Pending")">@L["leave.filterPending"]</MudSelectItem>
+        <MudSelectItem T="string" Value="@("Approved")">@L["leave.filterApproved"]</MudSelectItem>
+        <MudSelectItem T="string" Value="@("Rejected")">@L["leave.filterRejected"]</MudSelectItem>
+        <MudSelectItem T="string" Value="@("all")">@L["leave.filterAll"]</MudSelectItem>
     </MudSelect>
 </MudStack>
 
 <MudPaper Elevation="2" Class="pa-4 mb-4">
     <MudTable Items="_requests" Dense="true" Hover="true" Loading="_loading">
         <HeaderContent>
-            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.ApplicantName))">Applicant</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.Kind))">Type</MudTableSortLabel></MudTh>
-            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.FromDate))">Dates</MudTableSortLabel></MudTh>
-            <MudTh>Reason</MudTh>
-            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.Status))">Status</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.ApplicantName))">@L["leave.applicant"]</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.Kind))">@L["leave.type"]</MudTableSortLabel></MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.FromDate))">@L["leave.dates"]</MudTableSortLabel></MudTh>
+            <MudTh>@L["leave.reason"]</MudTh>
+            <MudTh><MudTableSortLabel SortBy="@(new Func<LeaveRequestDto, object>(l => l.Status))">@L["common.status"]</MudTableSortLabel></MudTh>
             <MudTh />
         </HeaderContent>
         <RowTemplate>
@@ -35,17 +41,17 @@
                     <MudText Typo="Typo.caption" Class="mud-text-secondary"> @className</MudText>
                 }
             </MudTd>
-            <MudTd>@(context.Kind == LeaveApplicantKind.Student ? "Student" : "Staff")</MudTd>
+            <MudTd>@(context.Kind == LeaveApplicantKind.Student ? L["leave.kindStudent"] : L["leave.kindStaff"])</MudTd>
             <MudTd>
                 @context.FromDate.ToString("dd MMM")–@context.ToDate.ToString("dd MMM yyyy")
                 <MudText Typo="Typo.caption" Class="mud-text-secondary">
-                    @(context.ToDate.DayNumber - context.FromDate.DayNumber + 1) day(s)
+                    @L.Format("leave.daysCount", context.ToDate.DayNumber - context.FromDate.DayNumber + 1)
                 </MudText>
             </MudTd>
             <MudTd Style="max-width: 260px;">@context.Reason</MudTd>
             <MudTd>
                 <MudChip Size="Size.Small" Color="@StatusColor(context.Status)">
-                    @context.Status
+                    @StatusLabel(context.Status)
                 </MudChip>
                 @if (context.DecisionNote is { } note)
                 {
@@ -60,18 +66,18 @@
                 {
                     <MudButton Size="Size.Small" Color="Color.Success" Variant="Variant.Outlined"
                                Disabled="_busy" OnClick="@(() => DecideAsync(context, true))">
-                        Approve
+                        @L["common.approve"]
                     </MudButton>
                     <MudButton Size="Size.Small" Color="Color.Error" Variant="Variant.Outlined"
                                Class="ml-1" Disabled="_busy"
                                OnClick="@(() => DecideAsync(context, false))">
-                        Reject
+                        @L["common.reject"]
                     </MudButton>
                 }
             </MudTd>
         </RowTemplate>
         <NoRecordsContent>
-            <MudText Class="mud-text-secondary pa-4">No leave requests.</MudText>
+            <MudText Class="mud-text-secondary pa-4">@L["leave.none"]</MudText>
         </NoRecordsContent>
     <PagerContent>
         <MudTablePager PageSizeOptions="new[] { 10, 25, 50 }" />
@@ -80,18 +86,15 @@
 </MudPaper>
 
 <MudPaper Elevation="2" Class="pa-6">
-    <MudText Typo="Typo.h6" Class="mb-1">My leave</MudText>
-    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">
-        File your own leave request; an administrator approves it above.
-        Approving a <b>student</b> request marks those dates as Leave in attendance.
-    </MudText>
+    <MudText Typo="Typo.h6" Class="mb-1">@L["leave.mine"]</MudText>
+    <MudText Typo="Typo.body2" Class="mud-text-secondary mb-3">@L["leave.mineHelp"]</MudText>
     <MudStack Row="true" Spacing="2" AlignItems="AlignItems.Center" Wrap="Wrap.Wrap">
-        <MudDatePicker @bind-Date="_myFrom" Label="From" Editable="true" Style="width: 160px;" />
-        <MudDatePicker @bind-Date="_myTo" Label="To" Editable="true" Style="width: 160px;" />
-        <MudTextField @bind-Value="_myReason" Label="Reason" Style="min-width: 260px;" />
+        <MudDatePicker @bind-Date="_myFrom" Label="@L["leave.from"]" Editable="true" Style="width: 160px;" />
+        <MudDatePicker @bind-Date="_myTo" Label="@L["leave.to"]" Editable="true" Style="width: 160px;" />
+        <MudTextField @bind-Value="_myReason" Label="@L["leave.reason"]" Style="min-width: 260px;" />
         <MudButton Variant="Variant.Filled" Color="Color.Primary" Disabled="_busy"
                    OnClick="SubmitMineAsync">
-            Request leave
+            @L["leave.request"]
         </MudButton>
     </MudStack>
 
@@ -102,7 +105,7 @@
             {
                 <MudListItem T="LeaveRequestDto">
                     <MudStack Row="true" AlignItems="AlignItems.Center" Spacing="2">
-                        <MudChip Size="Size.Small" Color="@StatusColor(mine.Status)">@mine.Status</MudChip>
+                        <MudChip Size="Size.Small" Color="@StatusColor(mine.Status)">@StatusLabel(mine.Status)</MudChip>
                         <MudText Typo="Typo.body2">
                             @mine.FromDate.ToString("dd MMM")–@mine.ToDate.ToString("dd MMM yyyy")
                             · @mine.Reason
@@ -128,13 +131,38 @@
     private bool _loading = true;
     private bool _busy;
 
-    protected override Task OnInitializedAsync() => LoadAsync();
+    protected override Task OnInitializedAsync()
+    {
+        // The layout re-rendering does NOT re-render @Body pages — each
+        // localized page subscribes itself or the toggle appears dead here.
+        L.Changed += OnLanguageChanged;
+        return LoadAsync();
+    }
+
+    private void OnLanguageChanged() => _ = InvokeAsync(StateHasChanged);
+
+    public void Dispose() => L.Changed -= OnLanguageChanged;
 
     private static Color StatusColor(LeaveRequestStatus status) => status switch
     {
         LeaveRequestStatus.Approved => Color.Success,
         LeaveRequestStatus.Rejected => Color.Error,
         _ => Color.Warning,
+    };
+
+    private string StatusLabel(LeaveRequestStatus status) => status switch
+    {
+        LeaveRequestStatus.Approved => L["leave.filterApproved"],
+        LeaveRequestStatus.Rejected => L["leave.filterRejected"],
+        _ => L["leave.filterPending"],
+    };
+
+    private string FilterLabel(string? value) => value switch
+    {
+        "Approved" => L["leave.filterApproved"],
+        "Rejected" => L["leave.filterRejected"],
+        "all" => L["leave.filterAll"],
+        _ => L["leave.filterPending"],
     };
 
     private async Task LoadAsync()
@@ -148,7 +176,7 @@
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            Snackbar.Add(L["common.cannotReach"], Severity.Error);
         }
         finally
         {
@@ -167,9 +195,9 @@
                 Snackbar.Add(
                     approve
                         ? request.Kind == LeaveApplicantKind.Student
-                            ? $"Approved — {request.ApplicantName}'s attendance is marked Leave for those dates."
-                            : "Approved."
-                        : "Rejected.",
+                            ? L.Format("leave.approvedStudent", request.ApplicantName)
+                            : L["leave.approved"]
+                        : L["leave.rejected"],
                     approve ? Severity.Success : Severity.Info);
                 await LoadAsync();
             }
@@ -180,7 +208,7 @@
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            Snackbar.Add(L["common.cannotReach"], Severity.Error);
         }
         finally
         {
@@ -192,7 +220,7 @@
     {
         if (_myFrom is null || _myTo is null || string.IsNullOrWhiteSpace(_myReason))
         {
-            Snackbar.Add("Dates and a reason are required.", Severity.Warning);
+            Snackbar.Add(L["leave.needDatesReason"], Severity.Warning);
             return;
         }
 
@@ -205,7 +233,7 @@
                 _myReason.Trim());
             if (error is null)
             {
-                Snackbar.Add("Leave request filed.", Severity.Success);
+                Snackbar.Add(L["leave.submitted"], Severity.Success);
                 _myReason = string.Empty;
                 await LoadAsync();
             }
@@ -216,7 +244,7 @@
         }
         catch (HttpRequestException)
         {
-            Snackbar.Add("Cannot reach the server.", Severity.Error);
+            Snackbar.Add(L["common.cannotReach"], Severity.Error);
         }
         finally
         {

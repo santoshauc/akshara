@@ -28,12 +28,26 @@ public sealed class LocalizationService
             .GetValueOrDefault(key)
         ?? PortalStrings.En.GetValueOrDefault(key, key);
 
+    /// <summary>
+    /// The text for <paramref name="key"/> with placeholders filled in.
+    /// Templates hold {0}-style slots so each language orders the sentence its
+    /// own way — Telugu rarely wants the number where English puts it.
+    /// </summary>
+    public string Format(string key, params object?[] args) =>
+        string.Format(System.Globalization.CultureInfo.InvariantCulture, this[key], args);
+
     public async Task InitializeAsync()
     {
         var stored = await _js.InvokeAsync<string?>("localStorage.getItem", StorageKey);
-        if (stored is "te" or "en")
+        if (stored is "te" or "en" && stored != Language)
         {
             Language = stored;
+            // Fire even during startup: reading localStorage is async, so pages
+            // routinely finish their first render BEFORE this completes — in
+            // English. Without this event they stay English until the user
+            // manually toggles, which read as "Telugu is broken" on every
+            // direct page load with a persisted preference.
+            Changed?.Invoke();
         }
     }
 

@@ -252,6 +252,63 @@ public static class PortalStrings
         ["students.importing"] = "Importing…",
         ["students.rowHeader"] = "Row",
         ["students.problemHeader"] = "Problem",
+
+        // Shared across pages
+        ["common.cannotReach"] = "Cannot reach the server.",
+        ["common.save"] = "Save",
+        ["common.saving"] = "Saving…",
+        ["common.section"] = "Section",
+        ["common.date"] = "Date",
+        ["common.status"] = "Status",
+        ["common.student"] = "Student",
+        ["common.remarks"] = "Remarks",
+        ["common.approve"] = "Approve",
+        ["common.reject"] = "Reject",
+        ["common.submit"] = "Submit",
+
+        // Attendance
+        ["attendance.title"] = "Attendance",
+        ["attendance.rollCall"] = "Roll call",
+        ["attendance.daily"] = "Daily (default)",
+        ["attendance.allPresent"] = "All present",
+        ["attendance.rosterCount"] = "{0} students · {1}",
+        ["attendance.alreadyMarked"] = "Already marked — editing",
+        ["attendance.roll"] = "Roll",
+        ["attendance.pickPrompt"] = "Pick a class, section and date to load the marking grid.",
+        ["attendance.unmarked"] = "{0} student(s) still unmarked.",
+        ["attendance.savedPeriod"] = "Period {0} attendance saved.",
+        ["attendance.savedAbsences"] =
+            "Attendance saved. {0} absence notification(s) queued for parents.",
+        ["attendance.saved"] = "Attendance saved.",
+
+        // Leave
+        ["leave.title"] = "Leave",
+        ["leave.requestsTitle"] = "Leave requests",
+        ["leave.filterPending"] = "Pending",
+        ["leave.filterApproved"] = "Approved",
+        ["leave.filterRejected"] = "Rejected",
+        ["leave.filterAll"] = "All",
+        ["leave.applicant"] = "Applicant",
+        ["leave.type"] = "Type",
+        ["leave.dates"] = "Dates",
+        ["leave.kindStudent"] = "Student",
+        ["leave.kindStaff"] = "Staff",
+        ["leave.daysCount"] = "{0} day(s)",
+        ["leave.none"] = "No leave requests.",
+        ["leave.mine"] = "My leave",
+        ["leave.mineHelp"] =
+            "File your own leave request; an administrator approves it above. " +
+            "Approving a student request marks those dates as Leave in attendance.",
+        ["leave.from"] = "From",
+        ["leave.to"] = "To",
+        ["leave.reason"] = "Reason",
+        ["leave.request"] = "Request leave",
+        ["leave.approvedStudent"] =
+            "Approved — {0}'s attendance is marked Leave for those dates.",
+        ["leave.approved"] = "Approved.",
+        ["leave.rejected"] = "Rejected.",
+        ["leave.needDatesReason"] = "Dates and a reason are required.",
+        ["leave.submitted"] = "Leave request filed.",
     };
 
     public static readonly IReadOnlyDictionary<string, string> Te = new Dictionary<string, string>
@@ -498,5 +555,62 @@ public static class PortalStrings
         ["students.importing"] = "దిగుమతి అవుతోంది…",
         ["students.rowHeader"] = "వరుస",
         ["students.problemHeader"] = "సమస్య",
+
+        // Shared across pages
+        ["common.cannotReach"] = "సర్వర్‌కు కనెక్ట్ కాలేకపోయింది.",
+        ["common.save"] = "సేవ్ చేయండి",
+        ["common.saving"] = "సేవ్ అవుతోంది…",
+        ["common.section"] = "సెక్షన్",
+        ["common.date"] = "తేదీ",
+        ["common.status"] = "స్థితి",
+        ["common.student"] = "విద్యార్థి",
+        ["common.remarks"] = "వ్యాఖ్యలు",
+        ["common.approve"] = "ఆమోదించండి",
+        ["common.reject"] = "తిరస్కరించండి",
+        ["common.submit"] = "సమర్పించండి",
+
+        // Attendance
+        ["attendance.title"] = "హాజరు",
+        ["attendance.rollCall"] = "హాజరు రకం",
+        ["attendance.daily"] = "రోజువారీ (డిఫాల్ట్)",
+        ["attendance.allPresent"] = "అందరూ హాజరు",
+        ["attendance.rosterCount"] = "{0} విద్యార్థులు · {1}",
+        ["attendance.alreadyMarked"] = "ఇప్పటికే నమోదైంది — సవరిస్తున్నారు",
+        ["attendance.roll"] = "రోల్",
+        ["attendance.pickPrompt"] = "హాజరు పట్టిక కోసం తరగతి, సెక్షన్, తేదీ ఎంచుకోండి.",
+        ["attendance.unmarked"] = "{0} విద్యార్థుల హాజరు ఇంకా నమోదు కాలేదు.",
+        ["attendance.savedPeriod"] = "పీరియడ్ {0} హాజరు సేవ్ అయింది.",
+        ["attendance.savedAbsences"] =
+            "హాజరు సేవ్ అయింది. {0} గైర్హాజరు సందేశాలు తల్లిదండ్రులకు పంపబడతాయి.",
+        ["attendance.saved"] = "హాజరు సేవ్ అయింది.",
+
+        // Leave
+        ["leave.title"] = "సెలవులు",
+        ["leave.requestsTitle"] = "సెలవు అభ్యర్థనలు",
+        ["leave.filterPending"] = "పెండింగ్",
+        ["leave.filterApproved"] = "ఆమోదించినవి",
+        ["leave.filterRejected"] = "తిరస్కరించినవి",
+        ["leave.filterAll"] = "అన్నీ",
+        ["leave.applicant"] = "అభ్యర్థి",
+        ["leave.type"] = "రకం",
+        ["leave.dates"] = "తేదీలు",
+        ["leave.kindStudent"] = "విద్యార్థి",
+        ["leave.kindStaff"] = "సిబ్బంది",
+        ["leave.daysCount"] = "{0} రోజులు",
+        ["leave.none"] = "సెలవు అభ్యర్థనలు లేవు.",
+        ["leave.mine"] = "నా సెలవులు",
+        ["leave.mineHelp"] =
+            "మీ సొంత సెలవు అభ్యర్థనను ఇక్కడ దాఖలు చేయండి; పైన అడ్మిన్ ఆమోదిస్తారు. " +
+            "విద్యార్థి అభ్యర్థనను ఆమోదిస్తే ఆ తేదీలు హాజరులో సెలవుగా నమోదవుతాయి.",
+        ["leave.from"] = "నుండి",
+        ["leave.to"] = "వరకు",
+        ["leave.reason"] = "కారణం",
+        ["leave.request"] = "సెలవు అభ్యర్థించండి",
+        ["leave.approvedStudent"] =
+            "ఆమోదించబడింది — {0} హాజరు ఆ తేదీలకు సెలవుగా నమోదైంది.",
+        ["leave.approved"] = "ఆమోదించబడింది.",
+        ["leave.rejected"] = "తిరస్కరించబడింది.",
+        ["leave.needDatesReason"] = "తేదీలు మరియు కారణం తప్పనిసరి.",
+        ["leave.submitted"] = "సెలవు అభ్యర్థన దాఖలైంది.",
     };
 }
